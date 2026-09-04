@@ -1,0 +1,1043 @@
+:root{
+  --bg:#0e0f13;
+  --panel:#171922;
+  --border:#262a38;
+  --text:#e8e9ee;
+  --muted:#8a8fa3;
+  --gold:#ffd166;
+  --silver:#c9ccd6;
+  --bronze:#cd8b5c;
+  --accent:#7c9eff;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Segoe UI', Roboto, system-ui, sans-serif;
+  padding:32px 16px;
+}
+
+.wrap{
+  max-width:720px;
+  margin:0 auto;
+}
+
+/* Cuando el bracket necesita más espacio, el wrap se expande */
+.wrap:has(.bracket-wrap){
+  max-width:1100px;
+}
+
+header{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  margin-bottom:18px;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+h1{
+  font-size:1.3rem;
+  margin:0;
+  font-weight:600;
+}
+
+.status{
+  font-size:.8rem;
+  color:var(--muted);
+}
+.status.live{color:#5ee6a0}
+.status.error{color:#ff6b6b}
+
+/* ========== TABLA ========== */
+.table-scroll{
+  width:100%;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  border-radius:10px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  overflow:hidden;
+  min-width:480px; /* evita que se aplasten las columnas */
+}
+
+thead th{
+  text-align:left;
+  font-size:.75rem;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+  color:var(--muted);
+  padding:10px 14px;
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+
+tbody td{
+  padding:12px 14px;
+  border-bottom:1px solid var(--border);
+  font-size:.95rem;
+}
+
+tbody tr:last-child td{border-bottom:none}
+tbody tr{transition:background .2s}
+tbody tr:hover{background:#1d2030}
+
+.place{font-weight:700;width:48px}
+.place-1{color:var(--gold)}
+.place-2{color:var(--silver)}
+.place-3{color:var(--bronze)}
+
+.time{
+  font-variant-numeric:tabular-nums;
+  color:var(--accent);
+  font-weight:600;
+  white-space:nowrap;
+}
+
+.pending-row{
+  opacity:.45;
+  filter:saturate(.7);
+}
+
+.outside-groups-row{
+  opacity:.45;
+  filter:grayscale(1) saturate(.35);
+}
+
+.pending-value,
+.pending-player{
+  color:var(--muted);
+  opacity:.85;
+}
+
+.pending-player-cell{
+  opacity:.7;
+}
+
+.player{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.player-button{
+  background:transparent;
+  border:0;
+  color:inherit;
+  cursor:pointer;
+  font:inherit;
+  padding:2px 8px;
+  margin:-2px -8px;
+  border-radius:4px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.player-button:hover,
+.player-button:focus{
+  background:#242b42;
+  outline:none;
+}
+
+.player-name{white-space:nowrap}
+.flag{opacity:.7;font-size:.85em}
+
+.player-detail-row{display:none}
+.player-detail-row.is-open{display:table-row}
+
+.player-detail{
+  background:#111522;
+  border-radius:8px;
+  padding:12px;
+  color:var(--text);
+}
+.player-detail-title{
+  font-weight:700;
+  margin-bottom:6px;
+  color:#fff;
+}
+
+.detail-stats{
+  margin:0;
+  padding-left:16px;
+  font-size:.75rem;
+  line-height:1.75;
+}
+.detail-stats li{margin:0}
+.pb-item{list-style:disc}
+.pb-sublist{
+  margin:4px 0 0 18px;
+  padding-left:0;
+  list-style:disc;
+  line-height:1.6;
+}
+.pb-sublist li{display:list-item}
+
+.detail-link{
+  color:var(--accent);
+  text-decoration:none;
+}
+.detail-link:hover{text-decoration:underline}
+
+.detail-video-wrap{margin-top:8px}
+.detail-video{
+  width:100%;
+  max-width:360px;
+  height:210px;
+  border:0;
+  border-radius:6px;
+  background:#000;
+}
+.detail-video-link{margin-top:8px}
+.detail-video-link a{display:inline-block}
+
+footer{
+  margin-top:14px;
+  font-size:.75rem;
+  color:var(--muted);
+  text-align:center;
+}
+
+.loading{
+  padding:24px;
+  text-align:center;
+  color:var(--muted);
+}
+
+.flash{animation:flash 1s ease-out}
+@keyframes flash{
+  0%{background:#7c9eff33}
+  100%{background:transparent}
+}
+
+/* ========== TABS ========== */
+.tabs{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+  flex-wrap:wrap;
+}
+
+.tab-button{
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:.9rem;
+}
+.tab-button.active{
+  background:linear-gradient(180deg,#2a3150,#1e2538);
+  border-color:#333a56;
+}
+.tab-button:hover{filter:brightness(1.05)}
+
+.tab-panel{display:block}
+.tab-panel:not(.active){display:none}
+
+/* ========== GRUPOS ========== */
+.groups-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:12px;
+}
+
+.group-card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:12px;
+}
+
+.group-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-weight:700;
+  margin-bottom:8px;
+  gap:8px;
+}
+
+.group-badge{
+  font-size:.7rem;
+  color:var(--muted);
+  border:1px solid var(--border);
+  padding:3px 6px;
+  border-radius:999px;
+  white-space:nowrap;
+}
+
+.group-status{
+  font-size:.75rem;
+  color:var(--muted);
+  margin-bottom:8px;
+}
+
+.group-players{
+  list-style:none;
+  padding:0;
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.group-player{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:8px 10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:#121726;
+}
+.group-player.placeholder{
+  color:var(--muted);
+  font-style:italic;
+}
+
+.group-player-main{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+
+.group-player-slot{
+  font-size:.68rem;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.group-player-name{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.group-points{
+  font-size:.75rem;
+  color:var(--accent);
+  font-weight:600;
+  white-space:nowrap;
+}
+
+.fixture-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:12px;
+}
+
+.fixture-card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:12px;
+}
+
+.fixture-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+  gap:8px;
+}
+
+.fixture-label{
+  font-weight:700;
+}
+
+.fixture-badge{
+  font-size:.7rem;
+  color:var(--muted);
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:3px 6px;
+}
+
+.fixture-rounds{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.fixture-round{
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:#121726;
+  overflow:hidden;
+}
+
+.fixture-round-summary{
+  list-style:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  cursor:pointer;
+  padding:10px 12px;
+  user-select:none;
+}
+
+.fixture-round-summary::-webkit-details-marker{
+  display:none;
+}
+
+.fixture-round-summary::after{
+  content:"?";
+  color:var(--muted);
+  font-size:.8rem;
+  transition:transform .2s ease;
+}
+
+.fixture-round[open] > .fixture-round-summary::after{
+  transform:rotate(180deg);
+}
+
+.fixture-round-title{
+  font-size:.72rem;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+  color:var(--muted);
+}
+
+.fixture-round-count{
+  font-size:.68rem;
+  color:var(--muted);
+}
+
+.fixture-round-body{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding:0 10px 10px;
+}
+
+.fixture-match{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding:10px 8px;
+  border-top:1px solid var(--border);
+  background:rgba(17, 22, 33, 0.9);
+  border-radius:8px;
+}
+
+.fixture-match:first-child{
+  border-top:none;
+  padding-top:8px;
+}
+
+.fixture-teams{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+
+.fixture-team-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  min-width:0;
+}
+
+.fixture-team{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:1;
+  min-width:0;
+  color:var(--text);
+}
+
+.fixture-name{
+  flex:1;
+  min-width:0;
+  font-size:.74rem;
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.fixture-score{
+  min-width:1.2rem;
+  text-align:right;
+  font-size:.8rem;
+  font-weight:700;
+  color:var(--accent);
+}
+
+.fixture-meta{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  padding-top:6px;
+  border-top:1px solid rgba(255,255,255,0.08);
+  font-size:.68rem;
+  color:var(--muted);
+  line-height:1.4;
+}
+
+.fixture-meta-row{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  align-items:center;
+}
+
+.fixture-meta-label{
+  color:var(--muted);
+  font-weight:600;
+}
+
+.fixture-placeholder{
+  color:#f7d56e;
+}
+
+/* =========================================================
+   BRACKET ? ESTRUCTURA TIPO MUNDIAL
+   ========================================================= */
+.bracket-wrap{
+  display:grid;
+  grid-template-columns:repeat(7, minmax(100px, 1fr));
+  column-gap:8px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:12px;
+  min-width:920px;          /* un poco más flexible */
+  align-items:stretch;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border) transparent;
+}
+
+.bracket-wrap::-webkit-scrollbar{
+  height:6px;
+}
+.bracket-wrap::-webkit-scrollbar-track{
+  background:transparent;
+}
+.bracket-wrap::-webkit-scrollbar-thumb{
+  background:var(--border);
+  border-radius:3px;
+}
+
+/* TODAS LAS RONDAS */
+.bracket-round{
+  grid-row:1;
+  align-self:stretch;
+  display:flex;
+  flex-direction:column;
+  min-height:100%;
+}
+
+/* OCTAVOS */
+.tier-octavos{
+  grid-column:1 / 8;
+  grid-row:1;
+}
+
+/* CUARTOS */
+.tier-quarters{
+  grid-column:1 / 8;
+  grid-row:1;
+  pointer-events:none;
+}
+
+/* SEMIS */
+.tier-semis{
+  grid-column:1 / 8;
+  grid-row:1;
+  pointer-events:none;
+}
+
+/* FINAL */
+.final-round{
+  grid-column:1 / 8;
+  grid-row:1;
+  pointer-events:none;
+}
+
+/* TÍTULO */
+.round-title{
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;   /* bajado de 0.08em */
+  color: var(--muted);
+  text-align: center;
+  padding-bottom: 6px;
+  flex: 0 0 auto;
+  min-height: 20px;
+  white-space: nowrap;      /* evita que se parta */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* FILA DE PARTIDOS */
+.tier-row{
+  position:relative;
+  flex:1 1 auto;
+  display:grid;
+  grid-template-columns:repeat(7, minmax(100px, 1fr));
+  column-gap:8px;
+  align-items:center;
+  min-height:0;
+}
+
+/* OCTAVOS */
+.tier-octavos .bracket-cluster.left{
+  grid-column:1;
+  grid-row:1;
+  justify-content:center;
+}
+.tier-octavos .bracket-cluster.right{
+  grid-column:7;
+  grid-row:1;
+  justify-content:center;
+}
+
+/* CUARTOS */
+.tier-quarters .bracket-cluster.left{
+  grid-column:2;
+  grid-row:1;
+  justify-content:center;
+}
+.tier-quarters .bracket-cluster.right{
+  grid-column:6;
+  grid-row:1;
+  justify-content:center;
+}
+
+/* SEMIFINALES */
+.tier-semis .bracket-cluster.left{
+  grid-column:3;
+  grid-row:1;
+  justify-content:center;
+}
+.tier-semis .bracket-cluster.right{
+  grid-column:5;
+  grid-row:1;
+  justify-content:center;
+}
+
+/* FINAL */
+.final-round .tier-row{
+  display:grid;
+}
+.final-round .center-row{
+  grid-column:4;
+  grid-row:1;
+  width:100%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+.final-round .knockout-match{
+  width:100%;
+  max-width:137px;
+  margin:0 auto;
+}
+
+/* CLUSTERS */
+.bracket-cluster{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:18px;
+  min-width:0;
+  width:100%;
+  box-sizing:border-box;
+}
+
+/* PARTIDOS */
+.knockout-match{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:8px 8px 10px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  position:relative;
+  min-height:90px;
+  width:100%;
+  max-width:260px;
+  justify-self:center;
+  box-sizing:border-box;
+}
+
+
+/* EQUIPOS */
+.team-slot{
+  background:#121726;
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:8px 10px;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  position:relative;
+}
+
+.team-label{
+  font-size:.64rem;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+
+.team-name{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.team-flag{
+  font-size:1rem;
+  min-width:1.2em;
+  display:inline-block;
+}
+
+.team-detail{
+  font-size:.68rem;
+  color:var(--muted);
+}
+
+.center-row{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+/* Tablets y pantallas medianas */
+@media (max-width: 900px){
+  body{
+    padding:20px 12px;
+  }
+
+  .wrap{
+    max-width:100%;
+  }
+
+  .bracket-wrap{
+    min-width:820px;
+    column-gap:6px;
+  }
+
+  .tier-row{
+    grid-template-columns:repeat(7, minmax(90px, 1fr));
+    column-gap:6px;
+  }
+
+  .knockout-match{
+    min-height:82px;
+    padding:6px 6px 8px;
+    gap:6px;
+  }
+
+  .team-slot{
+    padding:6px 8px;
+  }
+
+  .team-name{
+    font-size:.9rem;
+  }
+
+  .round-title{
+    font-size:.7rem;
+  }
+
+  /* Conectores un poco más cortos */
+  .tier-octavos .bracket-cluster.left .knockout-match::after,
+  .tier-quarters .bracket-cluster.left .knockout-match::after,
+  .tier-semis .bracket-cluster.left .knockout-match::after{
+    right:-14px;
+    width:14px;
+  }
+  .tier-octavos .bracket-cluster.right .knockout-match::before,
+  .tier-quarters .bracket-cluster.right .knockout-match::before,
+  .tier-semis .bracket-cluster.right .knockout-match::before{
+    left:-14px;
+    width:14px;
+  }
+}
+
+/* Móviles */
+@media (max-width: 640px){
+  body{
+    padding:16px 10px;
+  }
+
+  h1{
+    font-size:1.15rem;
+  }
+
+  .status{
+    font-size:.75rem;
+  }
+
+  .tabs{
+    gap:6px;
+  }
+
+  .tab-button{
+    padding:7px 10px;
+    font-size:.85rem;
+  }
+
+  table{
+    min-width:420px;
+    font-size:.9rem;
+  }
+
+  thead th,
+  tbody td{
+    padding:9px 10px;
+  }
+
+  .groups-grid{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+
+  .bracket-wrap{
+    min-width:720px;
+    column-gap:5px;
+    padding-bottom:16px; /* más espacio para el scrollbar */
+  }
+
+  .tier-row{
+    grid-template-columns:repeat(7, minmax(80px, 1fr));
+    column-gap:5px;
+  }
+
+  .bracket-cluster{
+    gap:12px;
+  }
+
+  .knockout-match{
+    min-height:76px;
+    max-width:none;
+    padding:5px 5px 7px;
+    gap:5px;
+    border-radius:8px;
+  }
+
+  .final-round .knockout-match{
+    max-width:120px;
+  }
+
+  .team-slot{
+    padding:5px 6px;
+    border-radius:6px;
+  }
+
+  .team-label{
+    font-size:.38rem;
+  }
+
+  .team-name{
+    font-size:.62rem;
+    gap:4px;
+  }
+
+  .team-flag{
+    font-size:.7rem;
+  }
+
+  .team-detail{
+    font-size:.42rem;
+  }
+
+  .round-title{
+    font-size:.65rem;
+    letter-spacing:.06em;
+  }
+
+  /* Conectores más cortos en móvil */
+  .tier-octavos .bracket-cluster.left .knockout-match::after,
+  .tier-quarters .bracket-cluster.left .knockout-match::after,
+  .tier-semis .bracket-cluster.left .knockout-match::after{
+    right:-12px;
+    width:12px;
+  }
+  .tier-octavos .bracket-cluster.right .knockout-match::before,
+  .tier-quarters .bracket-cluster.right .knockout-match::before,
+  .tier-semis .bracket-cluster.right .knockout-match::before{
+    left:-12px;
+    width:12px;
+  }
+
+  .detail-video{
+    height:180px;
+  }
+}
+
+/* Móviles muy pequeños */
+@media (max-width: 400px){
+  body{
+    padding:12px 8px;
+  }
+
+  h1{
+    font-size:1.05rem;
+  }
+
+  .tab-button{
+    padding:6px 9px;
+    font-size:.8rem;
+  }
+
+  .bracket-wrap{
+    min-width:640px;
+  }
+
+  .tier-row{
+    grid-template-columns:repeat(7, minmax(70px, 1fr));
+  }
+
+  .knockout-match{
+    min-height:70px;
+  }
+
+  .team-name{
+    font-size:.78rem;
+  }
+}
+
+/* ========== EQUIPOS (nombres) ========== */
+.team-name{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:0.61rem;          /* 0.72rem * 0.85 */
+}
+
+/* Cuartos: título arriba, los 2 partidos se separan simétricamente */
+.tier-quarters .tier-row {
+  align-items: stretch;
+}
+
+.tier-quarters .bracket-cluster {
+  align-self: stretch;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;                    /* reseteamos el gap */
+}
+
+.tier-quarters .bracket-cluster .round-title {
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+}
+
+/* Primer partido (el de arriba) */
+.tier-quarters .bracket-cluster .knockout-match:nth-child(2) {
+  margin-top: auto;          /* empuja hacia abajo desde el título */
+  margin-bottom: 95px;       /* mitad de la separación deseada */
+}
+
+/* Segundo partido (el de abajo) */
+.tier-quarters .bracket-cluster .knockout-match:nth-child(3) {
+  margin-top: 95px;          /* otra mitad de la separación */
+  margin-bottom: auto;       /* empuja hacia arriba desde el fondo */
+}
+
+/* Semifinales: título arriba + partido centrado */
+.tier-semis .tier-row {
+  align-items: stretch;
+}
+
+.tier-semis .bracket-cluster {
+  align-self: stretch;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.tier-semis .bracket-cluster .round-title {
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+}
+
+/* El único partido de cada lado (después del título) */
+.tier-semis .bracket-cluster .knockout-match:nth-child(2) {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+/* Media queries */
+@media (max-width: 900px){
+  .team-name{
+    font-size:0.55rem;        /* 0.65rem * 0.85 */
+  }
+}
+
+@media (max-width: 640px){
+  .team-name{
+    font-size:0.50rem;        /* 0.59rem * 0.85 */
+  }
+}
+
+@media (max-width: 400px){
+  .team-name{
+    font-size:0.48rem;        /* 0.56rem * 0.85 */
+  }
+}
+@media (max-width: 900px){
+  .round-title{
+    font-size: .65rem;
+    letter-spacing: 0.03em;
+  }
+}
+
+@media (max-width: 640px){
+  .round-title{
+    font-size: .6rem;
+    letter-spacing: 0.025em;
+  }
+}
+
+@media (max-width: 400px){
+  .round-title{
+    font-size: .55rem;
+    letter-spacing: 0.02em;
+  }
+}
+
+@media (max-width: 640px) {
+  .tier-quarters .bracket-cluster {
+    gap: 22px;
+  }
+}
+

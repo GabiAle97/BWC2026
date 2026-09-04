@@ -1,0 +1,165 @@
+{
+  "matches": [
+    {
+      "group": "A",
+      "playerA": "JokerUY",
+      "playerB": "LinoBariana",
+      "timeA": "41:21",
+      "timeB": "43:02",
+      "winner": "JokerUY",
+      "date": "2026-09-03",
+      "time": "16:00"
+    },
+    {
+      "group": "A",
+      "playerA": "Fiveskill",
+      "playerB": "Darchaen",
+      "timeA": "42:39",
+      "timeB": "DEATH",
+      "winner": "Fiveskill",
+      "date": "2026-09-03",
+      "time": "17:00"
+    },
+    {
+      "group": "B",
+      "playerA": "Homuki",
+      "playerB": "Adrian20v",
+      "timeA": "43:39",
+      "timeB": "43:19",
+      "winner": "Adrian20v",
+      "date": "2026-09-03",
+      "time": "18:00"
+    },
+    {
+      "group": "B",
+      "playerA": "LanceLM",
+      "playerB": "isogai",
+      "timeA": "41:33",
+      "timeB": "43:36",
+      "winner": "LanceLM",
+      "date": "2026-09-03",
+      "time": "00:00"
+    },
+    {
+      "group": "C",
+      "playerA": "Micwich",
+      "playerB": "mayoness",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-04",
+      "time": "16:00"
+    },
+    {
+      "group": "C",
+      "playerA": "Savitrue",
+      "playerB": "EsAndreas",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-04",
+      "time": "19:00"
+    },
+    {
+      "group": "D",
+      "playerA": "HalfBakedSnake",
+      "playerB": "im4rcuss",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-04",
+      "time": "17:00"
+    },
+    {
+      "group": "D",
+      "playerA": "redshines",
+      "playerB": "GabiAle97",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-04",
+      "time": "21:00"
+    }
+    ,
+    {
+      "group": "E",
+      "playerA": "Shyanji",
+      "playerB": "Owarii1RE",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-05",
+      "time": "17:00"
+    },
+    {
+      "group": "E",
+      "playerA": "SonBeto",
+      "playerB": "NemesisXploder",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-05",
+      "time": "18:00"
+    },
+    {
+      "group": "F",
+      "playerA": "Ascanioxjs",
+      "playerB": "Re_duke",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-05",
+      "time": "19:00"
+    },
+    {
+      "group": "F",
+      "playerA": "Gallardd",
+      "playerB": "Bomba_Nemesis",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-05",
+      "time": "20:00"
+    },
+    {
+      "group": "G",
+      "playerA": "crisdoile2",
+      "playerB": "insanebb",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-06",
+      "time": "19:00"
+    },
+    {
+      "group": "G",
+      "playerA": "MattGael",
+      "playerB": "Paquito_tatata",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-06",
+      "time": "20:00"
+    },
+    {
+      "group": "H",
+      "playerA": "TheNevs",
+      "playerB": "Sawnek",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-06",
+      "time": "17:00"
+    },
+    {
+      "group": "H",
+      "playerA": "exper1ment",
+      "playerB": "jossho6",
+      "timeA": "-",
+      "timeB": "-",
+      "winner": "",
+      "date": "2026-09-06",
+      "time": "18:00"
+    }
+  ]
+}

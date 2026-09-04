@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Leaderboard en vivo</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="title">Leaderboard</h1>
+    <span class="status" id="status">conectando…</span>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-button active" data-target="tabla">Tabla de Posiciones</button>
+    <button class="tab-button" data-target="grupos">Fase de Grupos</button>
+    <button class="tab-button" data-target="fixture">Fixture</button>
+    <button class="tab-button" data-target="eliminatorias">Eliminatorias</button>
+  </nav>
+
+  <div id="content">
+    <section id="tabla" class="tab-panel active">
+      <div id="tabla-content"><div class="loading">Cargando datos…</div></div>
+    </section>
+
+    <section id="grupos" class="tab-panel">
+      <div id="grupos-content"><div class="loading">Fase de Grupos: contenido pendiente.</div></div>
+    </section>
+
+    <section id="fixture" class="tab-panel">
+      <div id="fixture-content"><div class="loading">Fixture: contenido pendiente.</div></div>
+    </section>
+
+    <section id="eliminatorias" class="tab-panel">
+      <div id="eliminatorias-content"><div class="loading">Eliminatorias: contenido pendiente.</div></div>
+    </section>
+  </div>
+
+  <footer>
+    Actualiza cada <span id="interval-label">30</span>s · Fuente: speedrun.com API
+  </footer>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
