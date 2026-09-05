@@ -1,5 +1,8 @@
 const LEADERBOARD_URL = "https://www.speedrun.com/api/v1/leaderboards/kdkzvyqd/category/q25r06gk?embed=players,category,game";
 const REFRESH_MS = 30000; // cada 30s (subí este valor si querés pegarle menos a la API)
+const SCHEDULE_TIME_ZONE = 'America/Argentina/Buenos_Aires';
+const LIVE_STREAM_URL = 'https://www.twitch.tv/basementcup';
+const LIVE_WINDOW_MS = 50 * 60 * 1000;
 
 // La API de speedrun.com a veces no manda el header CORS y el navegador
 // bloquea el fetch directo. Si eso pasa, reintentamos vía un proxy CORS público.
@@ -238,6 +241,54 @@ function formatManualTime(value){
   const remainder = seconds - (minutes * 60);
   const secondsText = remainder.toFixed(remainder % 1 === 0 ? 0 : 2).padStart(remainder % 1 === 0 ? 2 : 5, '0');
   return `${String(minutes).padStart(2, '0')}:${secondsText}`;
+}
+
+function parseScheduledDateTime(dateValue, timeValue){
+  const dateText = String(dateValue || '').trim();
+  const timeText = String(timeValue || '').trim();
+  const dateMatch = dateText.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const timeMatch = timeText.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(!dateMatch || !timeMatch) return null;
+
+  const [, year, month, day] = dateMatch;
+  const [, hours, minutes, seconds = '0'] = timeMatch;
+  const wallClock = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hours), Number(minutes), Number(seconds));
+  const timeZoneParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SCHEDULE_TIME_ZONE,
+    timeZoneName: 'longOffset'
+  }).formatToParts(new Date(wallClock));
+  const offsetText = timeZoneParts.find(part => part.type === 'timeZoneName')?.value || 'GMT';
+  const offsetMatch = offsetText.match(/GMT([+-])(\d{2}):?(\d{2})?/);
+  const offsetMinutes = offsetMatch
+    ? (Number(offsetMatch[2]) * 60 + Number(offsetMatch[3] || 0)) * (offsetMatch[1] === '-' ? -1 : 1)
+    : 0;
+  const date = new Date(wallClock - offsetMinutes * 60 * 1000);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatScheduledDateTime(dateValue, timeValue){
+  const date = parseScheduledDateTime(dateValue, timeValue);
+  if(!date) return null;
+
+  return {
+    date,
+    dateLabel: date.toLocaleDateString('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }),
+    timeLabel: date.toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+  };
+}
+
+function isMatchLive(startDate){
+  if(!startDate) return false;
+  const elapsed = Date.now() - startDate.getTime();
+  return elapsed >= 0 && elapsed <= LIVE_WINDOW_MS;
 }
 
 function getStoredResults(){
@@ -918,9 +969,10 @@ function renderCalendarFixturePanel(players = []){
   });
 
   const calendarHtml = orderedDates.map(([dateKey, matches]) => {
-    const dateLabel = /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+    const firstMatchSchedule = formatScheduledDateTime(matches[0]?.date, matches[0]?.time);
+    const dateLabel = firstMatchSchedule?.dateLabel || (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)
       ? dateKey.split('-').reverse().join('/')
-      : (matches[0]?.date || 'Fecha por definir');
+      : (matches[0]?.date || 'Fecha por definir'));
     const matchesHtml = matches.map(match => {
         const playerAProfile = resolvePlayerByName(players, match.playerA);
         const playerBProfile = resolvePlayerByName(players, match.playerB);
@@ -942,6 +994,12 @@ function renderCalendarFixturePanel(players = []){
 
         const formattedA = scoreA === '-' ? '-' : formatManualTime(scoreA);
         const formattedB = scoreB === '-' ? '-' : formatManualTime(scoreB);
+        const scheduledDate = resultMatch && (resultMatch.date || resultMatch.fecha) ? (resultMatch.date || resultMatch.fecha) : match.date;
+        const scheduledTime = resultMatch && (resultMatch.time || resultMatch.horario) ? (resultMatch.time || resultMatch.horario) : match.time;
+        const schedule = formatScheduledDateTime(scheduledDate, scheduledTime);
+        const liveButton = schedule && isMatchLive(schedule.date)
+          ? `<a class="fixture-live-button" href="${LIVE_STREAM_URL}">En vivo</a>`
+          : '';
 
         return `
           <div class="fixture-match">
@@ -963,8 +1021,9 @@ function renderCalendarFixturePanel(players = []){
               </div>
             </div>
             <div class="fixture-meta">
-              <div class="fixture-meta-row"><span class="fixture-meta-label">Fecha:</span> <span>${resultMatch && (resultMatch.date || resultMatch.fecha) ? (resultMatch.date || resultMatch.fecha) : match.date}</span></div>
-              <div class="fixture-meta-row"><span class="fixture-meta-label">Horario:</span> <span>${resultMatch && (resultMatch.time || resultMatch.horario) ? (resultMatch.time || resultMatch.horario) : match.time}</span></div>
+              <div class="fixture-meta-row"><span class="fixture-meta-label">Fecha:</span> <span>${schedule?.dateLabel || scheduledDate}</span></div>
+              <div class="fixture-meta-row"><span class="fixture-meta-label">Horario:</span> <span>${schedule?.timeLabel || scheduledTime}</span></div>
+              ${liveButton}
             </div>
           </div>
         `;
@@ -1340,8 +1399,6 @@ async function loadLeaderboard(){
     if(runs.length === 0){
       container.innerHTML = '<div class="loading">Sin runs registradas todavía.</div>';
       document.getElementById('grupos-content').innerHTML = '<div class="loading">Sin datos para generar grupos.</div>';
-      statusEl.textContent = "en vivo";
-      statusEl.className = "status live";
       return;
     }
 
@@ -1476,9 +1533,6 @@ async function loadLeaderboard(){
     }
 
     previousOrder = currentOrder;
-
-    statusEl.textContent = "en vivo" + (usingProxy ? " (vía proxy)" : "") + " · " + new Date().toLocaleTimeString();
-    statusEl.className = "status live";
   }catch(err){
     statusEl.textContent = "error: " + err.message;
     statusEl.className = "status error";
@@ -1490,6 +1544,9 @@ async function loadLeaderboard(){
 }
 
 loadLeaderboard();
+setInterval(() => {
+  if(lastLeaderboardSnapshot) renderFixturePanel(lastLeaderboardSnapshot.players);
+}, REFRESH_MS);
 
 // Pestañas simples para cambiar secciones
 function setupTabs(){

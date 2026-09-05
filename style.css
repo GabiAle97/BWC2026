@@ -634,6 +634,20 @@ footer{
   font-weight:600;
 }
 
+.fixture-live-button{
+  display:inline-block;
+  align-self:flex-start;
+  margin-top:4px;
+  padding:5px 9px;
+  border-radius:5px;
+  background:#e64949;
+  color:#fff;
+  font-size:.7rem;
+  font-weight:700;
+  text-decoration:none;
+}
+.fixture-live-button:hover{filter:brightness(1.1)}
+
 .fixture-placeholder{
   color:#f7d56e;
 }
