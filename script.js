@@ -324,7 +324,7 @@ async function loadVisitCounter(){
     });
     if(!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
-    const count = data?.data?.value ?? data?.data?.count ?? data?.value ?? data?.count;
+    const count = data?.data?.up_count ?? data?.data?.value ?? data?.data?.count ?? data?.value ?? data?.count;
     if(count == null) throw new Error('Respuesta sin contador');
     counter.textContent = `· Visitas: ${Number(count).toLocaleString('es-AR')}`;
   }catch(err){
