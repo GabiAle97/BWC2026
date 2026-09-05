@@ -41,6 +41,26 @@
       "time": "00:00"
     },
     {
+      "group": "C",
+      "playerA": "HalfBakedSnake",
+      "playerB": "im4rcuss",
+      "timeA": "43:04",
+      "timeB": "41:46",
+      "winner": "im4rcuss",
+      "date": "2026-09-04",
+      "time": "17:00"
+    },
+    {
+      "group": "C",
+      "playerA": "redshines",
+      "playerB": "GabiAle97",
+      "timeA": "43:30",
+      "timeB": "43:02",
+      "winner": "GabiAle97",
+      "date": "2026-09-04",
+      "time": "21:00"
+    },
+    {
       "group": "D",
       "playerA": "Micwich",
       "playerB": "mayoness",
@@ -60,27 +80,6 @@
       "date": "2026-09-04",
       "time": "19:00"
     },
-    {
-      "group": "C",
-      "playerA": "HalfBakedSnake",
-      "playerB": "im4rcuss",
-      "timeA": "43:04",
-      "timeB": "41:46",
-      "winner": "im4rcuss",
-      "date": "2026-09-04",
-      "time": "17:00"
-    },
-    {
-      "group": "C",
-      "playerA": "redshines",
-      "playerB": "GabiAle97",
-      "timeA": "43:30",
-      "timeB": "43:02",
-      "winner": "GabiAle97",
-      "date": "2026-09-04",
-      "time": "21:00"
-    }
-    ,
     {
       "group": "E",
       "playerA": "Shyanji",

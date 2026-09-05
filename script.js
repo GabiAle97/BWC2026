@@ -216,7 +216,10 @@ function parseManualTime(value){
   const str = String(value).trim();
   if(!str) return null;
   const normalized = str.replace(',', '.');
-  if(!normalized.includes(':')) return Number(normalized);
+  if(!normalized.includes(':')){
+    const seconds = Number(normalized);
+    return Number.isNaN(seconds) ? null : seconds;
+  }
   const parts = normalized.split(':').map(part => Number(part));
   if(parts.some(part => Number.isNaN(part))) return null;
   if(parts.length === 2){
@@ -303,6 +306,7 @@ function computeGroupStandings(rawResults){
         draws: 0,
         matches: 0,
         bestTime: null,
+        bestTimeLabel: null,
         lastTime: null
       };
     });
@@ -341,6 +345,8 @@ function computeGroupStandings(rawResults){
 
     entryA.matches += 1;
     entryB.matches += 1;
+    if(String(timeARaw ?? '').trim().toUpperCase() === 'DEATH') entryA.bestTimeLabel = 'DEATH';
+    if(String(timeBRaw ?? '').trim().toUpperCase() === 'DEATH') entryB.bestTimeLabel = 'DEATH';
     if(timeA != null) {
       entryA.lastTime = timeA;
       entryA.bestTime = entryA.bestTime == null ? timeA : Math.min(entryA.bestTime, timeA);
@@ -661,8 +667,13 @@ function buildGroupStage(runs, players){
         return {
           name,
           flag: playerProfile ? countryFlag(players, playerProfile.id) : null,
+          matches: standing ? standing.matches : 0,
+          wins: standing ? standing.wins : 0,
+          draws: standing ? standing.draws : 0,
+          losses: standing ? standing.losses : 0,
           points: standing ? standing.points : 0,
           bestTime: standing && standing.bestTime != null ? standing.bestTime : null,
+          bestTimeLabel: standing ? standing.bestTimeLabel : null,
           qualifies: false,
           slotLabel: 'Posición'
         };
@@ -730,26 +741,33 @@ function renderGroupsPanel(runs, players){
   const groupsHtml = groups.map(group => {
     const playersHtml = group.players.map((player, index) => {
       if(!player){
-        return `<li class="group-player placeholder">${['Cabecera', '2ª posición', '3ª posición', '4ª posición'][index]}: por determinar</li>`;
+        return `<tr class="group-player placeholder"><td colspan="8">${['Cabecera', '2ª posición', '3ª posición', '4ª posición'][index]}: por determinar</td></tr>`;
       }
 
-      return `<li class="group-player">
-        <div class="group-player-main">
-          <span class="group-player-slot">${player.slotLabel}</span>
-          <span class="group-player-name">${player.flag ? `<span class="flag">${player.flag}</span>` : ''} ${player.name}</span>
-        </div>
-        <span class="group-points">${Number(player.points ?? 0)}</span>
-      </li>`;
+      return `<tr class="group-player">
+        <td class="group-player-position">${index + 1}</td>
+        <td class="group-player-name">${player.flag ? `<span class="flag">${player.flag}</span>` : ''} ${player.name}</td>
+        <td class="group-stat">${player.matches}</td>
+        <td class="group-stat">${player.wins}</td>
+        <td class="group-stat">${player.draws}</td>
+        <td class="group-stat">${player.losses}</td>
+        <td class="group-best-time">${player.bestTimeLabel || (player.bestTime != null ? formatTime(player.bestTime) : '-')}</td>
+        <td class="group-points">${Number(player.points ?? 0)}</td>
+      </tr>`;
     }).join('');
 
     return `
       <div class="group-card">
         <div class="group-header">
           <span>Grupo ${group.letter}</span>
-          <span class="group-badge">4 jugadores</span>
+          <span class="group-badge">${group.players.length} jugadores</span>
         </div>
         <div class="group-status">Fase de grupos en curso</div>
-        <ul class="group-players">${playersHtml}</ul>
+        <table class="group-table" aria-label="Tabla del Grupo ${group.letter}">
+          <colgroup><col class="group-col-position"><col class="group-col-player"><col span="4" class="group-col-stat"><col class="group-col-time"><col class="group-col-points"></colgroup>
+          <thead><tr><th>#</th><th>Jugador</th><th title="Partidos">P</th><th title="Victorias">W</th><th title="Empates">D</th><th title="Derrotas">L</th><th title="Tiempo best">TB</th><th title="Puntos">PTS</th></tr></thead>
+          <tbody>${playersHtml}</tbody>
+        </table>
       </div>
     `;
   }).join('');
@@ -847,9 +865,18 @@ function buildGroupFixture(results = null){
       return String(aKey).localeCompare(String(bKey), 'en', { numeric: true });
     });
 
+    const splitEntries = orderedEntries.flatMap(([bucketKey, matches]) => {
+      if (letter !== 'C' || matches.length <= 2) return [[bucketKey, matches]];
+
+      return Array.from({ length: Math.ceil(matches.length / 2) }, (_, index) => [
+        `${bucketKey}-${index + 1}`,
+        matches.slice(index * 2, index * 2 + 2)
+      ]);
+    });
+
     return {
       letter,
-      rounds: orderedEntries.map(([bucketKey, matches], index) => ({
+      rounds: splitEntries.map(([bucketKey, matches], index) => ({
         round: bucketKey === 'fallback' ? 'Fecha 1' : `Fecha ${index + 1}`,
         matches
       }))
@@ -912,7 +939,7 @@ function renderFixturePanel(players = []){
       }).join('');
 
       return `
-        <details class="fixture-round" ${index === 0 ? 'open' : ''}>
+        <details class="fixture-round" ${index === group.rounds.length - 1 ? 'open' : ''}>
           <summary class="fixture-round-summary">
             <span class="fixture-round-title">${round.round}</span>
             <span class="fixture-round-count">${round.matches.length} partido${round.matches.length === 1 ? '' : 's'}</span>

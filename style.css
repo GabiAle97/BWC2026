@@ -25,7 +25,7 @@ body{
   margin:0 auto;
 }
 
-/* Cuando el bracket necesita más espacio, el wrap se expande */
+/* Cuando el bracket necesita mï¿½s espacio, el wrap se expande */
 .wrap:has(.bracket-wrap){
   max-width:1100px;
 }
@@ -248,7 +248,7 @@ footer{
 /* ========== GRUPOS ========== */
 .groups-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:12px;
 }
 
@@ -283,59 +283,57 @@ footer{
   margin-bottom:8px;
 }
 
-.group-players{
-  list-style:none;
-  padding:0;
-  margin:0;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-
-.group-player{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-  padding:8px 10px;
-  border:1px solid var(--border);
-  border-radius:8px;
-  background:#121726;
-}
 .group-player.placeholder{
   color:var(--muted);
   font-style:italic;
 }
 
-.group-player-main{
-  display:flex;
-  flex-direction:column;
-  gap:2px;
+.group-table{
+  width:100%;
   min-width:0;
+  table-layout:fixed;
+  overflow-x:auto;
+  border:1px solid var(--border);
+  border-radius:7px;
+  background:#121726;
 }
 
-.group-player-slot{
-  font-size:.68rem;
+.group-table th,
+.group-table td{
+  padding:8px 5px;
+  font-size:.78rem;
+  border-bottom:1px solid var(--border);
+  vertical-align:middle;
+}
+.group-table th{
   color:var(--muted);
-  text-transform:uppercase;
+  border-bottom:1px solid var(--border);
+  font-size:.62rem;
+  font-weight:700;
   letter-spacing:.04em;
+  text-align:center;
 }
+.group-table tbody tr:last-child td{border-bottom:none}
+.group-table th:nth-child(2){text-align:left}
 
-.group-player-name{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
+.group-player-position,
+.group-stat,
+.group-best-time,
+.group-points{text-align:center}
+.group-player-position{color:var(--muted);font-weight:700}
+.group-player-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.group-best-time{font-variant-numeric:tabular-nums;color:var(--accent);white-space:nowrap}
 
 .group-points{
-  font-size:.75rem;
-  color:var(--accent);
-  font-weight:600;
-  white-space:nowrap;
+  color:var(--gold);
+  font-weight:700;
 }
+
+.group-col-position{width:7%}
+.group-col-player{width:35%}
+.group-col-stat{width:7%}
+.group-col-time{width:16%}
+.group-col-points{width:9%}
 
 .fixture-grid{
   display:grid;
@@ -521,7 +519,7 @@ footer{
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
   padding-bottom:12px;
-  min-width:920px;          /* un poco más flexible */
+  min-width:920px;          /* un poco mï¿½s flexible */
   align-items:stretch;
   scrollbar-width:thin;
   scrollbar-color:var(--border) transparent;
@@ -574,7 +572,7 @@ footer{
   pointer-events:none;
 }
 
-/* TÍTULO */
+/* Tï¿½TULO */
 .round-title{
   font-size: .7rem;
   font-weight: 700;
@@ -772,7 +770,7 @@ footer{
     font-size:.7rem;
   }
 
-  /* Conectores un poco más cortos */
+  /* Conectores un poco mï¿½s cortos */
   .tier-octavos .bracket-cluster.left .knockout-match::after,
   .tier-quarters .bracket-cluster.left .knockout-match::after,
   .tier-semis .bracket-cluster.left .knockout-match::after{
@@ -787,7 +785,7 @@ footer{
   }
 }
 
-/* Móviles */
+/* Mï¿½viles */
 @media (max-width: 640px){
   body{
     padding:16px 10px;
@@ -828,7 +826,7 @@ footer{
   .bracket-wrap{
     min-width:720px;
     column-gap:5px;
-    padding-bottom:16px; /* más espacio para el scrollbar */
+    padding-bottom:16px; /* mï¿½s espacio para el scrollbar */
   }
 
   .tier-row{
@@ -879,7 +877,7 @@ footer{
     letter-spacing:.06em;
   }
 
-  /* Conectores más cortos en móvil */
+  /* Conectores mï¿½s cortos en mï¿½vil */
   .tier-octavos .bracket-cluster.left .knockout-match::after,
   .tier-quarters .bracket-cluster.left .knockout-match::after,
   .tier-semis .bracket-cluster.left .knockout-match::after{
@@ -898,7 +896,7 @@ footer{
   }
 }
 
-/* Móviles muy pequeños */
+/* Mï¿½viles muy pequeï¿½os */
 @media (max-width: 400px){
   body{
     padding:12px 8px;
@@ -942,7 +940,7 @@ footer{
   font-size:0.61rem;          /* 0.72rem * 0.85 */
 }
 
-/* Cuartos: título arriba, los 2 partidos se separan simétricamente */
+/* Cuartos: tï¿½tulo arriba, los 2 partidos se separan simï¿½tricamente */
 .tier-quarters .tier-row {
   align-items: stretch;
 }
@@ -962,17 +960,17 @@ footer{
 
 /* Primer partido (el de arriba) */
 .tier-quarters .bracket-cluster .knockout-match:nth-child(2) {
-  margin-top: auto;          /* empuja hacia abajo desde el título */
-  margin-bottom: 95px;       /* mitad de la separación deseada */
+  margin-top: auto;          /* empuja hacia abajo desde el tï¿½tulo */
+  margin-bottom: 95px;       /* mitad de la separaciï¿½n deseada */
 }
 
 /* Segundo partido (el de abajo) */
 .tier-quarters .bracket-cluster .knockout-match:nth-child(3) {
-  margin-top: 95px;          /* otra mitad de la separación */
+  margin-top: 95px;          /* otra mitad de la separaciï¿½n */
   margin-bottom: auto;       /* empuja hacia arriba desde el fondo */
 }
 
-/* Semifinales: título arriba + partido centrado */
+/* Semifinales: tï¿½tulo arriba + partido centrado */
 .tier-semis .tier-row {
   align-items: stretch;
 }
@@ -990,7 +988,7 @@ footer{
   margin-bottom: 10px;
 }
 
-/* El único partido de cada lado (después del título) */
+/* El ï¿½nico partido de cada lado (despuï¿½s del tï¿½tulo) */
 .tier-semis .bracket-cluster .knockout-match:nth-child(2) {
   margin-top: auto;
   margin-bottom: auto;
