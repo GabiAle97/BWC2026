@@ -1378,9 +1378,6 @@ document.addEventListener('keydown', (event) => {
 async function loadLeaderboard(){
   const statusEl = document.getElementById('status');
   try{
-    statusEl.textContent = "actualizando…";
-    statusEl.className = "status";
-
     const json = await fetchLeaderboardData();
     const data = json.data;
     const players = data.players.data;
