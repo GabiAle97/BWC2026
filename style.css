@@ -149,7 +149,8 @@ tbody tr:hover{background:#1d2030}
 }
 
 .player-name{white-space:nowrap}
-.flag{opacity:.7;font-size:.85em}
+.flag{opacity:.9;font-size:.85em;display:inline-flex;align-items:center}
+.flag-image{display:block;width:24px;height:18px;object-fit:cover;border-radius:2px}
 
 .player-profile-button{
   border:0;
@@ -458,6 +459,12 @@ footer{
   gap:12px;
 }
 
+.fixture-dates{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
 .fixture-card{
   background:var(--panel);
   border:1px solid var(--border);
@@ -508,6 +515,10 @@ footer{
   border-radius:8px;
   background:#121726;
   overflow:hidden;
+}
+
+.fixture-date{
+  width:100%;
 }
 
 .fixture-round-summary{

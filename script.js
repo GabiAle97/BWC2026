@@ -309,6 +309,38 @@ function saveStoredResults(data){
   }
 }
 
+function normalizeResultsData(rawResults){
+  if(Array.isArray(rawResults)) return { matches: rawResults };
+
+  if(rawResults && Array.isArray(rawResults.dates)){
+    const dates = rawResults.dates.map((date, index) => {
+      const number = Number(date.number || date.numero || index + 1);
+      const directMatches = Array.isArray(date.matches) ? date.matches : [];
+      const groupMatches = Array.isArray(date.groups)
+        ? date.groups.flatMap(group => (Array.isArray(group.matches) ? group.matches : [])
+          .map(match => ({ ...match, group: match.group || match.grupo || group.name || group.group })))
+        : [];
+      const matches = [...directMatches, ...groupMatches];
+      return {
+        ...date,
+        number,
+        label: date.label || `Fecha ${number} de ${rawResults.dates.length}`,
+        matches: matches.map(match => ({ ...match, fixtureDateNumber: number }))
+      };
+    });
+
+    return {
+      ...rawResults,
+      dates,
+      matches: dates.flatMap(date => date.matches)
+    };
+  }
+
+  return rawResults && Array.isArray(rawResults.matches)
+    ? { ...rawResults, matches: rawResults.matches }
+    : null;
+}
+
 function normalizeManualMatchName(name){
   return normalizeParticipantName(name || '').replace(/^grupo/, '');
 }
@@ -482,7 +514,9 @@ function parseResultsText(text){
 
   try{
     const json = JSON.parse(trimmed);
-    if(json && (Array.isArray(json.matches) || Array.isArray(json))) return json;
+    if(json && (Array.isArray(json.matches) || Array.isArray(json.dates) || Array.isArray(json))) {
+      return normalizeResultsData(json);
+    }
   }catch(err){}
 
   const lines = trimmed.split(/\r?\n/).filter(line => line.trim() && !line.trim().startsWith('#'));
@@ -498,7 +532,7 @@ function parseResultsText(text){
     return row;
   });
 
-  return { matches: rows.map(row => ({
+  return normalizeResultsData({ matches: rows.map(row => ({
     group: row.group || row.grupo || row.round,
     playerA: row.playera || row.player_a || row.a || row.teama || row.teama,
     playerB: row.playerb || row.player_b || row.b || row.teamb || row.teamb,
@@ -507,7 +541,7 @@ function parseResultsText(text){
     winner: row.winner || row.ganador || row.result,
     date: row.date || row.fecha,
     time: row.time || row.horario || row.schedule
-  })) };
+  })) });
 }
 
 function getPlayerName(run, playersData){
@@ -517,22 +551,19 @@ function getPlayerName(run, playersData){
   return found ? found.names.international : "Unknown";
 }
 
-function countryCodeToFlagEmoji(countryCode){
+function countryCodeToFlagMarkup(countryCode){
   if(!countryCode) return null;
 
   const code = countryCode.toUpperCase();
   if(code.length !== 2 || !/^[A-Z]{2}$/.test(code)) return null;
 
-  return code
-    .split('')
-    .map(letter => String.fromCodePoint(0x1F1E6 + (letter.charCodeAt(0) - 65)))
-    .join('');
+  return `<img class="flag-image" src="https://flagcdn.com/24x18/${code.toLowerCase()}.png" alt="Bandera de ${code}" loading="lazy">`;
 }
 
 function countryFlag(playersData, playerId){
   const found = playersData.find(pl => pl.id === playerId);
   if(found && found.location && found.location.country){
-    return countryCodeToFlagEmoji(found.location.country.code);
+    return countryCodeToFlagMarkup(found.location.country.code);
   }
   return null;
 }
@@ -940,7 +971,30 @@ function renderCalendarFixturePanel(players = []){
   const allMatches = storedResults && Array.isArray(storedResults.matches) ? storedResults.matches : [];
   const calendarBuckets = new Map();
 
-  if(allMatches.length){
+  if(storedResults && Array.isArray(storedResults.dates)){
+    storedResults.dates.forEach((date, index) => {
+      const number = Number(date.number || date.numero || index + 1);
+      const key = `fixture-${number}`;
+      calendarBuckets.set(key, {
+        label: date.label || `Fecha ${number} de ${storedResults.dates.length}`,
+        matches: []
+      });
+
+      (date.matches || []).forEach(record => {
+        const group = resolveManualMatchKey(record);
+        const playerA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
+        const playerB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
+        if(!group || !playerA || !playerB) return;
+        calendarBuckets.get(key).matches.push({
+          group,
+          playerA,
+          playerB,
+          date: record.date || record.fecha || record.day || 'Fecha por definir',
+          time: record.time || record.horario || 'Horario: por definir'
+        });
+      });
+    });
+  }else if(allMatches.length){
     allMatches.forEach((record) => {
       const group = resolveManualMatchKey(record);
       const playerA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
@@ -949,31 +1003,43 @@ function renderCalendarFixturePanel(players = []){
 
       const rawDate = record.date || record.fecha || record.day || 'Fecha por definir';
       const dateKey = normalizeDateKey(rawDate) || 'sin-fecha';
-      if(!calendarBuckets.has(dateKey)) calendarBuckets.set(dateKey, []);
-      calendarBuckets.get(dateKey).push({ group, playerA, playerB, date: rawDate, time: record.time || record.horario || 'Horario: por definir' });
+      if(!calendarBuckets.has(dateKey)) calendarBuckets.set(dateKey, { label: rawDate, matches: [] });
+      calendarBuckets.get(dateKey).matches.push({ group, playerA, playerB, date: rawDate, time: record.time || record.horario || 'Horario: por definir' });
     });
   }else{
     buildGroupFixture(null).forEach((group) => {
       group.rounds.forEach((round) => {
         const dateKey = normalizeDateKey(round.round) || 'sin-fecha';
-        if(!calendarBuckets.has(dateKey)) calendarBuckets.set(dateKey, []);
-        round.matches.forEach((match) => calendarBuckets.get(dateKey).push({ ...match, group: group.letter }));
+        if(!calendarBuckets.has(dateKey)) calendarBuckets.set(dateKey, { label: round.round, matches: [] });
+        round.matches.forEach((match) => calendarBuckets.get(dateKey).matches.push({ ...match, group: group.letter }));
       });
     });
   }
 
   const orderedDates = Array.from(calendarBuckets.entries()).sort(([aKey], [bKey]) => {
+    if(aKey.startsWith('fixture-') && bKey.startsWith('fixture-')) return Number(aKey.slice(8)) - Number(bKey.slice(8));
+    if(aKey.startsWith('fixture-')) return -1;
+    if(bKey.startsWith('fixture-')) return 1;
     if(aKey === 'sin-fecha') return 1;
     if(bKey === 'sin-fecha') return -1;
     return aKey.localeCompare(bKey);
   });
 
-  const calendarHtml = orderedDates.map(([dateKey, matches]) => {
+  const activeDateNumber = storedResults && Array.isArray(storedResults.dates)
+    ? storedResults.dates.find(date => (date.matches || []).some(match => {
+      const timeA = match.timeA ?? match.tiempoA ?? match.time_a;
+      const timeB = match.timeB ?? match.tiempoB ?? match.time_b;
+      return !match.winner && (timeA === '-' || timeB === '-' || timeA == null || timeB == null);
+    }))?.number || storedResults.dates.find(date => (date.matches || []).length)?.number
+    : null;
+
+  const calendarHtml = orderedDates.map(([dateKey, bucket]) => {
+    const matches = bucket.matches;
     const firstMatchSchedule = formatScheduledDateTime(matches[0]?.date, matches[0]?.time);
-    const dateLabel = firstMatchSchedule?.dateLabel || (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+    const dateLabel = bucket.label || firstMatchSchedule?.dateLabel || (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)
       ? dateKey.split('-').reverse().join('/')
       : (matches[0]?.date || 'Fecha por definir'));
-    const matchesHtml = matches.map(match => {
+    const matchesHtml = matches.length ? matches.map(match => {
         const playerAProfile = resolvePlayerByName(players, match.playerA);
         const playerBProfile = resolvePlayerByName(players, match.playerB);
         const playerAFlag = playerAProfile ? countryFlag(players, playerAProfile.id) : null;
@@ -1027,23 +1093,33 @@ function renderCalendarFixturePanel(players = []){
             </div>
           </div>
         `;
-      }).join('');
+      }).join('') : '<div class="loading">Sin partidos cargados todavía.</div>';
 
+      const isOpen = dateKey === `fixture-${activeDateNumber}`;
       return `
-        <div class="fixture-card">
-          <div class="fixture-header">
+        <details class="fixture-round fixture-date"${isOpen ? ' open' : ''}>
+          <summary class="fixture-round-summary">
             <span class="fixture-label">${dateLabel}</span>
             <span class="fixture-badge">${matches.length} partido${matches.length === 1 ? '' : 's'}</span>
-          </div>
+          </summary>
           <div class="fixture-round-body fixture-calendar-matches">${matchesHtml}</div>
-        </div>
+        </details>
       `;
   }).join('');
 
   const container = document.getElementById('fixture-content');
   container.innerHTML = calendarHtml
-    ? `<div class="fixture-grid fixture-calendar-grid">${calendarHtml}</div>`
+    ? `<div class="fixture-dates">${calendarHtml}</div>`
     : '<div class="loading">Sin datos todavía.</div>';
+
+  container.querySelectorAll('.fixture-date').forEach(dateDetails => {
+    dateDetails.addEventListener('toggle', () => {
+      if(!dateDetails.open) return;
+      container.querySelectorAll('.fixture-date').forEach(otherDate => {
+        if(otherDate !== dateDetails) otherDate.open = false;
+      });
+    });
+  });
 }
 
 function renderFixturePanel(players = []){
