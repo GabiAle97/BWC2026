@@ -85,8 +85,8 @@ const FINAL_GROUPS = {
   B: ["LanceLM", "Adrian20v", "Homuki", "isogai"],
   C: ["im4rcuss", "GabiAle97", "redshines", "HalfBakedSnake"],
   D: ["EsAndreas", "micwich", "Savitrue", "mayoness"],
-  E: ["Shyanji", "Owarii1RE", "SonBeto", "NemesisXploder"],
-  F: ["Ascanioxjs", "Re_duke", "Gallardd", "Bomba_Nemesis"],
+  E: ["Ascanioxjs", "Re_duke", "SonBeto", "NemesisXploder"],
+  F: ["Shyanji", "Owarii1RE", "Gallardd", "Bomba_Nemesis"],
   G: ["MattGael", "Paquito_tatata", "insanebb", "crisdoile2"],
   H: ["exper1ment", "jossho6", "TheNevs", "Sawnek"]
 };
