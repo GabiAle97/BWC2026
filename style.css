@@ -1162,3 +1162,13 @@ footer{
   #eliminatorias-content .bracket-center > .round-title{top:24%}
   #eliminatorias-content .bracket-center > .final-match{top:34%}
 }
+
+footer{
+  display:flex;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:24px;
+  color:var(--muted);
+  font-size:.75rem;
+}

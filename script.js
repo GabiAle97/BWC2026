@@ -20,6 +20,7 @@ let lastLeaderboardSnapshot = null;
 let uploadedResults = null;
 const RESULTS_STORAGE_KEY = 'bc-results-manual';
 const AUTO_RESULTS_PATHS = ['./resultados.json'];
+const VISIT_COUNTER_URL = 'https://api.counterapi.dev/v1/bwc2026/visitas/up';
 
 const QUALIFYING_PARTICIPANTS = [
   "LanceLM",
@@ -305,6 +306,23 @@ function saveStoredResults(data){
     localStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(data));
   }catch(err){
     console.warn('No se pudieron guardar los resultados.', err);
+  }
+}
+
+async function loadVisitCounter(){
+  const counter = document.getElementById('visit-counter');
+  if(!counter) return;
+
+  try{
+    const response = await fetch(VISIT_COUNTER_URL, { cache: 'no-store' });
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    const count = data?.data?.up_count ?? data?.data?.count ?? data?.count ?? data?.value;
+    if(count == null) throw new Error('Respuesta sin contador');
+    counter.textContent = `· Visitas: ${Number(count).toLocaleString('es-AR')}`;
+  }catch(err){
+    counter.hidden = true;
+    console.warn('No se pudo cargar el contador de visitas.', err);
   }
 }
 
@@ -1680,6 +1698,7 @@ async function loadLeaderboard(){
 }
 
 loadLeaderboard();
+loadVisitCounter();
 
 // Pestañas simples para cambiar secciones
 function setupTabs(){
