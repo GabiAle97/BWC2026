@@ -1,5 +1,4 @@
 const LEADERBOARD_URL = "https://www.speedrun.com/api/v1/leaderboards/kdkzvyqd/category/q25r06gk?embed=players,category,game";
-const REFRESH_MS = 30000; // cada 30s (subí este valor si querés pegarle menos a la API)
 const SCHEDULE_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 const LIVE_STREAM_URL = 'https://www.twitch.tv/basementcup';
 const LIVE_WINDOW_MS = 50 * 60 * 1000;
@@ -83,8 +82,8 @@ const FINAL_GROUPS = {
   B: ["LanceLM", "Adrian20v", "Homuki", "isogai"],
   C: ["im4rcuss", "GabiAle97", "redshines", "HalfBakedSnake"],
   D: ["EsAndreas", "micwich", "Savitrue", "mayoness"],
-  E: ["SonBeto", "ascanioxjs", "re_duke", "NemesisXploder"],
-  F: ["Gallardd", "Shyanji", "Owarii1RE", "Bomba_Nemesis"],
+  E: ["Shyanji", "Owarii1RE", "SonBeto", "NemesisXploder"],
+  F: ["Ascanioxjs", "Re_duke", "Gallardd", "Bomba_Nemesis"],
   G: ["MattGael", "Paquito_tatata", "insanebb", "crisdoile2"],
   H: ["exper1ment", "jossho6", "TheNevs", "Sawnek"]
 };
@@ -356,6 +355,17 @@ function getMatchWinnerName(match, playerA, playerB){
 
   if(winnerValue === 'draw' || winnerValue === 'empate' || winnerValue === 'tie') return null;
 
+  const rawTimeA = match.timeA ?? match.tiempoA ?? match.time_a ?? match.times?.[playerA] ?? match.result?.timeA ?? match.result?.[playerA];
+  const rawTimeB = match.timeB ?? match.tiempoB ?? match.time_b ?? match.times?.[playerB] ?? match.result?.timeB ?? match.result?.[playerB];
+  const timeA = parseManualTime(rawTimeA);
+  const timeB = parseManualTime(rawTimeB);
+  const isDeathA = String(rawTimeA ?? '').trim().toUpperCase() === 'DEATH';
+  const isDeathB = String(rawTimeB ?? '').trim().toUpperCase() === 'DEATH';
+
+  // Un tiempo registrado siempre supera a DEATH, aunque winner venga informado.
+  if(isDeathA && !isDeathB && timeB != null) return playerB;
+  if(isDeathB && !isDeathA && timeA != null) return playerA;
+
   if(match.winner){
     return match.winner === playerA || normalizeManualMatchName(match.winner) === normalizeManualMatchName(playerA)
       ? playerA
@@ -363,9 +373,6 @@ function getMatchWinnerName(match, playerA, playerB){
         ? playerB
         : null;
   }
-
-  const timeA = parseManualTime(match.timeA ?? match.tiempoA ?? match.time_a ?? match.times?.[playerA] ?? match.result?.timeA ?? match.result?.[playerA]);
-  const timeB = parseManualTime(match.timeB ?? match.tiempoB ?? match.time_b ?? match.times?.[playerB] ?? match.result?.timeB ?? match.result?.[playerB]);
 
   if(timeA == null && timeB == null) return null;
   if(timeA == null) return playerB;
@@ -428,15 +435,21 @@ function computeGroupStandings(rawResults){
 
     entryA.matches += 1;
     entryB.matches += 1;
-    if(String(timeARaw ?? '').trim().toUpperCase() === 'DEATH') entryA.bestTimeLabel = 'DEATH';
-    if(String(timeBRaw ?? '').trim().toUpperCase() === 'DEATH') entryB.bestTimeLabel = 'DEATH';
+    const isDeathA = String(timeARaw ?? '').trim().toUpperCase() === 'DEATH';
+    const isDeathB = String(timeBRaw ?? '').trim().toUpperCase() === 'DEATH';
     if(timeA != null) {
       entryA.lastTime = timeA;
+      entryA.bestTimeLabel = null;
       entryA.bestTime = entryA.bestTime == null ? timeA : Math.min(entryA.bestTime, timeA);
+    }else if(isDeathA && entryA.bestTime == null){
+      entryA.bestTimeLabel = 'DEATH';
     }
     if(timeB != null) {
       entryB.lastTime = timeB;
+      entryB.bestTimeLabel = null;
       entryB.bestTime = entryB.bestTime == null ? timeB : Math.min(entryB.bestTime, timeB);
+    }else if(isDeathB && entryB.bestTime == null){
+      entryB.bestTimeLabel = 'DEATH';
     }
 
     if(!winner){
@@ -968,6 +981,9 @@ function buildGroupFixture(results = null){
 
 function renderCalendarFixturePanel(players = []){
   const storedResults = getLoadedResults();
+  const container = document.getElementById('fixture-content');
+  const previousOpenDate = container?.querySelector('.fixture-date[open]')?.dataset.fixtureDateKey || null;
+  const hasRenderedFixture = Boolean(container?.querySelector('.fixture-date'));
   const allMatches = storedResults && Array.isArray(storedResults.matches) ? storedResults.matches : [];
   const calendarBuckets = new Map();
 
@@ -1095,9 +1111,11 @@ function renderCalendarFixturePanel(players = []){
         `;
       }).join('') : '<div class="loading">Sin partidos cargados todavía.</div>';
 
-      const isOpen = dateKey === `fixture-${activeDateNumber}`;
+      const isOpen = hasRenderedFixture
+        ? dateKey === previousOpenDate
+        : dateKey === `fixture-${activeDateNumber}`;
       return `
-        <details class="fixture-round fixture-date"${isOpen ? ' open' : ''}>
+        <details class="fixture-round fixture-date" data-fixture-date-key="${dateKey}"${isOpen ? ' open' : ''}>
           <summary class="fixture-round-summary">
             <span class="fixture-label">${dateLabel}</span>
             <span class="fixture-badge">${matches.length} partido${matches.length === 1 ? '' : 's'}</span>
@@ -1107,7 +1125,6 @@ function renderCalendarFixturePanel(players = []){
       `;
   }).join('');
 
-  const container = document.getElementById('fixture-content');
   container.innerHTML = calendarHtml
     ? `<div class="fixture-dates">${calendarHtml}</div>`
     : '<div class="loading">Sin datos todavía.</div>';
@@ -1127,6 +1144,50 @@ function renderFixturePanel(players = []){
 }
 
 function buildKnockoutBracket(runs, players){
+  const storedResults = getLoadedResults();
+  const knockoutResults = storedResults && storedResults.knockout;
+
+  if(knockoutResults){
+    const participant = (name, label = 'Clasificado') => ({
+      label,
+      name,
+      flag: (() => {
+        const profile = resolvePlayerByName(players, name);
+        return profile ? countryFlag(players, profile.id) : null;
+      })(),
+      details: ''
+    });
+    const readRound = (roundName, expectedLength) => Array.from({ length: expectedLength }, (_, index) => {
+      const match = Array.isArray(knockoutResults[roundName]) ? knockoutResults[roundName][index] : null;
+      const playerA = match?.playerA || match?.a || 'Por determinar';
+      const playerB = match?.playerB || match?.b || 'Por determinar';
+      const winner = match?.winner || '';
+      return Object.assign([
+        participant(playerA, match?.labelA || 'Clasificado'),
+        participant(playerB, match?.labelB || 'Clasificado')
+      ], { winnerIndex: winner === playerB ? 1 : winner === playerA ? 0 : null });
+    });
+
+    const finalMatch = knockoutResults.final || {};
+    return {
+      octavos: readRound('octavos', 8),
+      cuartos: readRound('cuartos', 4),
+      semis: readRound('semifinales', 2),
+      final: Object.assign([
+        participant(finalMatch.playerA || finalMatch.a || 'Por determinar'),
+        participant(finalMatch.playerB || finalMatch.b || 'Por determinar')
+      ], { winnerIndex: finalMatch.winner === finalMatch.playerB ? 1 : finalMatch.winner ? 0 : null }),
+      thirdPlace: (() => {
+        const match = knockoutResults.tercerPuesto || knockoutResults.thirdPlace || {};
+        return Object.assign([
+          participant(match.playerA || match.a || 'Por determinar'),
+          participant(match.playerB || match.b || 'Por determinar')
+        ], { winnerIndex: match.winner === match.playerB ? 1 : match.winner ? 0 : null });
+      })(),
+      champion: participant(finalMatch.winner || 'Por determinar', 'Campeón')
+    };
+  }
+
   const groupOrder = Object.keys(FINAL_GROUPS);
 
   if(!finishedGroups){
@@ -1219,24 +1280,28 @@ function buildKnockoutBracket(runs, players){
 
 function renderEliminatoriasPanel(runs, players){
   const bracket = buildKnockoutBracket(runs, players);
-  const renderMatch = (match, index, winnerIndex = null) => {
-    const teamA = finishedGroups ? match[0] || { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' } : { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' };
-    const teamB = finishedGroups ? match[1] || { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' } : { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' };
+  const hasKnockoutResults = Boolean(getLoadedResults()?.knockout);
+  const renderMatch = (match, index, winnerIndex = null, matchClass = '') => {
+    const canShowParticipants = finishedGroups || hasKnockoutResults;
+    const teamA = canShowParticipants ? match[0] || { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' } : { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' };
+    const teamB = canShowParticipants ? match[1] || { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' } : { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' };
 
     const isWinnerA = winnerIndex === 0;
     const isWinnerB = winnerIndex === 1;
+    const isLoserA = winnerIndex !== null && !isWinnerA;
+    const isLoserB = winnerIndex !== null && !isWinnerB;
     const teamName = (team) => team.name === 'Por determinar'
       ? `<span class="team-name"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</span>`
       : `<button class="player-profile-button team-name" type="button" data-player-name="${team.name}"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</button>`;
 
     return `
-      <div class="knockout-match" data-match="${index}">
-        <div class="team-slot ${isWinnerA ? 'winner' : ''}">
+      <div class="knockout-match ${matchClass}" data-match="${index}">
+        <div class="team-slot ${isWinnerA ? 'winner' : ''} ${isLoserA ? 'loser' : ''}">
           <span class="team-label">${teamA.label}</span>
           ${teamName(teamA)}
           <span class="team-detail">${teamA.details}</span>
         </div>
-        <div class="team-slot ${isWinnerB ? 'winner' : ''}">
+        <div class="team-slot ${isWinnerB ? 'winner' : ''} ${isLoserB ? 'loser' : ''}">
           <span class="team-label">${teamB.label}</span>
           ${teamName(teamB)}
           <span class="team-detail">${teamB.details}</span>
@@ -1246,37 +1311,35 @@ function renderEliminatoriasPanel(runs, players){
   };
 
   const renderSide = (matches, side, roundTitle) => {
-    const items = matches.map((match, index) => renderMatch(match, `${side}-${index}`));
-    return `<div class="bracket-cluster ${side}"><div class="round-title">${roundTitle}</div>${items.join('')}</div>`;
+    const items = matches.map((match, index) => renderMatch(match, `${side}-${index}`, match.winnerIndex ?? null));
+    const roundClass = roundTitle.toLowerCase().replace(/[^a-záéíóúüñ]+/g, '-');
+    return `<div class="bracket-cluster ${side} round-${roundClass}"><div class="round-title">${roundTitle}</div>${items.join('')}</div>`;
   };
+
+  const pendingMatch = [
+    { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
+    { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }
+  ];
 
   const bracketHtml = `
     <div class="bracket-wrap">
-      <div class="bracket-round tier-octavos">
-        <div class="tier-row">
-          ${renderSide(bracket.octavos.slice(0, 4), 'left', 'Octavos')}
-          ${renderSide(bracket.octavos.slice(4, 8), 'right', 'Octavos')}
-        </div>
-      </div>
-
-      <div class="bracket-round tier-quarters">
-        <div class="tier-row">
-          ${renderSide(bracket.cuartos.slice(0, 2), 'left', 'Cuartos')}
-          ${renderSide(bracket.cuartos.slice(2, 4), 'right', 'Cuartos')}
-        </div>
-      </div>
-
-      <div class="bracket-round tier-semis">
-        <div class="tier-row">
-          ${renderSide(bracket.semis.slice(0, 1), 'left', 'Semifinales')}
-          ${renderSide(bracket.semis.slice(1, 2), 'right', 'Semifinales')}
-        </div>
-      </div>
-
-      <div class="bracket-round final-round">
+      ${renderSide(bracket.octavos.slice(0, 4), 'left', 'Octavos')}
+      ${renderSide(bracket.cuartos.slice(0, 2), 'left', 'Cuartos')}
+      ${renderSide(bracket.semis.slice(0, 1), 'left', 'Semifinales')}
+      <div class="bracket-center">
         <div class="round-title">Final</div>
-        <div class="tier-row center-row">${renderMatch(bracket.final, 'final', 0)}</div>
+        <div class="champion-banner">
+          <span class="champion-trophy" aria-hidden="true">🏆</span>
+          <span class="champion-label">Campeón</span>
+          <span class="champion-name">${bracket.champion.flag || ''} ${bracket.champion.name}</span>
+        </div>
+        ${renderMatch(bracket.final, 'final', bracket.final.winnerIndex ?? null, 'final-match')}
+        <div class="third-place-title">Tercer puesto</div>
+        ${renderMatch(bracket.thirdPlace || pendingMatch, 'third-place', bracket.thirdPlace?.winnerIndex ?? null, 'third-place-match')}
       </div>
+      ${renderSide(bracket.semis.slice(1, 2), 'right', 'Semifinales')}
+      ${renderSide(bracket.cuartos.slice(2, 4), 'right', 'Cuartos')}
+      ${renderSide(bracket.octavos.slice(4, 8), 'right', 'Octavos')}
     </div>
   `;
 
@@ -1617,9 +1680,6 @@ async function loadLeaderboard(){
 }
 
 loadLeaderboard();
-setInterval(() => {
-  if(lastLeaderboardSnapshot) renderFixturePanel(lastLeaderboardSnapshot.players);
-}, REFRESH_MS);
 
 // Pestañas simples para cambiar secciones
 function setupTabs(){

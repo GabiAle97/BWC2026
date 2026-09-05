@@ -25,7 +25,6 @@ body{
   margin:0 auto;
 }
 
-/* Cuando el bracket necesita m�s espacio, el wrap se expande */
 .wrap:has(.bracket-wrap){
   max-width:1100px;
 }
@@ -67,7 +66,7 @@ table{
   border:1px solid var(--border);
   border-radius:10px;
   overflow:hidden;
-  min-width:480px; /* evita que se aplasten las columnas */
+  min-width:480px;
 }
 
 thead th{
@@ -537,14 +536,18 @@ footer{
 }
 
 .fixture-round-summary::after{
-  content:"?";
+  content:"";
+  width:7px;
+  height:7px;
+  border-right:2px solid var(--muted);
+  border-bottom:2px solid var(--muted);
   color:var(--muted);
-  font-size:.8rem;
+  transform:rotate(45deg) translateY(-2px);
   transition:transform .2s ease;
 }
 
 .fixture-round[open] > .fixture-round-summary::after{
-  transform:rotate(180deg);
+  transform:rotate(225deg) translateY(-2px);
 }
 
 .fixture-round-title{
@@ -664,217 +667,120 @@ footer{
 }
 
 /* =========================================================
-   BRACKET ? ESTRUCTURA TIPO MUNDIAL
+   BRACKET DE ELIMINATORIAS
+   Una sola implementación: fondo oscuro + árbol de llaves
+   con posicionamiento por porcentaje, reutilizado en mobile
+   dentro de un lienzo con scroll horizontal.
    ========================================================= */
 .bracket-wrap{
-  display:grid;
-  grid-template-columns:repeat(7, minmax(100px, 1fr));
-  column-gap:8px;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  padding-bottom:12px;
-  min-width:920px;          /* un poco m�s flexible */
-  align-items:stretch;
-  scrollbar-width:thin;
-  scrollbar-color:var(--border) transparent;
-}
-
-.bracket-wrap::-webkit-scrollbar{
-  height:6px;
-}
-.bracket-wrap::-webkit-scrollbar-track{
-  background:transparent;
-}
-.bracket-wrap::-webkit-scrollbar-thumb{
-  background:var(--border);
-  border-radius:3px;
-}
-
-/* TODAS LAS RONDAS */
-.bracket-round{
-  grid-row:1;
-  align-self:stretch;
-  display:flex;
-  flex-direction:column;
-  min-height:100%;
-}
-
-/* OCTAVOS */
-.tier-octavos{
-  grid-column:1 / 8;
-  grid-row:1;
-}
-
-/* CUARTOS */
-.tier-quarters{
-  grid-column:1 / 8;
-  grid-row:1;
-  pointer-events:none;
-}
-
-/* SEMIS */
-.tier-semis{
-  grid-column:1 / 8;
-  grid-row:1;
-  pointer-events:none;
-}
-
-/* FINAL */
-.final-round{
-  grid-column:1 / 8;
-  grid-row:1;
-  pointer-events:none;
-}
-
-/* T�TULO */
-.round-title{
-  font-size: .7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;   /* bajado de 0.08em */
-  color: var(--muted);
-  text-align: center;
-  padding-bottom: 6px;
-  flex: 0 0 auto;
-  min-height: 20px;
-  white-space: nowrap;      /* evita que se parta */
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* FILA DE PARTIDOS */
-.tier-row{
   position:relative;
-  flex:1 1 auto;
-  display:grid;
-  grid-template-columns:repeat(7, minmax(100px, 1fr));
-  column-gap:8px;
-  align-items:center;
-  min-height:0;
-}
-
-/* OCTAVOS */
-.tier-octavos .bracket-cluster.left{
-  grid-column:1;
-  grid-row:1;
-  justify-content:center;
-}
-.tier-octavos .bracket-cluster.right{
-  grid-column:7;
-  grid-row:1;
-  justify-content:center;
-}
-
-/* CUARTOS */
-.tier-quarters .bracket-cluster.left{
-  grid-column:2;
-  grid-row:1;
-  justify-content:center;
-}
-.tier-quarters .bracket-cluster.right{
-  grid-column:6;
-  grid-row:1;
-  justify-content:center;
-}
-
-/* SEMIFINALES */
-.tier-semis .bracket-cluster.left{
-  grid-column:3;
-  grid-row:1;
-  justify-content:center;
-}
-.tier-semis .bracket-cluster.right{
-  grid-column:5;
-  grid-row:1;
-  justify-content:center;
-}
-
-/* FINAL */
-.final-round .tier-row{
-  display:grid;
-}
-.final-round .center-row{
-  grid-column:4;
-  grid-row:1;
-  width:100%;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-}
-.final-round .knockout-match{
-  width:100%;
-  max-width:137px;
-  margin:0 auto;
-}
-
-/* CLUSTERS */
-.bracket-cluster{
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  gap:18px;
   min-width:0;
+  min-height:520px;
   width:100%;
-  box-sizing:border-box;
-}
-
-/* PARTIDOS */
-.knockout-match{
-  background:var(--panel);
+  overflow:visible;
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:0 14px;
+  padding:18px 12px 22px;
+  background:linear-gradient(135deg,#121522,#171922 52%,#10131d);
   border:1px solid var(--border);
   border-radius:10px;
-  padding:8px 8px 10px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  position:relative;
-  min-height:90px;
-  width:100%;
-  max-width:260px;
-  justify-self:center;
-  box-sizing:border-box;
+  box-shadow:inset 0 0 50px rgba(0,0,0,.25);
 }
 
+.bracket-wrap > .bracket-cluster,
+.bracket-wrap > .bracket-center{
+  grid-row:1;
+  min-width:0;
+  height:100%;
+}
 
-/* EQUIPOS */
-.team-slot{
-  background:#121726;
+.bracket-wrap > .bracket-cluster:nth-child(1){grid-column:1}
+.bracket-wrap > .bracket-cluster:nth-child(2){grid-column:2}
+.bracket-wrap > .bracket-cluster:nth-child(3){grid-column:3}
+.bracket-wrap > .bracket-center{grid-column:4}
+.bracket-wrap > .bracket-cluster:nth-child(5){grid-column:5}
+.bracket-wrap > .bracket-cluster:nth-child(6){grid-column:6}
+.bracket-wrap > .bracket-cluster:nth-child(7){grid-column:7}
+
+.bracket-cluster,
+.bracket-center{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-around;
+  gap:0;
+  position:relative;
+}
+
+.round-title,
+.third-place-title{
+  color:var(--muted);
+  font-size:.7rem;
+  font-weight:700;
+  letter-spacing:.05em;
+  text-align:center;
+  text-transform:uppercase;
+  white-space:nowrap;
+  padding:0 0 12px;
+}
+
+.knockout-match{
+  width:100%;
+  min-width:0;
+  min-height:68px;
+  padding:0;
+  gap:0;
+  background:var(--panel);
   border:1px solid var(--border);
-  border-radius:8px;
-  padding:8px 10px;
+  border-radius:6px;
+  box-shadow:0 4px 12px rgba(0,0,0,.22);
+  position:relative;
+  z-index:1;
+}
+
+.team-slot{
+  min-width:0;
+  min-height:33px;
+  justify-content:center;
+  padding:3px 6px;
   display:flex;
   flex-direction:column;
   gap:3px;
+  background:transparent;
+  border:0;
+  border-radius:0;
   position:relative;
 }
 
-.team-label{
-  font-size:.64rem;
-  color:var(--muted);
-  text-transform:uppercase;
-  letter-spacing:.05em;
+.team-slot + .team-slot{border-top:1px solid rgba(255,255,255,.14)}
+.team-slot.loser{
+  opacity:.38;
+  filter:grayscale(1);
 }
-
+.team-slot.winner .team-name{color:#fff}
+.team-label{font-size:.46rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .team-name{
+  min-width:0;
   display:flex;
   align-items:center;
   gap:6px;
   font-weight:600;
+  font-size:.62rem;
+  color:var(--text);
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
 }
+.team-detail{font-size:.46rem;color:var(--muted)}
+.team-flag{font-size:.8rem;min-width:1.2em;display:inline-block}
 
-.team-flag{
-  font-size:1rem;
-  min-width:1.2em;
-  display:inline-block;
+.bracket-center{
+  justify-content:center;
+  gap:12px;
 }
-
-.team-detail{
-  font-size:.68rem;
-  color:var(--muted);
-}
+.bracket-center .round-title{padding-bottom:4px}
+.bracket-center .third-place-title{padding:14px 0 0}
+.bracket-center .knockout-match{max-width:150px;align-self:center}
 
 .center-row{
   display:flex;
@@ -882,207 +788,329 @@ footer{
   align-items:center;
 }
 
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
+/* Tramos de unión entre partidos de cada lado */
+.bracket-wrap > .bracket-cluster.left::after,
+.bracket-wrap > .bracket-cluster.right::before{
+  content:"";
+  position:absolute;
+  top:calc(50% + 9px);
+  height:calc(50% - 9px);
+  width:8px;
+  border-top:1px solid var(--muted);
+  border-bottom:1px solid var(--muted);
+  pointer-events:none;
+}
+.bracket-wrap > .bracket-cluster.left::after{right:-8px}
+.bracket-wrap > .bracket-cluster.right::before{left:-8px}
 
-/* Tablets y pantallas medianas */
+.bracket-wrap > .bracket-cluster.left .knockout-match::after,
+.bracket-wrap > .bracket-cluster.right .knockout-match::before{
+  content:"";
+  position:absolute;
+  top:50%;
+  width:14px;
+  height:1px;
+  background:var(--muted);
+  transform:translateY(-50%);
+}
+.bracket-wrap > .bracket-cluster.left .knockout-match::after{right:-15px}
+.bracket-wrap > .bracket-cluster.right .knockout-match::before{left:-15px}
+
+/* ---------- Desktop (>900px): árbol por posicionamiento absoluto ---------- */
+@media (min-width: 901px){
+  .bracket-wrap > .bracket-cluster,
+  .bracket-wrap > .bracket-center{
+    position:relative;
+    display:block;
+  }
+
+  .bracket-wrap > .bracket-cluster .round-title,
+  .bracket-wrap > .bracket-center .round-title,
+  .bracket-wrap > .bracket-center .third-place-title{
+    position:absolute;
+    left:0;
+    right:0;
+    top:0;
+  }
+
+  .bracket-wrap > .bracket-cluster .knockout-match,
+  .bracket-wrap > .bracket-center .knockout-match{
+    position:absolute;
+    left:0;
+    right:0;
+    margin:0;
+    transform:none;
+  }
+
+  /* Octavos: 4 partidos por lado */
+  .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(2),
+  .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(2){top:12%}
+  .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(3),
+  .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(3){top:35%}
+  .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(4),
+  .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(4){top:58%}
+  .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(5),
+  .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(5){top:81%}
+
+  /* Cuartos: 2 partidos por lado */
+  .bracket-wrap > .bracket-cluster:nth-child(2) .knockout-match:nth-of-type(2),
+  .bracket-wrap > .bracket-cluster:nth-child(6) .knockout-match:nth-of-type(2){top:24%}
+  .bracket-wrap > .bracket-cluster:nth-child(2) .knockout-match:nth-of-type(3),
+  .bracket-wrap > .bracket-cluster:nth-child(6) .knockout-match:nth-of-type(3){top:67%}
+
+  /* Semis: 1 partido por lado */
+  .bracket-wrap > .bracket-cluster:nth-child(3) .knockout-match,
+  .bracket-wrap > .bracket-cluster:nth-child(5) .knockout-match{top:45%}
+
+  /* Final + tercer puesto */
+  .bracket-wrap > .bracket-center .final-match{top:27%}
+  .bracket-wrap > .bracket-center .third-place-title{top:66%;padding:0}
+  .bracket-wrap > .bracket-center .third-place-match{top:72%}
+
+  .bracket-wrap > .bracket-cluster::before,
+  .bracket-wrap > .bracket-cluster::after,
+  .bracket-wrap > .bracket-cluster .knockout-match::before,
+  .bracket-wrap > .bracket-cluster .knockout-match::after{display:none}
+}
+
+/* ---------- Mobile (<=900px): mismo árbol, lienzo con scroll horizontal ----------
+   Se reutiliza EXACTAMENTE la misma técnica que en desktop (posicionamiento
+   absoluto por porcentaje), solo que dentro de un contenedor de ancho fijo
+   con overflow-x:auto. Así el cuadro nunca colapsa a una lista apilada. */
+@media (max-width: 900px){
+  #eliminatorias-content{
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+    scrollbar-color:var(--border) transparent;
+  }
+
+  #eliminatorias-content .bracket-wrap{
+    width:820px;
+    min-width:820px;
+    height:460px;
+    min-height:460px;
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:0 8px;
+    padding:14px 8px 18px;
+  }
+
+  #eliminatorias-content .bracket-wrap > .bracket-cluster,
+  #eliminatorias-content .bracket-wrap > .bracket-center{
+    position:relative;
+    display:block;
+  }
+
+  #eliminatorias-content .bracket-wrap > .bracket-cluster .round-title,
+  #eliminatorias-content .bracket-wrap > .bracket-center .round-title,
+  #eliminatorias-content .bracket-wrap > .bracket-center .third-place-title{
+    position:absolute;
+    left:0;
+    right:0;
+    top:0;
+  }
+
+  #eliminatorias-content .bracket-wrap > .bracket-cluster .knockout-match,
+  #eliminatorias-content .bracket-wrap > .bracket-center .knockout-match{
+    position:absolute;
+    left:0;
+    right:0;
+    margin:0;
+    transform:none;
+  }
+
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(2),
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(2){top:12%}
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(3),
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(3){top:35%}
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(4),
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(4){top:58%}
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(5),
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(5){top:81%}
+
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(2) .knockout-match:nth-of-type(2),
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(6) .knockout-match:nth-of-type(2){top:24%}
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(2) .knockout-match:nth-of-type(3),
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(6) .knockout-match:nth-of-type(3){top:67%}
+
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(3) .knockout-match,
+  #eliminatorias-content .bracket-wrap > .bracket-cluster:nth-child(5) .knockout-match{top:45%}
+
+  #eliminatorias-content .bracket-wrap > .bracket-center .final-match{top:27%}
+  #eliminatorias-content .bracket-wrap > .bracket-center .third-place-title{top:66%;padding:0}
+  #eliminatorias-content .bracket-wrap > .bracket-center .third-place-match{top:72%}
+
+  #eliminatorias-content .bracket-wrap > .bracket-cluster::before,
+  #eliminatorias-content .bracket-wrap > .bracket-cluster::after,
+  #eliminatorias-content .bracket-wrap > .bracket-cluster .knockout-match::before,
+  #eliminatorias-content .bracket-wrap > .bracket-cluster .knockout-match::after{display:none}
+
+  #eliminatorias-content .round-title,
+  #eliminatorias-content .third-place-title{
+    font-size:.6rem;
+    padding-bottom:5px;
+  }
+
+  #eliminatorias-content .knockout-match{
+    min-height:56px;
+    border-radius:6px;
+  }
+
+  #eliminatorias-content .team-slot{
+    min-height:27px;
+    padding:3px 5px;
+    gap:2px;
+  }
+
+  #eliminatorias-content .team-label{font-size:.4rem}
+  #eliminatorias-content .team-name{font-size:.5rem;line-height:1.1}
+  #eliminatorias-content .team-detail{font-size:.4rem}
+  #eliminatorias-content .team-flag{font-size:.62rem}
+}
+
+@media (max-width: 520px){
+  #eliminatorias-content .bracket-wrap{
+    width:700px;
+    min-width:700px;
+    height:420px;
+    min-height:420px;
+    gap:0 6px;
+  }
+
+  #eliminatorias-content .round-title,
+  #eliminatorias-content .third-place-title{font-size:.54rem}
+  #eliminatorias-content .knockout-match{min-height:50px}
+  #eliminatorias-content .team-slot{min-height:24px;padding:2px 4px}
+  #eliminatorias-content .team-label{font-size:.34rem}
+  #eliminatorias-content .team-name{font-size:.46rem}
+  #eliminatorias-content .team-detail{font-size:.34rem}
+}
+
+.champion-banner{
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  z-index:3;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+  color:var(--gold);
+  text-align:center;
+  pointer-events:none;
+}
+
+.champion-trophy{
+  color:#ffd166;
+  font-size:1.7rem;
+  line-height:1;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));
+}
+
+.champion-label{
+  color:var(--muted);
+  font-size:.58rem;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.champion-name{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  color:#fff;
+  font-size:.78rem;
+  font-weight:700;
+}
+
+.champion-name .flag-image{width:20px;height:15px}
+
+@media (min-width: 901px){
+  .bracket-wrap > .bracket-center > .round-title{top:18%}
+  .bracket-wrap > .bracket-center > .final-match{top:30%}
+}
+
+@media (max-width: 900px){
+  #eliminatorias-content .bracket-center > .round-title{top:18%}
+  #eliminatorias-content .bracket-center > .final-match{top:30%}
+  #eliminatorias-content .champion-trophy{font-size:1.35rem}
+  #eliminatorias-content .champion-label{font-size:.5rem}
+  #eliminatorias-content .champion-name{font-size:.64rem}
+  #eliminatorias-content .champion-name .flag-image{width:18px;height:13px}
+}
+
+/* ---------- Resto de breakpoints (tabla, tabs, grupos, fixture, modal) ---------- */
 @media (max-width: 900px){
   body{
     padding:20px 12px;
   }
-
   .wrap{
     max-width:100%;
   }
-
-  .bracket-wrap{
-    min-width:820px;
-    column-gap:6px;
-  }
-
-  .tier-row{
-    grid-template-columns:repeat(7, minmax(90px, 1fr));
-    column-gap:6px;
-  }
-
-  .knockout-match{
-    min-height:82px;
-    padding:6px 6px 8px;
-    gap:6px;
-  }
-
-  .team-slot{
-    padding:6px 8px;
-  }
-
-  .team-name{
-    font-size:.9rem;
-  }
-
-  .round-title{
-    font-size:.7rem;
-  }
-
-  /* Conectores un poco m�s cortos */
-  .tier-octavos .bracket-cluster.left .knockout-match::after,
-  .tier-quarters .bracket-cluster.left .knockout-match::after,
-  .tier-semis .bracket-cluster.left .knockout-match::after{
-    right:-14px;
-    width:14px;
-  }
-  .tier-octavos .bracket-cluster.right .knockout-match::before,
-  .tier-quarters .bracket-cluster.right .knockout-match::before,
-  .tier-semis .bracket-cluster.right .knockout-match::before{
-    left:-14px;
-    width:14px;
-  }
 }
 
-/* M�viles */
 @media (max-width: 640px){
   body{
     padding:16px 10px;
   }
-
   h1{
     font-size:1.15rem;
   }
-
   .status{
     font-size:.75rem;
   }
-
   .tabs{
     gap:6px;
   }
-
   .tab-button{
     padding:7px 10px;
     font-size:.85rem;
   }
-
   table{
     min-width:420px;
     font-size:.9rem;
   }
-
   thead th,
   tbody td{
     padding:9px 10px;
   }
-
   .groups-grid{
     grid-template-columns:1fr;
     gap:10px;
   }
-
-  .bracket-wrap{
-    min-width:720px;
-    column-gap:5px;
-    padding-bottom:16px; /* m�s espacio para el scrollbar */
-  }
-
-  .tier-row{
-    grid-template-columns:repeat(7, minmax(80px, 1fr));
-    column-gap:5px;
-  }
-
-  .bracket-cluster{
-    gap:12px;
-  }
-
-  .knockout-match{
-    min-height:76px;
-    max-width:none;
-    padding:5px 5px 7px;
-    gap:5px;
-    border-radius:8px;
-  }
-
-  .final-round .knockout-match{
-    max-width:120px;
-  }
-
-  .team-slot{
-    padding:5px 6px;
-    border-radius:6px;
-  }
-
-  .team-label{
-    font-size:.38rem;
-  }
-
-  .team-name{
-    font-size:.62rem;
-    gap:4px;
-  }
-
-  .team-flag{
-    font-size:.7rem;
-  }
-
-  .team-detail{
-    font-size:.42rem;
-  }
-
-  .round-title{
-    font-size:.65rem;
-    letter-spacing:.06em;
-  }
-
-  /* Conectores m�s cortos en m�vil */
-  .tier-octavos .bracket-cluster.left .knockout-match::after,
-  .tier-quarters .bracket-cluster.left .knockout-match::after,
-  .tier-semis .bracket-cluster.left .knockout-match::after{
-    right:-12px;
-    width:12px;
-  }
-  .tier-octavos .bracket-cluster.right .knockout-match::before,
-  .tier-quarters .bracket-cluster.right .knockout-match::before,
-  .tier-semis .bracket-cluster.right .knockout-match::before{
-    left:-12px;
-    width:12px;
-  }
-
   .detail-video{
     height:180px;
   }
-
   .player-modal{
     padding:10px;
   }
-
   .player-modal-card{
     width:100%;
     max-height:calc(100vh - 20px);
     padding:18px 14px;
   }
-
   .player-modal-card h2{
     font-size:1.25rem;
   }
-
   .player-modal-stats{
     grid-template-columns:repeat(3,1fr);
     margin-top:14px;
   }
-
   .player-modal-stats div{
     padding:8px 3px;
   }
-
   .player-group-table{
     min-width:0;
     table-layout:fixed;
     font-size:.62rem;
   }
-
   .player-group-table th,
   .player-group-table td{
     padding:6px 2px;
   }
-
   .player-group-table th:first-child,
   .player-group-table td:first-child{width:7%}
   .player-group-table th:nth-child(2),
@@ -1093,157 +1121,44 @@ footer{
   .player-group-table td:nth-child(7){width:15%}
   .player-group-table th:nth-child(8),
   .player-group-table td:nth-child(8){width:12%}
-
   .player-match{
     padding:8px;
   }
-
   .player-match-teams span{
     min-width:0;
     overflow-wrap:anywhere;
   }
 }
 
-/* M�viles muy peque�os */
-@media (max-width: 400px){
-  body{
-    padding:12px 8px;
-  }
-
-  h1{
-    font-size:1.05rem;
-  }
-
-  .tab-button{
-    padding:6px 9px;
-    font-size:.8rem;
-  }
-
-  .bracket-wrap{
-    min-width:640px;
-  }
-
-  .tier-row{
-    grid-template-columns:repeat(7, minmax(70px, 1fr));
-  }
-
-  .knockout-match{
-    min-height:70px;
-  }
-
-  .team-name{
-    font-size:.78rem;
-  }
-}
-
-/* ========== EQUIPOS (nombres) ========== */
-.team-name{
-  display:flex;
+/* Campeón centrado entre semifinales y final, sin cubrir ningún cruce. */
+.champion-banner{
+  top:9%;
+  flex-direction:row;
+  justify-content:center;
   align-items:center;
-  gap:6px;
-  font-weight:600;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  font-size:0.61rem;          /* 0.72rem * 0.85 */
+  gap:10px;
 }
 
-/* Cuartos: t�tulo arriba, los 2 partidos se separan sim�tricamente */
-.tier-quarters .tier-row {
-  align-items: stretch;
+.champion-label{
+  position:absolute;
+  top:-15px;
+  margin:0;
+  font-size:.56rem;
 }
 
-.tier-quarters .bracket-cluster {
-  align-self: stretch;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 0;                    /* reseteamos el gap */
+.champion-trophy{font-size:2rem}
+.champion-name{font-size:1.25rem;line-height:1.1}
+
+@media (min-width: 901px){
+  .bracket-wrap > .bracket-center > .round-title{top:24%}
+  .bracket-wrap > .bracket-center > .final-match{top:34%}
 }
 
-.tier-quarters .bracket-cluster .round-title {
-  flex: 0 0 auto;
-  margin-bottom: 10px;
-}
-
-/* Primer partido (el de arriba) */
-.tier-quarters .bracket-cluster .knockout-match:nth-child(2) {
-  margin-top: auto;          /* empuja hacia abajo desde el t�tulo */
-  margin-bottom: 95px;       /* mitad de la separaci�n deseada */
-}
-
-/* Segundo partido (el de abajo) */
-.tier-quarters .bracket-cluster .knockout-match:nth-child(3) {
-  margin-top: 95px;          /* otra mitad de la separaci�n */
-  margin-bottom: auto;       /* empuja hacia arriba desde el fondo */
-}
-
-/* Semifinales: t�tulo arriba + partido centrado */
-.tier-semis .tier-row {
-  align-items: stretch;
-}
-
-.tier-semis .bracket-cluster {
-  align-self: stretch;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.tier-semis .bracket-cluster .round-title {
-  flex: 0 0 auto;
-  margin-bottom: 10px;
-}
-
-/* El �nico partido de cada lado (despu�s del t�tulo) */
-.tier-semis .bracket-cluster .knockout-match:nth-child(2) {
-  margin-top: auto;
-  margin-bottom: auto;
-}
-
-/* Media queries */
 @media (max-width: 900px){
-  .team-name{
-    font-size:0.55rem;        /* 0.65rem * 0.85 */
-  }
+  #eliminatorias-content .champion-banner{top:9%}
+  #eliminatorias-content .champion-label{top:-13px;font-size:.48rem}
+  #eliminatorias-content .champion-trophy{font-size:1.55rem}
+  #eliminatorias-content .champion-name{font-size:.92rem}
+  #eliminatorias-content .bracket-center > .round-title{top:24%}
+  #eliminatorias-content .bracket-center > .final-match{top:34%}
 }
-
-@media (max-width: 640px){
-  .team-name{
-    font-size:0.50rem;        /* 0.59rem * 0.85 */
-  }
-}
-
-@media (max-width: 400px){
-  .team-name{
-    font-size:0.48rem;        /* 0.56rem * 0.85 */
-  }
-}
-@media (max-width: 900px){
-  .round-title{
-    font-size: .65rem;
-    letter-spacing: 0.03em;
-  }
-}
-
-@media (max-width: 640px){
-  .round-title{
-    font-size: .6rem;
-    letter-spacing: 0.025em;
-  }
-}
-
-@media (max-width: 400px){
-  .round-title{
-    font-size: .55rem;
-    letter-spacing: 0.02em;
-  }
-}
-
-@media (max-width: 640px) {
-  .tier-quarters .bracket-cluster {
-    gap: 22px;
-  }
-}
-

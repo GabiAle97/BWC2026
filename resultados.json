@@ -266,5 +266,29 @@
         }
       ]
     }
-  ]
+  ],
+  "knockout": {
+    "octavos": [
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" }
+    ],
+    "cuartos": [
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" }
+    ],
+    "semifinales": [
+      { "playerA": "", "playerB": "", "winner": "" },
+      { "playerA": "", "playerB": "", "winner": "" }
+    ],
+    "tercerPuesto": { "playerA": "", "playerB": "", "winner": "" },
+    "final": { "playerA": "", "playerB": "", "winner": "" }
+  }
 }
