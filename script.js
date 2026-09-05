@@ -20,7 +20,8 @@ let lastLeaderboardSnapshot = null;
 let uploadedResults = null;
 const RESULTS_STORAGE_KEY = 'bc-results-manual';
 const AUTO_RESULTS_PATHS = ['./resultados.json'];
-const VISIT_COUNTER_URL = 'https://api.counterapi.dev/v1/bwc2026/visitas/up';
+const VISIT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/bwc-views';
+const VISIT_COUNTER_API_KEY = 'ut_7K2kspocwSOrKWFmm3F5pCB6w6ky2mGoalX3Q6MT';
 
 const QUALIFYING_PARTICIPANTS = [
   "LanceLM",
@@ -314,10 +315,16 @@ async function loadVisitCounter(){
   if(!counter) return;
 
   try{
-    const response = await fetch(VISIT_COUNTER_URL, { cache: 'no-store' });
+    const headers = VISIT_COUNTER_API_KEY
+      ? { Authorization: `Bearer ${VISIT_COUNTER_API_KEY}` }
+      : {};
+    const response = await fetch(`${VISIT_COUNTER_BASE_URL}/up`, {
+      cache: 'no-store',
+      headers
+    });
     if(!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
-    const count = data?.data?.up_count ?? data?.data?.count ?? data?.count ?? data?.value;
+    const count = data?.data?.value ?? data?.data?.count ?? data?.value ?? data?.count;
     if(count == null) throw new Error('Respuesta sin contador');
     counter.textContent = `· Visitas: ${Number(count).toLocaleString('es-AR')}`;
   }catch(err){
