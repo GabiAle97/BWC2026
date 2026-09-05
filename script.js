@@ -21,7 +21,6 @@ let uploadedResults = null;
 const RESULTS_STORAGE_KEY = 'bc-results-manual';
 const AUTO_RESULTS_PATHS = ['./resultados.json'];
 const VISIT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/bwc-views';
-const VISIT_COUNTER_API_KEY = 'ut_7K2kspocwSOrKWFmm3F5pCB6w6ky2mGoalX3Q6MT';
 const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
 let externalPlayerStats = new Map();
 
@@ -317,12 +316,8 @@ async function loadVisitCounter(){
   if(!counter) return;
 
   try{
-    const headers = VISIT_COUNTER_API_KEY
-      ? { Authorization: `Bearer ${VISIT_COUNTER_API_KEY}` }
-      : {};
     const response = await fetch(`${VISIT_COUNTER_BASE_URL}/up`, {
-      cache: 'no-store',
-      headers
+      cache: 'no-store'
     });
     if(!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
