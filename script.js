@@ -22,6 +22,8 @@ const RESULTS_STORAGE_KEY = 'bc-results-manual';
 const AUTO_RESULTS_PATHS = ['./resultados.json'];
 const VISIT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/bwc-views';
 const VISIT_COUNTER_API_KEY = 'ut_7K2kspocwSOrKWFmm3F5pCB6w6ky2mGoalX3Q6MT';
+const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
+let externalPlayerStats = new Map();
 
 const QUALIFYING_PARTICIPANTS = [
   "LanceLM",
@@ -330,6 +332,40 @@ async function loadVisitCounter(){
   }catch(err){
     counter.hidden = true;
     console.warn('No se pudo cargar el contador de visitas.', err);
+  }
+}
+
+async function loadExternalPlayerStats(){
+  try{
+    const response = await fetch(STATS_SHEET_URL, { cache: 'no-store' });
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const text = await response.text();
+    const jsonText = text.replace(/^\s*\/\*O_o\*\/\s*google\.visualization\.Query\.setResponse\(/, '').replace(/\);\s*$/, '');
+    const table = JSON.parse(jsonText)?.table;
+    const normalizeSheetHeader = value => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const columns = (table?.cols || []).map(column => normalizeSheetHeader(column.label));
+    const rows = table?.rows || [];
+    const valueAt = (row, label) => {
+      const index = columns.indexOf(label);
+      return index >= 0 ? String(row.c?.[index]?.v ?? '').trim() : '';
+    };
+
+    externalPlayerStats = new Map();
+    rows.forEach(row => {
+      const name = valueAt(row, 'statistics runner');
+      if(!name) return;
+      externalPlayerStats.set(normalizeParticipantName(name), {
+        overallPb: valueAt(row, 'overall pb'),
+        qualifiersPb: valueAt(row, 'qualifiers pb'),
+        basementPb: valueAt(row, 'basement pb'),
+        trainCrash: valueAt(row, 'train crash'),
+        tournamentBest: valueAt(row, 'tournament best'),
+        winLoss: valueAt(row, 'win - losess')
+      });
+    });
+  }catch(err){
+    externalPlayerStats = new Map();
+    console.warn('No se pudieron cargar las estadísticas de Google Sheets.', err);
   }
 }
 
@@ -1376,6 +1412,7 @@ function buildPlayerDetails(player, pbs, runUrl, datePb){
   if(!player){ return '';
   }
 
+  const externalStats = externalPlayerStats.get(normalizeParticipantName(player.names?.international || ''));
   const channelList = playerChannels(player);
   const signupDate = formatDate(player.signup || player.signupDate || player.created || player.date);
   const channelHtml = channelList.length > 0
@@ -1397,6 +1434,19 @@ function buildPlayerDetails(player, pbs, runUrl, datePb){
     ? `<div class="detail-video-link"><a class="detail-link" href="${runUrl}" target="_blank" rel="noopener noreferrer">Ver video del PB</a></div>`
     : '';
 
+  const statsHtml = externalStats
+    ? `<li class="sheet-stats-item"><strong>Stats del torneo:</strong>
+        <ul class="pb-sublist">
+          <li>Overall PB: ${externalStats.overallPb || '-'}</li>
+          <li>Qualifiers PB: ${externalStats.qualifiersPb || '-'}</li>
+          <li>Basement PB: ${externalStats.basementPb || '-'}</li>
+          <li>Train Crash: ${externalStats.trainCrash || '-'}</li>
+          <li>Tournament Best: ${externalStats.tournamentBest || '-'}</li>
+          <li>Win - Losses: ${externalStats.winLoss || '-'}</li>
+        </ul>
+      </li>`
+    : '';
+
       
   
   return `<div class="player-detail">
@@ -1404,6 +1454,7 @@ function buildPlayerDetails(player, pbs, runUrl, datePb){
     <ul class="detail-stats">
       <li><strong>Fecha de inscripción:</strong> ${signupDate}</li>
       ${channelHtml}
+      ${statsHtml}
       <li class="pb-item"><strong>Personal Bests:</strong>
         <ul class="pb-sublist">${pbList}</ul>
       </li>
@@ -1463,6 +1514,7 @@ function openPlayerModal(playerName){
   const profile = resolvePlayerByName(players, playerName);
   const summary = getGroupPlayerSummary(playerName);
   const flag = profile ? countryFlag(players, profile.id) : null;
+  const externalStats = externalPlayerStats.get(normalizeParticipantName(profile?.names?.international || playerName));
   const entry = summary?.entry || { matches: 0, wins: 0, draws: 0, losses: 0, bestTime: null, bestTimeLabel: null, points: 0 };
   const bestTime = entry.bestTimeLabel || (entry.bestTime != null ? formatTime(entry.bestTime) : '-');
   const groupMatches = summary ? getGroupMatches(summary.letter) : [];
@@ -1493,6 +1545,17 @@ function openPlayerModal(playerName){
       ${summary.entries.map((groupEntry, index) => `<tr class="${normalizeManualMatchName(groupEntry.name) === normalizeManualMatchName(playerName) ? 'is-selected' : ''}"><td>${index + 1}</td><td>${groupEntry.name}</td><td>${groupEntry.matches}</td><td>${groupEntry.wins}</td><td>${groupEntry.draws}</td><td>${groupEntry.losses}</td><td>${groupEntry.bestTimeLabel || (groupEntry.bestTime != null ? formatTime(groupEntry.bestTime) : '-')}</td><td>${groupEntry.points}</td></tr>`).join('')}
     </tbody></table></div>
   </div>` : '';
+  const externalStatsHtml = externalStats ? `<div class="player-modal-section">
+    <div class="player-modal-section-title">Stats del torneo</div>
+    <div class="player-modal-external-stats">
+      <div><span>Overall PB</span><strong>${externalStats.overallPb || '-'}</strong></div>
+      <div><span>Qualifiers PB</span><strong>${externalStats.qualifiersPb || '-'}</strong></div>
+      <div><span>Basement PB</span><strong>${externalStats.basementPb || '-'}</strong></div>
+      <div><span>Train Crash</span><strong>${externalStats.trainCrash || '-'}</strong></div>
+      <div><span>Tournament Best</span><strong>${externalStats.tournamentBest || '-'}</strong></div>
+      <div><span>Win - Losses</span><strong>${externalStats.winLoss || '-'}</strong></div>
+    </div>
+  </div>` : '';
 
   content.innerHTML = `
     <div class="player-modal-kicker">Fase de grupos${summary ? ` · Grupo ${summary.letter}` : ''}</div>
@@ -1506,6 +1569,7 @@ function openPlayerModal(playerName){
       <div><span>TB</span><strong>${bestTime}</strong></div>
       <div><span>PTS</span><strong>${entry.points}</strong></div>
     </div>
+    ${externalStatsHtml}
     ${groupTable}
     <div class="player-modal-section">
       <div class="player-modal-section-title">Partidos del Grupo ${summary?.letter || ''}</div>
@@ -1543,6 +1607,7 @@ async function loadLeaderboard(){
   const statusEl = document.getElementById('status');
   try{
     const json = await fetchLeaderboardData();
+    await loadExternalPlayerStats();
     const data = json.data;
     const players = data.players.data;
     const runs = Array.isArray(data.runs)

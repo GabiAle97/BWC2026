@@ -258,6 +258,32 @@ tbody tr:hover{background:#1d2030}
   color:var(--muted);
   font-size:.9rem;
 }
+
+.player-modal-external-stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
+}
+
+.player-modal-external-stats div{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  padding:8px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:#121726;
+}
+
+.player-modal-external-stats span{
+  color:var(--muted);
+  font-size:.64rem;
+}
+
+.player-modal-external-stats strong{
+  color:var(--accent);
+  font-size:.82rem;
+}
 .player-modal-position strong{color:var(--gold);font-size:1.1rem}
 .player-modal-stats{
   display:grid;
