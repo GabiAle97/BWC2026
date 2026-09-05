@@ -746,7 +746,7 @@ function renderGroupsPanel(runs, players){
 
       return `<tr class="group-player">
         <td class="group-player-position">${index + 1}</td>
-        <td class="group-player-name">${player.flag ? `<span class="flag">${player.flag}</span>` : ''} ${player.name}</td>
+        <td class="group-player-name"><button class="player-profile-button" type="button" data-player-name="${player.name}">${player.flag ? `<span class="flag">${player.flag}</span>` : ''} ${player.name}</button></td>
         <td class="group-stat">${player.matches}</td>
         <td class="group-stat">${player.wins}</td>
         <td class="group-stat">${player.draws}</td>
@@ -884,13 +884,44 @@ function buildGroupFixture(results = null){
   });
 }
 
-function renderFixturePanel(players = []){
+function renderCalendarFixturePanel(players = []){
   const storedResults = getLoadedResults();
-  const groups = buildGroupFixture(storedResults);
   const allMatches = storedResults && Array.isArray(storedResults.matches) ? storedResults.matches : [];
-  const groupsHtml = groups.map(group => {
-    const roundsHtml = group.rounds.map((round, index) => {
-      const matchesHtml = round.matches.map(match => {
+  const calendarBuckets = new Map();
+
+  if(allMatches.length){
+    allMatches.forEach((record) => {
+      const group = resolveManualMatchKey(record);
+      const playerA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
+      const playerB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
+      if(!group || !playerA || !playerB) return;
+
+      const rawDate = record.date || record.fecha || record.day || 'Fecha por definir';
+      const dateKey = normalizeDateKey(rawDate) || 'sin-fecha';
+      if(!calendarBuckets.has(dateKey)) calendarBuckets.set(dateKey, []);
+      calendarBuckets.get(dateKey).push({ group, playerA, playerB, date: rawDate, time: record.time || record.horario || 'Horario: por definir' });
+    });
+  }else{
+    buildGroupFixture(null).forEach((group) => {
+      group.rounds.forEach((round) => {
+        const dateKey = normalizeDateKey(round.round) || 'sin-fecha';
+        if(!calendarBuckets.has(dateKey)) calendarBuckets.set(dateKey, []);
+        round.matches.forEach((match) => calendarBuckets.get(dateKey).push({ ...match, group: group.letter }));
+      });
+    });
+  }
+
+  const orderedDates = Array.from(calendarBuckets.entries()).sort(([aKey], [bKey]) => {
+    if(aKey === 'sin-fecha') return 1;
+    if(bKey === 'sin-fecha') return -1;
+    return aKey.localeCompare(bKey);
+  });
+
+  const calendarHtml = orderedDates.map(([dateKey, matches]) => {
+    const dateLabel = /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+      ? dateKey.split('-').reverse().join('/')
+      : (matches[0]?.date || 'Fecha por definir');
+    const matchesHtml = matches.map(match => {
         const playerAProfile = resolvePlayerByName(players, match.playerA);
         const playerBProfile = resolvePlayerByName(players, match.playerB);
         const playerAFlag = playerAProfile ? countryFlag(players, playerAProfile.id) : null;
@@ -900,7 +931,7 @@ function renderFixturePanel(players = []){
           const groupMatch = resolveManualMatchKey(record) || ''; 
           const recordA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
           const recordB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
-          return groupMatch === group.letter &&
+          return groupMatch === match.group &&
             ((normalizeManualMatchName(recordA) === normalizeManualMatchName(match.playerA) && normalizeManualMatchName(recordB) === normalizeManualMatchName(match.playerB)) ||
              (normalizeManualMatchName(recordA) === normalizeManualMatchName(match.playerB) && normalizeManualMatchName(recordB) === normalizeManualMatchName(match.playerA)));
         });
@@ -914,18 +945,19 @@ function renderFixturePanel(players = []){
 
         return `
           <div class="fixture-match">
+            <div class="fixture-match-group">Grupo ${match.group}</div>
             <div class="fixture-teams">
               <div class="fixture-team-row ${winner && winner === match.playerA ? 'winner' : ''}">
                 <div class="fixture-team">
                   <span class="flag">${playerAFlag || '🏳️'}</span>
-                  <span class="fixture-name">${match.playerA}</span>
+                  <button class="player-profile-button fixture-name" type="button" data-player-name="${match.playerA}">${match.playerA}</button>
                 </div>
                 <span class="fixture-score">${formattedA}</span>
               </div>
               <div class="fixture-team-row ${winner && winner === match.playerB ? 'winner' : ''}">
                 <div class="fixture-team">
                   <span class="flag">${playerBFlag || '🏳️'}</span>
-                  <span class="fixture-name">${match.playerB}</span>
+                  <button class="player-profile-button fixture-name" type="button" data-player-name="${match.playerB}">${match.playerB}</button>
                 </div>
                 <span class="fixture-score">${formattedB}</span>
               </div>
@@ -939,31 +971,24 @@ function renderFixturePanel(players = []){
       }).join('');
 
       return `
-        <details class="fixture-round" ${index === group.rounds.length - 1 ? 'open' : ''}>
-          <summary class="fixture-round-summary">
-            <span class="fixture-round-title">${round.round}</span>
-            <span class="fixture-round-count">${round.matches.length} partido${round.matches.length === 1 ? '' : 's'}</span>
-          </summary>
-          <div class="fixture-round-body">${matchesHtml}</div>
-        </details>
-      `;
-    }).join('');
-
-    return `
-      <div class="fixture-card">
-        <div class="fixture-header">
-          <span class="fixture-label">Grupo ${group.letter}</span>
-          <span class="fixture-badge">3 partidos por jugador</span>
+        <div class="fixture-card">
+          <div class="fixture-header">
+            <span class="fixture-label">${dateLabel}</span>
+            <span class="fixture-badge">${matches.length} partido${matches.length === 1 ? '' : 's'}</span>
+          </div>
+          <div class="fixture-round-body fixture-calendar-matches">${matchesHtml}</div>
         </div>
-        <div class="fixture-rounds">${roundsHtml}</div>
-      </div>
-    `;
+      `;
   }).join('');
 
   const container = document.getElementById('fixture-content');
-  container.innerHTML = groupsHtml
-    ? `<div class="fixture-grid">${groupsHtml}</div>`
+  container.innerHTML = calendarHtml
+    ? `<div class="fixture-grid fixture-calendar-grid">${calendarHtml}</div>`
     : '<div class="loading">Sin datos todavía.</div>';
+}
+
+function renderFixturePanel(players = []){
+  renderCalendarFixturePanel(players);
 }
 
 function buildKnockoutBracket(runs, players){
@@ -1065,17 +1090,20 @@ function renderEliminatoriasPanel(runs, players){
 
     const isWinnerA = winnerIndex === 0;
     const isWinnerB = winnerIndex === 1;
+    const teamName = (team) => team.name === 'Por determinar'
+      ? `<span class="team-name"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</span>`
+      : `<button class="player-profile-button team-name" type="button" data-player-name="${team.name}"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</button>`;
 
     return `
       <div class="knockout-match" data-match="${index}">
         <div class="team-slot ${isWinnerA ? 'winner' : ''}">
           <span class="team-label">${teamA.label}</span>
-          <span class="team-name"><span class="team-flag">${teamA.flag || '🏳️'}</span> ${teamA.name}</span>
+          ${teamName(teamA)}
           <span class="team-detail">${teamA.details}</span>
         </div>
         <div class="team-slot ${isWinnerB ? 'winner' : ''}">
           <span class="team-label">${teamB.label}</span>
-          <span class="team-name"><span class="team-flag">${teamB.flag || '🏳️'}</span> ${teamB.name}</span>
+          ${teamName(teamB)}
           <span class="team-detail">${teamB.details}</span>
         </div>
       </div>
@@ -1161,6 +1189,132 @@ function buildPlayerDetails(player, pbs, runUrl, datePb){
     ${videoHtml}
   </div>`;
 }
+
+function getGroupPlayerSummary(playerName){
+  const rawResults = getLoadedResults() || { matches: [] };
+  const standings = computeGroupStandings(rawResults);
+  const target = normalizeManualMatchName(playerName);
+
+  for(const [letter, entriesByName] of Object.entries(standings)){
+    const entries = Object.values(entriesByName).sort((a, b) => {
+      if(b.points !== a.points) return b.points - a.points;
+      return (a.bestTime ?? Number.POSITIVE_INFINITY) - (b.bestTime ?? Number.POSITIVE_INFINITY);
+    });
+    const rank = entries.findIndex(entry => normalizeManualMatchName(entry.name) === target);
+    if(rank !== -1){
+      return { letter, rank: rank + 1, total: entries.length, entry: entries[rank], entries };
+    }
+  }
+
+  return null;
+}
+
+function getGroupMatches(groupLetter){
+  const rawResults = getLoadedResults();
+  const matches = rawResults && Array.isArray(rawResults.matches) ? rawResults.matches : [];
+
+  return matches
+    .filter(match => resolveManualMatchKey(match) === groupLetter)
+    .map(match => ({
+      playerA: match.playerA || match.jugadorA || match.a || match.teamA || match.player_1,
+      playerB: match.playerB || match.jugadorB || match.b || match.teamB || match.player_2,
+      timeA: match.timeA ?? match.tiempoA ?? match.time_a ?? match.times?.[match.playerA] ?? match.result?.timeA ?? match.result?.[match.playerA] ?? '-',
+      timeB: match.timeB ?? match.tiempoB ?? match.time_b ?? match.times?.[match.playerB] ?? match.result?.timeB ?? match.result?.[match.playerB] ?? '-',
+      winner: match.winner || '',
+      date: match.date || match.fecha || match.day || 'Fecha por definir',
+      time: match.time || match.horario || 'Horario por definir'
+    }));
+}
+
+function formatCalendarDate(value){
+  const key = normalizeDateKey(value);
+  return key && /^\d{4}-\d{2}-\d{2}$/.test(key) ? key.split('-').reverse().join('/') : value;
+}
+
+function openPlayerModal(playerName){
+  const modal = document.getElementById('player-modal');
+  const content = document.getElementById('player-modal-content');
+  if(!modal || !content) return;
+
+  const players = lastLeaderboardSnapshot?.players || [];
+  const profile = resolvePlayerByName(players, playerName);
+  const summary = getGroupPlayerSummary(playerName);
+  const flag = profile ? countryFlag(players, profile.id) : null;
+  const entry = summary?.entry || { matches: 0, wins: 0, draws: 0, losses: 0, bestTime: null, bestTimeLabel: null, points: 0 };
+  const bestTime = entry.bestTimeLabel || (entry.bestTime != null ? formatTime(entry.bestTime) : '-');
+  const groupMatches = summary ? getGroupMatches(summary.letter) : [];
+  const isUpcoming = match => {
+    return !(match.winner && String(match.winner).trim()) &&
+      parseManualTime(match.timeA) == null && parseManualTime(match.timeB) == null;
+  };
+  const renderMatch = match => {
+    const formattedA = formatManualTime(match.timeA);
+    const formattedB = formatManualTime(match.timeB);
+    const winnerText = match.winner ? `Ganador: ${match.winner}` : '';
+    return `<div class="player-match">
+      <div class="player-match-top"><strong>${formatCalendarDate(match.date)}</strong><span>${match.time}</span></div>
+      <div class="player-match-teams"><span>${match.playerA}</span><b>${formattedA}</b><span>${match.playerB}</span><b>${formattedB}</b></div>
+      <div class="player-match-status">${isUpcoming(match) ? 'Próximo' : (winnerText || 'Finalizado')}</div>
+    </div>`;
+  };
+  const pastMatches = groupMatches.filter(match => !isUpcoming(match));
+  const upcomingMatches = groupMatches.filter(match => isUpcoming(match));
+  const renderMatchSection = (title, matches, emptyText) => `
+    <div class="player-modal-subsection">
+      <div class="player-modal-subtitle">${title}</div>
+      ${matches.length ? matches.map(renderMatch).join('') : `<div class="player-modal-empty">${emptyText}</div>`}
+    </div>`;
+  const groupTable = summary ? `<div class="player-modal-section">
+    <div class="player-modal-section-title">Posiciones · Grupo ${summary.letter}</div>
+    <div class="player-group-table-wrap"><table class="player-group-table"><thead><tr><th>#</th><th>Jugador</th><th>P</th><th>W</th><th>D</th><th>L</th><th>TB</th><th>PTS</th></tr></thead><tbody>
+      ${summary.entries.map((groupEntry, index) => `<tr class="${normalizeManualMatchName(groupEntry.name) === normalizeManualMatchName(playerName) ? 'is-selected' : ''}"><td>${index + 1}</td><td>${groupEntry.name}</td><td>${groupEntry.matches}</td><td>${groupEntry.wins}</td><td>${groupEntry.draws}</td><td>${groupEntry.losses}</td><td>${groupEntry.bestTimeLabel || (groupEntry.bestTime != null ? formatTime(groupEntry.bestTime) : '-')}</td><td>${groupEntry.points}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>` : '';
+
+  content.innerHTML = `
+    <div class="player-modal-kicker">Fase de grupos${summary ? ` · Grupo ${summary.letter}` : ''}</div>
+    <h2 id="player-modal-title">${flag ? `<span class="flag">${flag}</span> ` : ''}${playerName}</h2>
+    <div class="player-modal-position">${summary ? `<strong>${summary.rank}º</strong> de ${summary.total} en el Grupo ${summary.letter}` : 'Posición pendiente'}</div>
+    <div class="player-modal-stats">
+      <div><span>P</span><strong>${entry.matches}</strong></div>
+      <div><span>W</span><strong>${entry.wins}</strong></div>
+      <div><span>D</span><strong>${entry.draws}</strong></div>
+      <div><span>L</span><strong>${entry.losses}</strong></div>
+      <div><span>TB</span><strong>${bestTime}</strong></div>
+      <div><span>PTS</span><strong>${entry.points}</strong></div>
+    </div>
+    ${groupTable}
+    <div class="player-modal-section">
+      <div class="player-modal-section-title">Partidos del Grupo ${summary?.letter || ''}</div>
+      ${renderMatchSection('Pasadas', pastMatches, 'Todavía no hay partidos finalizados.')}
+      ${renderMatchSection('Próximas', upcomingMatches, 'No hay próximos partidos cargados.')}
+    </div>
+    ${profile ? `<div class="player-modal-note">La posición y los partidos corresponden exclusivamente a la fase de grupos.</div>` : ''}
+  `;
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+
+function closePlayerModal(){
+  const modal = document.getElementById('player-modal');
+  if(!modal) return;
+  modal.hidden = true;
+  document.body.classList.remove('modal-open');
+}
+
+document.addEventListener('click', (event) => {
+  const playerButton = event.target.closest('.player-profile-button');
+  if(playerButton){
+    openPlayerModal(playerButton.dataset.playerName);
+    return;
+  }
+
+  if(event.target.closest('[data-close-player-modal]')) closePlayerModal();
+});
+
+document.addEventListener('keydown', (event) => {
+  if(event.key === 'Escape') closePlayerModal();
+});
 
 async function loadLeaderboard(){
   const statusEl = document.getElementById('status');
@@ -1249,7 +1403,7 @@ async function loadLeaderboard(){
         <td class="${placeClass}">${row.placeLabel}</td>
         <td class="player ${isPending ? 'pending-player-cell' : ''}">
           ${row.playerId ? `
-            <button class="player-button" type="button" data-player-id="${row.playerId}">
+            <button class="player-profile-button player-button" type="button" data-player-id="${row.playerId}" data-player-name="${name}">
               <span class="player-name">${name}</span>${flag ? ` <span class="flag">${flag}</span>` : ''}
             </button>
           ` : `<span class="player-name pending-player">${name}</span>`}
@@ -1276,7 +1430,7 @@ async function loadLeaderboard(){
       }
     }
 
-    container.querySelectorAll('button.player-button').forEach(button => {
+    container.querySelectorAll('button.inline-player-button').forEach(button => {
       button.addEventListener('click', () => {
         const userId = button.dataset.playerId;
         const detailRows = container.querySelectorAll('.player-detail-row');
