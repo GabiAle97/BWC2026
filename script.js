@@ -1214,6 +1214,8 @@ function renderCalendarFixturePanel(players = []){
         });
 
         const winner = resultMatch ? getMatchWinnerName(resultMatch, resultMatch.playerA || resultMatch.jugadorA || resultMatch.a || resultMatch.teamA || resultMatch.player_1, resultMatch.playerB || resultMatch.jugadorB || resultMatch.b || resultMatch.teamB || resultMatch.player_2) : null;
+        const playerAWon = winner && normalizeManualMatchName(winner) === normalizeManualMatchName(match.playerA);
+        const playerBWon = winner && normalizeManualMatchName(winner) === normalizeManualMatchName(match.playerB);
         const scoreA = resultMatch ? (resultMatch.timeA ?? resultMatch.tiempoA ?? resultMatch.time_a ?? resultMatch.times?.[match.playerA] ?? resultMatch.result?.timeA ?? resultMatch.result?.[match.playerA] ?? '-') : '-';
         const scoreB = resultMatch ? (resultMatch.timeB ?? resultMatch.tiempoB ?? resultMatch.time_b ?? resultMatch.times?.[match.playerB] ?? resultMatch.result?.timeB ?? resultMatch.result?.[match.playerB] ?? '-') : '-';
 
@@ -1230,14 +1232,14 @@ function renderCalendarFixturePanel(players = []){
           <div class="fixture-match">
             <div class="fixture-match-group">Grupo ${match.group}</div>
             <div class="fixture-teams">
-              <div class="fixture-team-row ${winner && winner === match.playerA ? 'winner' : ''}">
+              <div class="fixture-team-row ${playerAWon ? '' : winner ? 'loser' : ''}">
                 <div class="fixture-team">
                   <span class="flag">${playerAFlag || '🏳️'}</span>
                   <button class="player-profile-button fixture-name" type="button" data-player-name="${match.playerA}">${match.playerA}</button>
                 </div>
                 <span class="fixture-score">${formattedA}</span>
               </div>
-              <div class="fixture-team-row ${winner && winner === match.playerB ? 'winner' : ''}">
+              <div class="fixture-team-row ${playerBWon ? '' : winner ? 'loser' : ''}">
                 <div class="fixture-team">
                   <span class="flag">${playerBFlag || '🏳️'}</span>
                   <button class="player-profile-button fixture-name" type="button" data-player-name="${match.playerB}">${match.playerB}</button>

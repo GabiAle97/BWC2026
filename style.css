@@ -797,6 +797,11 @@ footer{
   min-width:0;
 }
 
+.fixture-team-row.loser{
+  filter:grayscale(1);
+  opacity:.5;
+}
+
 .fixture-team{
   display:flex;
   align-items:center;
