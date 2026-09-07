@@ -39,6 +39,15 @@
     </section>
 
     <section id="fixture" class="tab-panel">
+      <div class="fixture-detector" aria-label="Detector de transmisión">
+        <div>
+          <strong>Detector de pantalla de partida</strong>
+          <p id="fixture-detector-help">Compartí la pestaña o ventana donde se ve la transmisión para detectar automáticamente la pareja y el contador.</p>
+        </div>
+        <button id="fixture-detector-button" class="fixture-detector-button" type="button">Iniciar detector</button>
+        <span id="fixture-detector-status" class="fixture-detector-status" aria-live="polite">Desactivado</span>
+        <video id="fixture-detector-video" class="fixture-detector-video" muted playsinline></video>
+      </div>
       <div id="fixture-content"><div class="loading">Fixture: contenido pendiente.</div></div>
     </section>
 

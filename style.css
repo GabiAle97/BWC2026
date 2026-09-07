@@ -649,6 +649,25 @@ footer{
   gap:12px;
 }
 
+.fixture-detector{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:4px 12px;
+  align-items:center;
+  margin-bottom:12px;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:#121726;
+}
+.fixture-detector p{margin:3px 0 0;color:var(--muted);font-size:.72rem;line-height:1.4}
+.fixture-detector-button{border:0;border-radius:5px;padding:7px 10px;background:var(--accent);color:#0e0f13;font:inherit;font-size:.72rem;font-weight:700;cursor:pointer}
+.fixture-detector-button.is-stop{background:#e64949;color:#fff}
+.fixture-detector-status{grid-column:1 / -1;color:var(--muted);font-size:.7rem}
+.fixture-detector-status.is-active{color:#5ee6a0}
+.fixture-detector-status.is-searching{color:var(--gold)}
+.fixture-detector-video{display:none}
+
 .fixture-dates{
   display:flex;
   flex-direction:column;
@@ -852,6 +871,7 @@ footer{
   text-decoration:none;
 }
 .fixture-live-button:hover{filter:brightness(1.1)}
+.fixture-detected-status{color:#5ee6a0;font-weight:700}
 
 .fixture-placeholder{
   color:#f7d56e;
