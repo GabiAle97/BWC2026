@@ -196,17 +196,7 @@
       "groups": [
         {
           "name": "A",
-          "matches": [
-            {
-            "playerA": "JokerUY",
-            "playerB": "Fiveskill",
-            "timeA": "42:22",
-            "timeB": "41:50",
-            "winner": "Fiveskill",
-            "date": "2026-09-10",
-            "time": "17:00"
-          }
-          ]
+          "matches": []
         },
         {
           "name": "B",
