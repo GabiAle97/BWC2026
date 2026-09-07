@@ -376,7 +376,8 @@ async function loadExternalPlayerStats(){
 }
 
 function getSheetCell(row, index){
-  return String(row?.c?.[index]?.v ?? '').trim();
+  const cell = row?.c?.[index];
+  return String(cell?.f ?? cell?.v ?? '').trim();
 }
 
 function normalizeSchedulePlayerName(name){
@@ -402,12 +403,29 @@ function normalizeSchedulePlayerName(name){
 }
 
 function parseScheduleDayLabel(value){
-  const match = String(value || '').match(/DAY\s+\d+\s+([A-ZÁÉÍÓÚ]+)[.]?\s+(\d{1,2})/i);
+  const match = String(value || '').trim().match(/^DAY\s+(\d+)\s+([A-ZÁÉÍÓÚ]+)[.]?\s+(\d{1,2})$/i);
   if(!match) return null;
 
-  const months = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
-  const month = months[match[1].slice(0, 3).toUpperCase()];
-  return month ? `2026-${String(month).padStart(2, '0')}-${String(Number(match[2])).padStart(2, '0')}` : null;
+  const months = {
+    JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
+    JUL: 7, AUG: 8, SEP: 9, SEPT: 9, OCT: 10, NOV: 11, DEC: 12
+  };
+  const month = months[match[2].toUpperCase()];
+  const dayOfMonth = Number(match[3]);
+  return month && dayOfMonth >= 1 && dayOfMonth <= 31
+    ? `2026-${String(month).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`
+    : null;
+}
+
+function parseScheduleDateCells(dayValue, dateValue){
+  const fullDate = parseScheduleDayLabel(dateValue);
+  if(fullDate) return fullDate;
+
+  const combinedDate = `${String(dayValue || '').trim()} ${String(dateValue || '').trim()}`;
+  const combinedMatch = combinedDate.match(/^DAY\s+\d+\s+([A-ZÁÉÍÓÚ]+)[.]?\s+(\d{1,2})$/i);
+  if(!combinedMatch) return null;
+
+  return parseScheduleDayLabel(`DAY 1 ${combinedMatch[1]} ${combinedMatch[2]}`);
 }
 
 function normalizeScheduleTime(value){
@@ -434,27 +452,33 @@ function removeRescheduledDuplicates(matches){
   return [...uniqueMatches.values()];
 }
 
+function inferScheduleGroup(playerA, playerB){
+  const normalizedA = normalizeManualMatchName(playerA);
+  const normalizedB = normalizeManualMatchName(playerB);
+  return Object.entries(FINAL_GROUPS).find(([, players]) => {
+    const names = players.map(normalizeManualMatchName);
+    return names.includes(normalizedA) && names.includes(normalizedB);
+  })?.[0] || null;
+}
+
 function parseMatchScheduleTable(table){
   const rows = table?.rows || [];
   const rounds = [
-    { start: 1, schedule: 6 },
-    { start: 10, schedule: 15 },
-    { start: 18, schedule: 22 }
+    { start: 1, schedule: 6, dateDay: 0, date: 1 },
+    { start: 9, schedule: 14, dateDay: 8, date: 9 },
+    { start: 18, schedule: 22, dateDay: 16, date: 17 }
   ];
   const matchesByRound = rounds.map(() => []);
-  let currentDate = null;
+  const currentDates = rounds.map(() => null);
 
   for(let rowIndex = 0; rowIndex < rows.length; rowIndex++){
     const row = rows[rowIndex];
     const nextRow = rows[rowIndex + 1];
-    const firstCell = getSheetCell(row, 1);
-    const parsedDate = parseScheduleDayLabel(firstCell);
-    if(parsedDate){
-      currentDate = parsedDate;
-      continue;
-    }
 
-    rounds.forEach(({ start, schedule }, roundIndex) => {
+    rounds.forEach(({ start, schedule, dateDay, date }, roundIndex) => {
+      const parsedDate = parseScheduleDateCells(getSheetCell(row, dateDay), getSheetCell(row, date));
+      if(parsedDate) currentDates[roundIndex] = parsedDate;
+
       const playerA = getSheetCell(row, start);
       const playerB = getSheetCell(row, start + 3);
       if(!playerA || !playerB || playerA === 'TBD' || playerB === 'TBD') return;
@@ -462,7 +486,8 @@ function parseMatchScheduleTable(table){
       const detailRow = nextRow || { c: [] };
       const groupValue = getSheetCell(detailRow, schedule);
       const groupMatch = groupValue.match(/GROUP\s+([A-H])/i);
-      if(!groupMatch) return;
+      const group = groupMatch?.[1]?.toUpperCase() || inferScheduleGroup(playerA, playerB);
+      if(!group) return;
 
       const scoreA = getSheetCell(row, start + 1);
       const scoreB = getSheetCell(row, start + 2);
@@ -476,13 +501,13 @@ function parseMatchScheduleTable(table){
           : '';
 
       matchesByRound[roundIndex].push({
-        group: groupMatch[1].toUpperCase(),
+        group,
         playerA: normalizeSchedulePlayerName(playerA),
         playerB: normalizeSchedulePlayerName(playerB),
         timeA: timeA || '-',
         timeB: timeB || '-',
         winner,
-        date: currentDate || '',
+        date: currentDates[roundIndex] || '',
         time: normalizeScheduleTime(scheduleValue)
       });
     });
