@@ -23,6 +23,7 @@ const AUTO_RESULTS_PATHS = ['./resultados.json'];
 const VISIT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/bwc-views';
 const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
 let externalPlayerStats = new Map();
+let externalStatsLoad = null;
 
 const QUALIFYING_PARTICIPANTS = [
   "LanceLM",
@@ -91,13 +92,18 @@ const FINAL_GROUPS = {
   H: ["exper1ment", "jossho6", "TheNevs", "Sawnek"]
 };
 
+const PLAYER_NAME_ALIASES = {
+  nevs: 'thenevs'
+};
+
 function normalizeParticipantName(name){
-  return (name || '')
+  const normalized = (name || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '')
     .trim();
+  return PLAYER_NAME_ALIASES[normalized] || normalized;
 }
 
 function resolvePlayerByName(players, name){
@@ -350,6 +356,8 @@ async function loadExternalPlayerStats(){
       const name = valueAt(row, 'statistics runner');
       if(!name) return;
       externalPlayerStats.set(normalizeParticipantName(name), {
+        name,
+        flag: valueAt(row, 'flag'),
         overallPb: valueAt(row, 'overall pb'),
         qualifiersPb: valueAt(row, 'qualifiers pb'),
         basementPb: valueAt(row, 'basement pb'),
@@ -362,6 +370,85 @@ async function loadExternalPlayerStats(){
     externalPlayerStats = new Map();
     console.warn('No se pudieron cargar las estadísticas de Google Sheets.', err);
   }
+}
+
+function parsePbSeconds(value){
+  const text = String(value || '').trim();
+  if(!text || text === '-') return null;
+
+  const parts = text.split(':');
+  if(parts.length < 2 || parts.length > 3) return null;
+
+  const minutesOrHours = Number(parts[0]);
+  const seconds = Number(parts[1].replace(/[^0-9.].*$/, ''));
+  if(!Number.isFinite(minutesOrHours) || !Number.isFinite(seconds)) return null;
+
+  if(parts.length === 3){
+    const hours = minutesOrHours;
+    const minutes = Number(parts[1]);
+    const finalSeconds = Number(parts[2].replace(/[^0-9.].*$/, ''));
+    return Number.isFinite(minutes) && Number.isFinite(finalSeconds)
+      ? hours * 3600 + minutes * 60 + finalSeconds
+      : null;
+  }
+
+  return minutesOrHours * 60 + seconds;
+}
+
+function renderStatsPanel(){
+  const container = document.getElementById('stats-content');
+  if(!container) return;
+
+  const statDefinitions = {
+    'basement-pb': { key: 'basementPb', label: 'Basement PB' },
+    'train-crash-pb': { key: 'trainCrash', label: 'Train Crash PB' },
+    'tournament-best': { key: 'tournamentBest', label: 'Tournament Best' }
+  };
+
+  const getStatsFlagMarkup = (stats) => {
+    const sheetFlag = String(stats.flag || '').trim();
+    if(sheetFlag){
+      const flagMarkup = countryCodeToFlagMarkup(sheetFlag);
+      if(flagMarkup) return flagMarkup;
+    }
+
+    const profile = resolvePlayerByName(lastLeaderboardSnapshot?.players || [], stats.name);
+    return profile ? countryFlag(lastLeaderboardSnapshot.players, profile.id) || '' : '';
+  };
+
+  const renderTable = target => {
+    const definition = statDefinitions[target] || statDefinitions['basement-pb'];
+    const rows = [...externalPlayerStats.entries()]
+      .map(([normalizedName, stats]) => ({
+        name: stats.name || normalizedName,
+        flag: getStatsFlagMarkup(stats),
+        value: stats[definition.key] || '-',
+        seconds: parsePbSeconds(stats[definition.key])
+      }))
+      .sort((a, b) => {
+        if(a.seconds == null && b.seconds == null) return a.name.localeCompare(b.name);
+        if(a.seconds == null) return 1;
+        if(b.seconds == null) return -1;
+        return a.seconds - b.seconds || a.name.localeCompare(b.name);
+      });
+
+    container.innerHTML = rows.length
+      ? `<div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>#</th><th>Jugador</th><th>${definition.label}</th></tr></thead><tbody>${rows.map((row, index) => `
+          <tr class="${index === 0 ? 'stats-first' : ''} ${index === rows.length - 1 ? 'stats-last' : ''}"><td class="stats-rank">${index + 1}</td><td class="stats-player"><button class="player-profile-button stats-player-button" type="button" data-player-name="${row.name}">${row.flag ? `<span class="flag">${row.flag}</span>` : ''}<span>${row.name}</span></button></td><td class="stats-value${row.seconds == null ? ' stats-missing' : ''}">${row.value}</td></tr>
+        `).join('')}</tbody></table></div>`
+      : '<div class="loading">No se pudieron cargar las estadísticas.</div>';
+  };
+
+  document.querySelectorAll('.stats-tab-button').forEach(button => {
+    if(button.dataset.bound) return;
+    button.addEventListener('click', () => {
+      document.querySelectorAll('.stats-tab-button').forEach(tab => tab.classList.toggle('active', tab === button));
+      renderTable(button.dataset.statsTarget);
+    });
+    button.dataset.bound = 'true';
+  });
+
+  renderTable('basement-pb');
 }
 
 function normalizeResultsData(rawResults){
@@ -1602,7 +1689,7 @@ async function loadLeaderboard(){
   const statusEl = document.getElementById('status');
   try{
     const json = await fetchLeaderboardData();
-    await loadExternalPlayerStats();
+    await externalStatsLoad;
     const data = json.data;
     const players = data.players.data;
     const runs = Array.isArray(data.runs)
@@ -1624,6 +1711,7 @@ async function loadLeaderboard(){
     }
 
     lastLeaderboardSnapshot = { runs, players };
+    renderStatsPanel();
     renderGroupsPanel(runs, players);
     renderFixturePanel(players);
     renderEliminatoriasPanel(runs, players);
@@ -1764,6 +1852,7 @@ async function loadLeaderboard(){
   }
 }
 
+externalStatsLoad = loadExternalPlayerStats().then(renderStatsPanel);
 loadLeaderboard();
 loadVisitCounter();
 

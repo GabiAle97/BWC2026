@@ -13,6 +13,7 @@
 
   <nav class="tabs">
     <button class="tab-button active" data-target="tabla">Tabla de Posiciones</button>
+    <button class="tab-button" data-target="stats">Stats</button>
     <button class="tab-button" data-target="grupos">Fase de Grupos</button>
     <button class="tab-button" data-target="fixture">Fixture</button>
     <button class="tab-button" data-target="eliminatorias">Eliminatorias</button>
@@ -22,6 +23,15 @@
   <div id="content">
     <section id="tabla" class="tab-panel active">
       <div id="tabla-content"><div class="loading">Cargando datos…</div></div>
+    </section>
+
+    <section id="stats" class="tab-panel">
+      <div class="stats-tabs" role="tablist" aria-label="Categorías de estadísticas">
+        <button class="stats-tab-button active" type="button" data-stats-target="basement-pb">Basement PB</button>
+        <button class="stats-tab-button" type="button" data-stats-target="train-crash-pb">Train Crash PB</button>
+        <button class="stats-tab-button" type="button" data-stats-target="tournament-best">Tournament Best</button>
+      </div>
+      <div id="stats-content"><div class="loading">Cargando estadísticas…</div></div>
     </section>
 
     <section id="grupos" class="tab-panel">

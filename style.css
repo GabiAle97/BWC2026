@@ -388,6 +388,38 @@ footer{
 .tab-panel{display:block}
 .tab-panel:not(.active){display:none}
 
+.stats-tabs{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+  flex-wrap:wrap;
+}
+
+.stats-tab-button{
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:7px 10px;
+  border-radius:7px;
+  cursor:pointer;
+  font-size:.82rem;
+}
+.stats-tab-button.active{
+  background:linear-gradient(180deg,#2a3150,#1e2538);
+  border-color:#333a56;
+}
+.stats-table-wrap{overflow-x:auto;border-radius:10px}
+.stats-table{min-width:420px}
+.stats-rank{width:52px;color:var(--muted);font-weight:700}
+.stats-player{font-weight:600;display:flex;align-items:center;gap:8px}
+.stats-player-button{display:inline-flex;align-items:center;gap:8px;padding:2px 0;margin:0}
+.stats-value{color:var(--accent);font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.stats-missing{color:var(--muted);font-weight:400}
+.stats-first td{background:rgba(255,209,102,.16)}
+.stats-first .stats-rank,.stats-first .stats-value{color:var(--gold)}
+.stats-last td{background:rgba(255,82,82,.14)}
+.stats-last .stats-rank,.stats-last .stats-value{color:#ff7777}
+
 /* ========== ABOUT ME ========== */
 .about-page{
   position:relative;
