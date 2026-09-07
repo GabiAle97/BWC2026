@@ -1,0 +1,342 @@
+{
+  "dates": [
+    {
+      "number": 1,
+      "label": "Fecha 1 de 3",
+      "groups": [
+        {
+          "name": "A",
+          "matches": [
+          {
+            "playerA": "JokerUY",
+            "playerB": "LinoBariana",
+            "timeA": "41:21",
+            "timeB": "43:02",
+            "winner": "JokerUY",
+            "date": "2026-09-03",
+            "time": "16:00"
+          },
+          {
+            "playerA": "Fiveskill",
+            "playerB": "Darchaen",
+            "timeA": "42:39",
+            "timeB": "DEATH",
+            "winner": "Fiveskill",
+            "date": "2026-09-03",
+            "time": "17:00"
+          }
+          ]
+        },
+        {
+          "name": "B",
+          "matches": [
+          {
+            "playerA": "Homuki",
+            "playerB": "Adrian20v",
+            "timeA": "43:39",
+            "timeB": "43:19",
+            "winner": "Adrian20v",
+            "date": "2026-09-03",
+            "time": "18:00"
+          },
+          {
+            "playerA": "LanceLM",
+            "playerB": "isogai",
+            "timeA": "41:33",
+            "timeB": "43:36",
+            "winner": "LanceLM",
+            "date": "2026-09-03",
+            "time": "00:00"
+          }
+          ]
+        },
+        {
+          "name": "C",
+          "matches": [
+          {
+            "playerA": "HalfBakedSnake",
+            "playerB": "im4rcuss",
+            "timeA": "43:04",
+            "timeB": "41:46",
+            "winner": "im4rcuss",
+            "date": "2026-09-04",
+            "time": "17:00"
+          },
+          {
+            "playerA": "redshines",
+            "playerB": "GabiAle97",
+            "timeA": "43:30",
+            "timeB": "43:02",
+            "winner": "GabiAle97",
+            "date": "2026-09-04",
+            "time": "21:00"
+          }
+          ]
+        },
+        {
+          "name": "D",
+          "matches": [
+          {
+            "playerA": "Micwich",
+            "playerB": "mayoness",
+            "timeA": "41:28",
+            "timeB": "42:30",
+            "winner": "Micwich",
+            "date": "2026-09-04",
+            "time": "16:00"
+          },
+          {
+            "playerA": "Savitrue",
+            "playerB": "EsAndreas",
+            "timeA": "42:03",
+            "timeB": "43:56",
+            "winner": "EsAndreas",
+            "date": "2026-09-04",
+            "time": "19:00"
+          }
+          ]
+        },
+        {
+          "name": "E",
+          "matches": [
+          {
+            "playerA": "Shyanji",
+            "playerB": "Owarii1RE",
+            "timeA": "42:06",
+            "timeB": "43:18",
+            "winner": "Shyanji",
+            "date": "2026-09-05",
+            "time": "17:00"
+          },
+          {
+            "playerA": "SonBeto",
+            "playerB": "NemesisXploder",
+            "timeA": "41:52",
+            "timeB": "42:47",
+            "winner": "SonBeto",
+            "date": "2026-09-05",
+            "time": "18:00"
+          }
+          ]
+        },
+        {
+          "name": "F",
+          "matches": [
+          {
+            "playerA": "Ascanioxjs",
+            "playerB": "Re_duke",
+            "timeA": "41:39",
+            "timeB": "42:28",
+            "winner": "Ascanioxjs",
+            "date": "2026-09-05",
+            "time": "19:00"
+          },
+          {
+            "playerA": "Gallardd",
+            "playerB": "Bomba_Nemesis",
+            "timeA": "42:17",
+            "timeB": "43:05",
+            "winner": "Gallardd",
+            "date": "2026-09-05",
+            "time": "20:00"
+          }
+          ]
+        },
+        {
+          "name": "G",
+          "matches": [
+          {
+            "playerA": "crisdoile2",
+            "playerB": "insanebb",
+            "timeA": "41:58",
+            "timeB": "43:12",
+            "winner": "crisdoile2",
+            "date": "2026-09-06",
+            "time": "19:00"
+          },
+          {
+            "playerA": "MattGael",
+            "playerB": "Paquito_tatata",
+            "timeA": "42:31",
+            "timeB": "43:19",
+            "winner": "MattGael",
+            "date": "2026-09-06",
+            "time": "20:00"
+          }
+          ]
+        },
+        {
+          "name": "H",
+          "matches": [
+          {
+            "playerA": "TheNevs",
+            "playerB": "Sawnek",
+            "timeA": "42:06",
+            "timeB": "43:18",
+            "winner": "TheNevs",
+            "date": "2026-09-06",
+            "time": "17:00"
+          },
+          {
+            "playerA": "exper1ment",
+            "playerB": "jossho6",
+            "timeA": "41:52",
+            "timeB": "42:47",
+            "winner": "exper1ment",
+            "date": "2026-09-06",
+            "time": "18:00"
+          }
+          ]
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "label": "Fecha 2 de 3",
+      "groups": [
+        {
+          "name": "A",
+          "matches": [
+            { "playerA": "JokerUY", "playerB": "Darchaen", "timeA": "40:58", "timeB": "42:17", "winner": "JokerUY", "date": "2026-09-07", "time": "16:00" },
+            { "playerA": "Fiveskill", "playerB": "LinoBariana", "timeA": "41:44", "timeB": "42:06", "winner": "Fiveskill", "date": "2026-09-07", "time": "17:00" }
+          ]
+        },
+        {
+          "name": "B",
+          "matches": [
+            { "playerA": "LanceLM", "playerB": "Homuki", "timeA": "41:12", "timeB": "42:35", "winner": "LanceLM", "date": "2026-09-07", "time": "18:00" },
+            { "playerA": "Adrian20v", "playerB": "isogai", "timeA": "42:01", "timeB": "43:10", "winner": "Adrian20v", "date": "2026-09-07", "time": "19:00" }
+          ]
+        },
+        {
+          "name": "C",
+          "matches": [
+            { "playerA": "im4rcuss", "playerB": "redshines", "timeA": "41:35", "timeB": "43:02", "winner": "im4rcuss", "date": "2026-09-07", "time": "20:00" },
+            { "playerA": "GabiAle97", "playerB": "HalfBakedSnake", "timeA": "42:22", "timeB": "43:11", "winner": "GabiAle97", "date": "2026-09-07", "time": "21:00" }
+          ]
+        },
+        {
+          "name": "D",
+          "matches": [
+            { "playerA": "EsAndreas", "playerB": "micwich", "timeA": "41:48", "timeB": "42:16", "winner": "EsAndreas", "date": "2026-09-08", "time": "16:00" },
+            { "playerA": "Savitrue", "playerB": "mayoness", "timeA": "42:09", "timeB": "43:20", "winner": "Savitrue", "date": "2026-09-08", "time": "17:00" }
+          ]
+        },
+        {
+          "name": "E",
+          "matches": [
+            { "playerA": "Shyanji", "playerB": "NemesisXploder", "timeA": "41:55", "timeB": "43:08", "winner": "Shyanji", "date": "2026-09-08", "time": "18:00" },
+            { "playerA": "SonBeto", "playerB": "Owarii1RE", "timeA": "42:27", "timeB": "42:58", "winner": "SonBeto", "date": "2026-09-08", "time": "19:00" }
+          ]
+        },
+        {
+          "name": "F",
+          "matches": [
+            { "playerA": "Ascanioxjs", "playerB": "Bomba_Nemesis", "timeA": "41:39", "timeB": "43:21", "winner": "Ascanioxjs", "date": "2026-09-08", "time": "20:00" },
+            { "playerA": "Gallardd", "playerB": "Re_duke", "timeA": "42:44", "timeB": "43:05", "winner": "Gallardd", "date": "2026-09-08", "time": "21:00" }
+          ]
+        },
+        {
+          "name": "G",
+          "matches": [
+            { "playerA": "crisdoile2", "playerB": "Paquito_tatata", "timeA": "42:03", "timeB": "43:26", "winner": "crisdoile2", "date": "2026-09-09", "time": "17:00" },
+            { "playerA": "MattGael", "playerB": "insanebb", "timeA": "41:57", "timeB": "42:48", "winner": "MattGael", "date": "2026-09-09", "time": "18:00" }
+          ]
+        },
+        {
+          "name": "H",
+          "matches": [
+            { "playerA": "TheNevs", "playerB": "jossho6", "timeA": "42:14", "timeB": "43:02", "winner": "TheNevs", "date": "2026-09-09", "time": "19:00" },
+            { "playerA": "exper1ment", "playerB": "Sawnek", "timeA": "41:46", "timeB": "42:37", "winner": "exper1ment", "date": "2026-09-09", "time": "20:00" }
+          ]
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "label": "Fecha 3 de 3",
+      "groups": [
+        {
+          "name": "A",
+          "matches": [
+            { "playerA": "JokerUY", "playerB": "Fiveskill", "timeA": "40:42", "timeB": "42:11", "winner": "JokerUY", "date": "2026-09-10", "time": "16:00" },
+            { "playerA": "LinoBariana", "playerB": "Darchaen", "timeA": "41:58", "timeB": "43:07", "winner": "LinoBariana", "date": "2026-09-10", "time": "17:00" }
+          ]
+        },
+        {
+          "name": "B",
+          "matches": [
+            { "playerA": "LanceLM", "playerB": "Adrian20v", "timeA": "41:20", "timeB": "42:09", "winner": "LanceLM", "date": "2026-09-10", "time": "18:00" },
+            { "playerA": "Homuki", "playerB": "isogai", "timeA": "42:31", "timeB": "43:12", "winner": "Homuki", "date": "2026-09-10", "time": "19:00" }
+          ]
+        },
+        {
+          "name": "C",
+          "matches": [
+            { "playerA": "im4rcuss", "playerB": "GabiAle97", "timeA": "41:04", "timeB": "42:45", "winner": "im4rcuss", "date": "2026-09-10", "time": "20:00" },
+            { "playerA": "redshines", "playerB": "HalfBakedSnake", "timeA": "42:18", "timeB": "43:33", "winner": "redshines", "date": "2026-09-10", "time": "21:00" }
+          ]
+        },
+        {
+          "name": "D",
+          "matches": [
+            { "playerA": "EsAndreas", "playerB": "mayoness", "timeA": "41:32", "timeB": "43:18", "winner": "EsAndreas", "date": "2026-09-11", "time": "16:00" },
+            { "playerA": "micwich", "playerB": "Savitrue", "timeA": "42:05", "timeB": "42:39", "winner": "micwich", "date": "2026-09-11", "time": "17:00" }
+          ]
+        },
+        {
+          "name": "E",
+          "matches": [
+            { "playerA": "Shyanji", "playerB": "SonBeto", "timeA": "41:41", "timeB": "42:52", "winner": "Shyanji", "date": "2026-09-11", "time": "18:00" },
+            { "playerA": "Owarii1RE", "playerB": "NemesisXploder", "timeA": "42:16", "timeB": "43:09", "winner": "Owarii1RE", "date": "2026-09-11", "time": "19:00" }
+          ]
+        },
+        {
+          "name": "F",
+          "matches": [
+            { "playerA": "Ascanioxjs", "playerB": "Gallardd", "timeA": "41:27", "timeB": "42:46", "winner": "Ascanioxjs", "date": "2026-09-11", "time": "20:00" },
+            { "playerA": "Re_duke", "playerB": "Bomba_Nemesis", "timeA": "42:12", "timeB": "43:28", "winner": "Re_duke", "date": "2026-09-11", "time": "21:00" }
+          ]
+        },
+        {
+          "name": "G",
+          "matches": [
+            { "playerA": "crisdoile2", "playerB": "MattGael", "timeA": "41:36", "timeB": "42:57", "winner": "crisdoile2", "date": "2026-09-12", "time": "17:00" },
+            { "playerA": "insanebb", "playerB": "Paquito_tatata", "timeA": "42:24", "timeB": "43:15", "winner": "insanebb", "date": "2026-09-12", "time": "18:00" }
+          ]
+        },
+        {
+          "name": "H",
+          "matches": [
+            { "playerA": "TheNevs", "playerB": "exper1ment", "timeA": "41:49", "timeB": "42:34", "winner": "TheNevs", "date": "2026-09-12", "time": "19:00" },
+            { "playerA": "Sawnek", "playerB": "jossho6", "timeA": "42:08", "timeB": "43:22", "winner": "Sawnek", "date": "2026-09-12", "time": "20:00" }
+          ]
+        }
+      ]
+    }
+  ],
+  "knockout": {
+    "octavos": [
+      { "playerA": "JokerUY", "playerB": "EsAndreas", "winner": "JokerUY" },
+      { "playerA": "Savitrue", "playerB": "LinoBariana", "winner": "LinoBariana" },
+      { "playerA": "im4rcuss", "playerB": "Ascanioxjs", "winner": "im4rcuss" },
+      { "playerA": "Gallardd", "playerB": "GabiAle97", "winner": "GabiAle97" },
+      { "playerA": "LanceLM", "playerB": "Shyanji", "winner": "LanceLM" },
+      { "playerA": "SonBeto", "playerB": "Adrian20v", "winner": "Adrian20v" },
+      { "playerA": "crisdoile2", "playerB": "TheNevs", "winner": "crisdoile2" },
+      { "playerA": "Sawnek", "playerB": "MattGael", "winner": "Sawnek" }
+    ],
+    "cuartos": [
+      { "playerA": "JokerUY", "playerB": "LinoBariana", "winner": "JokerUY" },
+      { "playerA": "im4rcuss", "playerB": "GabiAle97", "winner": "im4rcuss" },
+      { "playerA": "LanceLM", "playerB": "Adrian20v", "winner": "LanceLM" },
+      { "playerA": "crisdoile2", "playerB": "Sawnek", "winner": "crisdoile2" }
+    ],
+    "semifinales": [
+      { "playerA": "JokerUY", "playerB": "im4rcuss", "winner": "JokerUY" },
+      { "playerA": "LanceLM", "playerB": "crisdoile2", "winner": "LanceLM" }
+    ],
+    "tercerPuesto": { "playerA": "im4rcuss", "playerB": "crisdoile2", "winner": "im4rcuss" },
+    "final": { "playerA": "JokerUY", "playerB": "LanceLM", "winner": "JokerUY" }
+  }
+}
