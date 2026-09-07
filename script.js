@@ -18,8 +18,6 @@ let finishedQualy = true;
 let finishedGroups = false;
 let lastLeaderboardSnapshot = null;
 let uploadedResults = null;
-let fixtureDetector = null;
-let detectedFixtureMatch = null;
 const RESULTS_STORAGE_KEY = 'bc-results-manual';
 const AUTO_RESULTS_PATHS = ['./resultados.json'];
 const VISIT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/bwc-views';
@@ -299,160 +297,6 @@ function isMatchLive(startDate){
   if(!startDate) return false;
   const elapsed = Date.now() - startDate.getTime();
   return elapsed >= 0 && elapsed <= LIVE_WINDOW_MS;
-}
-
-function escapeHtml(value){
-  return String(value ?? '').replace(/[&<>'"]/g, character => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-  }[character]));
-}
-
-function normalizeOcrText(value){
-  return normalizeParticipantName(String(value || '').replace(/[^a-zA-Z0-9_]/g, ''));
-}
-
-function findKnownPlayerFromOcr(text){
-  const normalizedText = normalizeOcrText(text);
-  if(!normalizedText) return null;
-  const names = Object.values(FINAL_GROUPS).flat();
-  let best = null;
-  names.forEach(name => {
-    const normalizedName = normalizeParticipantName(name);
-    if(normalizedText.includes(normalizedName) || normalizedName.includes(normalizedText)){
-      const score = Math.min(normalizedText.length, normalizedName.length) / Math.max(normalizedText.length, normalizedName.length);
-      if(!best || score > best.score) best = { name, score };
-    }
-  });
-  return best && best.score >= 0.55 ? best.name : null;
-}
-
-function parseOcrCountdown(text){
-  const match = String(text || '').match(/(?:^|\D)(\d{1,2})\s*[:.]\s*(\d{2})(?:\D|$)/);
-  if(!match) return null;
-  const minutes = Number(match[1]);
-  const seconds = Number(match[2]);
-  return minutes * 60 + seconds < 3600 ? minutes * 60 + seconds : null;
-}
-
-function findFixtureMatch(playerA, playerB){
-  if(!playerA || !playerB) return null;
-  const storedResults = getLoadedResults();
-  const records = storedResults && Array.isArray(storedResults.matches) ? storedResults.matches : [];
-  return records.find(record => {
-    const recordA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
-    const recordB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
-    return ((normalizeManualMatchName(recordA) === normalizeManualMatchName(playerA) && normalizeManualMatchName(recordB) === normalizeManualMatchName(playerB)) ||
-      (normalizeManualMatchName(recordA) === normalizeManualMatchName(playerB) && normalizeManualMatchName(recordB) === normalizeManualMatchName(playerA)));
-  }) || null;
-}
-
-function renderFixtureDetectorStatus(){
-  const status = document.getElementById('fixture-detector-status');
-  if(!status) return;
-  if(!fixtureDetector){
-    status.textContent = 'Desactivado';
-    status.className = 'fixture-detector-status';
-    return;
-  }
-  if(detectedFixtureMatch){
-    const countdown = detectedFixtureMatch.countdown;
-    status.textContent = countdown > 0 ? `Detectado: comienza en ${formatManualTime(countdown)}` : `Detectado: ${detectedFixtureMatch.playerA} vs ${detectedFixtureMatch.playerB} en vivo`;
-    status.className = 'fixture-detector-status is-active';
-  }else{
-    status.textContent = 'Buscando pantalla de Basement Cup...';
-    status.className = 'fixture-detector-status is-searching';
-  }
-}
-
-function loadTesseract(){
-  if(window.Tesseract) return Promise.resolve(window.Tesseract);
-  if(window.fixtureTesseractLoad) return window.fixtureTesseractLoad;
-  window.fixtureTesseractLoad = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    script.onload = () => resolve(window.Tesseract);
-    script.onerror = () => reject(new Error('No se pudo cargar el motor OCR.'));
-    document.head.appendChild(script);
-  });
-  return window.fixtureTesseractLoad;
-}
-
-async function detectFixtureFrame(){
-  if(!fixtureDetector) return;
-  const video = document.getElementById('fixture-detector-video');
-  if(!video || video.readyState < 2) return;
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-  const crops = [
-    ['left', .13, .63, .30, .16],
-    ['right', .64, .63, .30, .16],
-    ['countdown', .39, .57, .23, .17],
-    ['title', .36, .12, .30, .14]
-  ];
-  const tesseract = await loadTesseract();
-  const results = {};
-  for(const [key, x, y, width, height] of crops){
-    const crop = document.createElement('canvas');
-    crop.width = Math.round(canvas.width * width);
-    crop.height = Math.round(canvas.height * height);
-    crop.getContext('2d').drawImage(canvas, Math.round(canvas.width * x), Math.round(canvas.height * y), crop.width, crop.height, 0, 0, crop.width, crop.height);
-    const result = await tesseract.recognize(crop, 'eng', { logger: () => {} });
-    results[key] = result?.data?.text || '';
-  }
-  if(!/personal\s*best/i.test(results.title)) return;
-  const playerA = findKnownPlayerFromOcr(results.left);
-  const playerB = findKnownPlayerFromOcr(results.right);
-  if(!findFixtureMatch(playerA, playerB)) return;
-  detectedFixtureMatch = { playerA, playerB, countdown: parseOcrCountdown(results.countdown) ?? 0, detectedAt: Date.now() };
-  renderFixtureDetectorStatus();
-  renderFixturePanel(lastLeaderboardSnapshot?.players || []);
-}
-
-async function startFixtureDetector(){
-  const video = document.getElementById('fixture-detector-video');
-  const button = document.getElementById('fixture-detector-button');
-  const status = document.getElementById('fixture-detector-status');
-  if(!video || !button || !navigator.mediaDevices?.getDisplayMedia){
-    if(status) status.textContent = 'Este navegador no permite compartir pantalla.';
-    return;
-  }
-  try{
-    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 1 }, audio: false });
-    video.srcObject = stream;
-    await video.play();
-    fixtureDetector = { stream, timer: null };
-    stream.getVideoTracks()[0].addEventListener('ended', stopFixtureDetector);
-    button.textContent = 'Detener detector';
-    button.classList.add('is-stop');
-    renderFixtureDetectorStatus();
-    await detectFixtureFrame();
-    fixtureDetector.timer = setInterval(() => detectFixtureFrame().catch(error => console.warn('Detector OCR:', error)), 12000);
-  }catch(error){
-    if(error.name !== 'NotAllowedError') console.warn('No se pudo iniciar el detector:', error);
-    if(status) status.textContent = 'Captura no iniciada';
-  }
-}
-
-function stopFixtureDetector(){
-  if(fixtureDetector?.timer) clearInterval(fixtureDetector.timer);
-  fixtureDetector?.stream?.getTracks().forEach(track => track.stop());
-  fixtureDetector = null;
-  detectedFixtureMatch = null;
-  const video = document.getElementById('fixture-detector-video');
-  const button = document.getElementById('fixture-detector-button');
-  if(video) video.srcObject = null;
-  if(button){ button.textContent = 'Iniciar detector'; button.classList.remove('is-stop'); }
-  renderFixtureDetectorStatus();
-  renderFixturePanel(lastLeaderboardSnapshot?.players || []);
-}
-
-function setupFixtureDetector(){
-  const button = document.getElementById('fixture-detector-button');
-  if(!button || button.dataset.bound) return;
-  button.addEventListener('click', () => fixtureDetector ? stopFixtureDetector() : startFixtureDetector());
-  button.dataset.bound = 'true';
 }
 
 function getStoredResults(){
@@ -1279,8 +1123,6 @@ function buildGroupFixture(results = null){
 }
 
 function renderCalendarFixturePanel(players = []){
-  setupFixtureDetector();
-  renderFixtureDetectorStatus();
   const storedResults = getLoadedResults();
   const container = document.getElementById('fixture-content');
   const previousOpenDate = container?.querySelector('.fixture-date[open]')?.dataset.fixtureDateKey || null;
@@ -1380,11 +1222,7 @@ function renderCalendarFixturePanel(players = []){
         const scheduledDate = resultMatch && (resultMatch.date || resultMatch.fecha) ? (resultMatch.date || resultMatch.fecha) : match.date;
         const scheduledTime = resultMatch && (resultMatch.time || resultMatch.horario) ? (resultMatch.time || resultMatch.horario) : match.time;
         const schedule = formatScheduledDateTime(scheduledDate, scheduledTime);
-        const detectedMatch = detectedFixtureMatch && findFixtureMatch(detectedFixtureMatch.playerA, detectedFixtureMatch.playerB) === resultMatch;
-        const detectedStatus = detectedMatch
-          ? (detectedFixtureMatch.countdown > 0 ? `Comienza en ${formatManualTime(detectedFixtureMatch.countdown)}` : 'En vivo')
-          : null;
-        const liveButton = (detectedMatch || (schedule && isMatchLive(schedule.date)))
+        const liveButton = schedule && isMatchLive(schedule.date)
           ? `<a class="fixture-live-button" href="${LIVE_STREAM_URL}">En vivo</a>`
           : '';
 
@@ -1410,7 +1248,6 @@ function renderCalendarFixturePanel(players = []){
             <div class="fixture-meta">
               <div class="fixture-meta-row"><span class="fixture-meta-label">Fecha:</span> <span>${schedule?.dateLabel || scheduledDate}</span></div>
               <div class="fixture-meta-row"><span class="fixture-meta-label">Horario:</span> <span>${schedule?.timeLabel || scheduledTime}</span></div>
-              ${detectedStatus ? `<div class="fixture-detected-status">${escapeHtml(detectedStatus)}</div>` : ''}
               ${liveButton}
             </div>
           </div>
