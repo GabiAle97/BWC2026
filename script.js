@@ -1767,6 +1767,41 @@ async function loadLeaderboard(){
 loadLeaderboard();
 loadVisitCounter();
 
+let aboutInputBuffer = '';
+let aboutInputResetTimer = null;
+
+function clearAboutInputBuffer(){
+  aboutInputBuffer = '';
+  if(aboutInputResetTimer){
+    clearTimeout(aboutInputResetTimer);
+    aboutInputResetTimer = null;
+  }
+}
+
+function setupAboutSecretInput(){
+  document.addEventListener('keydown', (event) => {
+    const aboutPanel = document.getElementById('about');
+    if(!aboutPanel || !aboutPanel.classList.contains('active')){
+      clearAboutInputBuffer();
+      return;
+    }
+
+    clearTimeout(aboutInputResetTimer);
+    aboutInputResetTimer = setTimeout(clearAboutInputBuffer, 2000);
+
+    if(!/^\d$/.test(event.key)) return;
+
+    aboutInputBuffer += event.key;
+    if(aboutInputBuffer.length < 4) return;
+
+    const enteredCode = aboutInputBuffer;
+    clearAboutInputBuffer();
+    if(enteredCode === '4312'){
+      window.location.href = 'https://gabiale97.github.io/pharmacy_practice/';
+    }
+  });
+}
+
 // Pestañas simples para cambiar secciones
 function setupTabs(){
   const buttons = document.querySelectorAll('.tab-button');
@@ -1776,7 +1811,9 @@ function setupTabs(){
       const target = btn.dataset.target;
       buttons.forEach(b => b.classList.toggle('active', b === btn));
       panels.forEach(p => p.classList.toggle('active', p.id === target));
+      if(target !== 'about') clearAboutInputBuffer();
     });
   });
 }
 setupTabs();
+setupAboutSecretInput();
