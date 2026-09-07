@@ -1696,13 +1696,6 @@ async function loadLeaderboard(){
       ? [...data.runs].sort((a, b) => (a.place ?? Number.MAX_SAFE_INTEGER) - (b.place ?? Number.MAX_SAFE_INTEGER))
       : [];
 
-    // Título dinámico si vino embebido
-    if(data.category && data.category.data){
-      document.getElementById('title').textContent =
-        (data.game && data.game.data ? data.game.data.names.international + " — " : "") +
-        data.category.data.name;
-    }
-
     const container = document.getElementById('tabla-content');
     if(runs.length === 0){
       container.innerHTML = '<div class="loading">Sin runs registradas todavía.</div>';

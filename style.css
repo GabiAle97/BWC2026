@@ -14,10 +14,14 @@
 
 body{
   margin:0;
-  background:var(--bg);
+  background:
+    linear-gradient(rgba(8,10,15,.72),rgba(8,10,15,.78)),
+    url('background.jpeg') center / cover fixed no-repeat;
+  background-color:var(--bg);
   color:var(--text);
   font-family:'Segoe UI', Roboto, system-ui, sans-serif;
   padding:32px 16px;
+  min-height:100vh;
 }
 
 .wrap{
@@ -388,6 +392,18 @@ footer{
 .tab-panel{display:block}
 .tab-panel:not(.active){display:none}
 
+/* Superficies de datos: dejan visible el fondo general sin afectar modals. */
+#tabla-content table,
+#stats-content .stats-table,
+#grupos-content .group-card,
+#grupos-content .group-table,
+#fixture-content .fixture-round,
+#fixture-content .fixture-match,
+#eliminatorias-content .bracket-wrap,
+#eliminatorias-content .knockout-match{
+  background:transparent;
+}
+
 .stats-tabs{
   display:flex;
   gap:8px;
@@ -428,9 +444,7 @@ footer{
   padding:58px clamp(22px,7vw,90px) 34px;
   border:1px solid var(--border);
   border-radius:12px;
-  background:
-    radial-gradient(circle at 50% 18%, rgba(124,158,255,.16), transparent 34%),
-    linear-gradient(145deg,#11131d 0%,#171922 58%,#11131b 100%);
+  background:transparent;
   text-align:center;
 }
 
@@ -451,19 +465,14 @@ footer{
 .about-support,
 .about-note{position:relative;z-index:1}
 
-.about-monogram{
-  display:inline-flex;
-  align-items:baseline;
-  gap:2px;
-  margin-bottom:8px;
-  color:#d9dce8;
-  font-size:3.2rem;
-  font-weight:900;
-  letter-spacing:-.04em;
-  line-height:1;
-  text-shadow:0 8px 18px rgba(0,0,0,.35);
+.about-logo{
+  display:block;
+  width:min(100%,260px);
+  max-height:180px;
+  margin:0 auto 14px;
+  object-fit:contain;
+  filter:drop-shadow(0 8px 18px rgba(0,0,0,.35));
 }
-.about-monogram strong{color:#d94b52}
 .about-kicker,
 .about-section-label{
   margin:0;
@@ -543,7 +552,6 @@ footer{
 
 @media (max-width:640px){
   .about-page{min-height:580px;padding:42px 18px 28px}
-  .about-monogram{font-size:2.5rem}
   .about-section{margin-top:58px}
   .about-section-label{font-size:1.4rem}
   .about-copy{font-size:.92rem;line-height:1.65}
