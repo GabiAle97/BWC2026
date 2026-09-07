@@ -433,6 +433,11 @@ function normalizeScheduleTime(value){
   return match ? match[1] : String(value || '').trim();
 }
 
+function isScheduleDetailValue(value){
+  const text = String(value || '').trim().toUpperCase();
+  return text === 'DEATH' || text === 'DIED' || /^\d{1,2}:\d{2}(?:\.\d+)?$/.test(text);
+}
+
 function isScheduleClockTime(value){
   return /^\d{1,2}:\d{2}$/.test(String(value || '').trim());
 }
@@ -482,18 +487,31 @@ function parseMatchScheduleTable(table){
       const playerA = getSheetCell(row, start);
       const playerB = getSheetCell(row, start + 3);
       if(!playerA || !playerB || playerA === 'TBD' || playerB === 'TBD') return;
+      if(isScheduleDetailValue(playerA) || isScheduleDetailValue(playerB)) return;
 
-      const detailRow = nextRow || { c: [] };
+      const detailRowIndex = [rowIndex + 1, rowIndex + 2, rowIndex + 3].find(candidateIndex => {
+        const groupValue = getSheetCell(rows[candidateIndex], schedule);
+        return /GROUP\s+([A-H])/i.test(groupValue);
+      });
+      const detailRow = rows[detailRowIndex] || nextRow || { c: [] };
       const groupValue = getSheetCell(detailRow, schedule);
       const groupMatch = groupValue.match(/GROUP\s+([A-H])/i);
-      const group = groupMatch?.[1]?.toUpperCase() || inferScheduleGroup(playerA, playerB);
-      if(!group) return;
+      const group = groupMatch?.[1]?.toUpperCase() || inferScheduleGroup(playerA, playerB) || 'Sin grupo';
 
       const scoreA = getSheetCell(row, start + 1);
       const scoreB = getSheetCell(row, start + 2);
       const timeA = getSheetCell(detailRow, start);
       const timeB = getSheetCell(detailRow, start + 3);
       const scheduleValue = getSheetCell(row, schedule);
+      const normalizedScheduleTime = normalizeScheduleTime(scheduleValue);
+      const hasScheduledTime = isScheduleClockTime(normalizedScheduleTime);
+      const hasResult = Boolean(
+        (scoreA && scoreA !== '-') ||
+        (scoreB && scoreB !== '-') ||
+        (timeA && timeA !== '-') ||
+        (timeB && timeB !== '-')
+      );
+      if(!hasScheduledTime && !hasResult) return;
       const winner = scoreA === '1' && scoreB === '0'
         ? normalizeSchedulePlayerName(playerA)
         : scoreA === '0' && scoreB === '1'
@@ -508,7 +526,7 @@ function parseMatchScheduleTable(table){
         timeB: timeB || '-',
         winner,
         date: currentDates[roundIndex] || '',
-        time: normalizeScheduleTime(scheduleValue)
+        time: normalizedScheduleTime
       });
     });
   }
@@ -516,7 +534,7 @@ function parseMatchScheduleTable(table){
   const dates = matchesByRound.map((matches, index) => ({
     number: index + 1,
     label: `Fecha ${index + 1} de ${rounds.length}`,
-    groups: Object.keys(FINAL_GROUPS).map(group => ({
+    groups: [...Object.keys(FINAL_GROUPS), ...new Set(matches.map(match => match.group).filter(group => !FINAL_GROUPS[group]))].map(group => ({
       name: group,
       matches: removeRescheduledDuplicates(matches)
         .filter(match => match.group === group)
