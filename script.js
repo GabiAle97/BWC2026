@@ -22,8 +22,11 @@ const RESULTS_STORAGE_KEY = 'bc-results-manual';
 const AUTO_RESULTS_PATHS = ['./resultados.json'];
 const VISIT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/bwc-views';
 const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
+const MATCH_SCHEDULE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule';
 let externalPlayerStats = new Map();
 let externalStatsLoad = null;
+let externalMatchSchedule = null;
+let externalMatchScheduleLoad = null;
 
 const QUALIFYING_PARTICIPANTS = [
   "LanceLM",
@@ -372,6 +375,149 @@ async function loadExternalPlayerStats(){
   }
 }
 
+function getSheetCell(row, index){
+  return String(row?.c?.[index]?.v ?? '').trim();
+}
+
+function normalizeSchedulePlayerName(name){
+  const aliases = {
+    adrian: 'Adrian20v',
+    lance: 'LanceLM',
+    snake: 'HalfBakedSnake',
+    gabiale: 'GabiAle97',
+    xploder: 'NemesisXploder',
+    owarii: 'Owarii1RE',
+    bomba: 'Bomba_Nemesis',
+    nevs: 'TheNevs',
+    paquito: 'Paquito_tatata',
+    crisdoile: 'crisdoile2',
+    reduke: 'Re_duke'
+  };
+  const normalized = normalizeManualMatchName(name);
+  const candidate = aliases[normalized] || name;
+  const pageName = Object.values(FINAL_GROUPS)
+    .flat()
+    .find(playerName => normalizeManualMatchName(playerName) === normalizeManualMatchName(candidate));
+  return pageName || candidate;
+}
+
+function parseScheduleDayLabel(value){
+  const match = String(value || '').match(/DAY\s+\d+\s+([A-ZÁÉÍÓÚ]+)[.]?\s+(\d{1,2})/i);
+  if(!match) return null;
+
+  const months = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
+  const month = months[match[1].slice(0, 3).toUpperCase()];
+  return month ? `2026-${String(month).padStart(2, '0')}-${String(Number(match[2])).padStart(2, '0')}` : null;
+}
+
+function normalizeScheduleTime(value){
+  const match = String(value || '').match(/(\d{1,2}:\d{2})/);
+  return match ? match[1] : String(value || '').trim();
+}
+
+function isScheduleClockTime(value){
+  return /^\d{1,2}:\d{2}$/.test(String(value || '').trim());
+}
+
+function removeRescheduledDuplicates(matches){
+  const uniqueMatches = new Map();
+
+  matches.forEach(match => {
+    const players = [normalizeManualMatchName(match.playerA), normalizeManualMatchName(match.playerB)].sort();
+    const key = `${match.group}|${players[0]}|${players[1]}`;
+    const previous = uniqueMatches.get(key);
+    if(!previous || isScheduleClockTime(match.time) || !isScheduleClockTime(previous.time)){
+      uniqueMatches.set(key, match);
+    }
+  });
+
+  return [...uniqueMatches.values()];
+}
+
+function parseMatchScheduleTable(table){
+  const rows = table?.rows || [];
+  const rounds = [
+    { start: 1, schedule: 6 },
+    { start: 10, schedule: 15 },
+    { start: 18, schedule: 22 }
+  ];
+  const matchesByRound = rounds.map(() => []);
+  let currentDate = null;
+
+  for(let rowIndex = 0; rowIndex < rows.length; rowIndex++){
+    const row = rows[rowIndex];
+    const nextRow = rows[rowIndex + 1];
+    const firstCell = getSheetCell(row, 1);
+    const parsedDate = parseScheduleDayLabel(firstCell);
+    if(parsedDate){
+      currentDate = parsedDate;
+      continue;
+    }
+
+    rounds.forEach(({ start, schedule }, roundIndex) => {
+      const playerA = getSheetCell(row, start);
+      const playerB = getSheetCell(row, start + 3);
+      if(!playerA || !playerB || playerA === 'TBD' || playerB === 'TBD') return;
+
+      const detailRow = nextRow || { c: [] };
+      const groupValue = getSheetCell(detailRow, schedule);
+      const groupMatch = groupValue.match(/GROUP\s+([A-H])/i);
+      if(!groupMatch) return;
+
+      const scoreA = getSheetCell(row, start + 1);
+      const scoreB = getSheetCell(row, start + 2);
+      const timeA = getSheetCell(detailRow, start);
+      const timeB = getSheetCell(detailRow, start + 3);
+      const scheduleValue = getSheetCell(row, schedule);
+      const winner = scoreA === '1' && scoreB === '0'
+        ? normalizeSchedulePlayerName(playerA)
+        : scoreA === '0' && scoreB === '1'
+          ? normalizeSchedulePlayerName(playerB)
+          : '';
+
+      matchesByRound[roundIndex].push({
+        group: groupMatch[1].toUpperCase(),
+        playerA: normalizeSchedulePlayerName(playerA),
+        playerB: normalizeSchedulePlayerName(playerB),
+        timeA: timeA || '-',
+        timeB: timeB || '-',
+        winner,
+        date: currentDate || '',
+        time: normalizeScheduleTime(scheduleValue)
+      });
+    });
+  }
+
+  const dates = matchesByRound.map((matches, index) => ({
+    number: index + 1,
+    label: `Fecha ${index + 1} de ${rounds.length}`,
+    groups: Object.keys(FINAL_GROUPS).map(group => ({
+      name: group,
+      matches: removeRescheduledDuplicates(matches)
+        .filter(match => match.group === group)
+        .map(({ group, ...match }) => match)
+    }))
+  }));
+
+  return normalizeResultsData({ dates });
+}
+
+async function loadExternalMatchSchedule(){
+  try{
+    const response = await fetch(MATCH_SCHEDULE_SHEET_URL, { cache: 'no-store' });
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const text = await response.text();
+    const jsonText = text.replace(/^\s*\/\*O_o\*\/\s*google\.visualization\.Query\.setResponse\(/, '').replace(/\);\s*$/, '');
+    const table = JSON.parse(jsonText)?.table;
+    externalMatchSchedule = parseMatchScheduleTable(table);
+    return externalMatchSchedule;
+  }catch(err){
+    externalMatchSchedule = null;
+    console.warn('No se pudo cargar Match Schedule desde Google Sheets.', err);
+    return null;
+  }
+}
+
 function parsePbSeconds(value){
   const text = String(value || '').trim();
   if(!text || text === '-') return null;
@@ -618,7 +764,7 @@ function computeGroupStandings(rawResults){
 }
 
 function getLoadedResults(){
-  return uploadedResults || getStoredResults() || null;
+  return uploadedResults || externalMatchSchedule || getStoredResults() || null;
 }
 
 async function loadAutoResults(){
@@ -1189,7 +1335,7 @@ function renderCalendarFixturePanel(players = []){
       const timeA = match.timeA ?? match.tiempoA ?? match.time_a;
       const timeB = match.timeB ?? match.tiempoB ?? match.time_b;
       return !match.winner && (timeA === '-' || timeB === '-' || timeA == null || timeB == null);
-    }))?.number || storedResults.dates.find(date => (date.matches || []).length)?.number
+    }))?.number || storedResults.dates.find(date => (date.matches || []).length || (date.groups || []).some(group => (group.matches || []).length))?.number
     : null;
 
   const calendarHtml = orderedDates.map(([dateKey, bucket]) => {
@@ -1691,7 +1837,7 @@ async function loadLeaderboard(){
   const statusEl = document.getElementById('status');
   try{
     const json = await fetchLeaderboardData();
-    await externalStatsLoad;
+    await Promise.all([externalStatsLoad, externalMatchScheduleLoad]);
     const data = json.data;
     const players = data.players.data;
     const runs = Array.isArray(data.runs)
@@ -1710,7 +1856,7 @@ async function loadLeaderboard(){
     renderGroupsPanel(runs, players);
     renderFixturePanel(players);
     renderEliminatoriasPanel(runs, players);
-    await loadAutoResults();
+    if(!externalMatchSchedule) await loadAutoResults();
 
     const playerProfileMap = new Map(players.map(player => [player.id, player]));
     const personalBestsByPlayer = new Map();
@@ -1848,6 +1994,7 @@ async function loadLeaderboard(){
 }
 
 externalStatsLoad = loadExternalPlayerStats().then(renderStatsPanel);
+externalMatchScheduleLoad = loadExternalMatchSchedule();
 loadLeaderboard();
 loadVisitCounter();
 
