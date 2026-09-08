@@ -96,7 +96,16 @@ const FINAL_GROUPS = {
 };
 
 const PLAYER_NAME_ALIASES = {
-  nevs: 'thenevs'
+  nevs: 'thenevs',
+  lance: 'lancelm',
+  paquito: 'paquitotatata',
+  gabiale: 'gabiale97',
+  snake: 'halfbakedsnake',
+  owarii: 'owarii1re',
+  bomba: 'bombanemesis',
+  adrian: 'adrian20v',
+  crisdoile: 'crisdoile2',
+  xploder: 'nemesisxploder'
 };
 
 function normalizeParticipantName(name){
@@ -496,7 +505,7 @@ function parseMatchScheduleTable(table){
       const detailRow = rows[detailRowIndex] || nextRow || { c: [] };
       const groupValue = getSheetCell(detailRow, schedule);
       const groupMatch = groupValue.match(/GROUP\s+([A-H])/i);
-      const group = groupMatch?.[1]?.toUpperCase() || inferScheduleGroup(playerA, playerB) || 'Sin grupo';
+      const group = inferScheduleGroup(playerA, playerB) || 'Sin grupo';
 
       const scoreA = getSheetCell(row, start + 1);
       const scoreB = getSheetCell(row, start + 2);
