@@ -23,6 +23,127 @@ const AUTO_RESULTS_PATHS = ['./resultados.json'];
 const VISIT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/bwc-views';
 const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
 const MATCH_SCHEDULE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule';
+// --- Internacionalización (i18n) ---
+const SUPPORTED_LANGS = ['es', 'en'];
+const LANG_STORAGE_KEY = 'bc-lang';
+
+const TRANSLATIONS = {
+  es: {
+    navInicio: 'Inicio', navTabla: 'Tabla de Posiciones', navStats: 'Estadísticas',
+    navGrupos: 'Fase de Grupos', navFixture: 'Fixture', navEliminatorias: 'Eliminatorias', navAbout: 'Acerca de mí',
+    loadingLive: 'Buscando partida en vivo…', loadingTabla: 'Cargando datos…', loadingStats: 'Cargando estadísticas…',
+    pendingGrupos: 'Fase de Grupos: contenido pendiente.', pendingFixture: 'Fixture: contenido pendiente.', pendingEliminatorias: 'Eliminatorias: contenido pendiente.',
+    aboutClose: 'Cerrar',
+    footerSource: '· Fuente: speedrun.com API',
+    tbd: 'Por determinar', qualified: 'Clasificado', champion: 'Campeón', drawPending: 'sorteo pendiente', pendingSingle: 'pendiente',
+    leader: 'Cabecera', position2: '2ª posición', position3: '3ª posición', position4: '4ª posición', position: 'Posición',
+    player: 'Jugador', category: 'Categoría', game: 'Juego', noGroup: 'Sin grupo', group: 'Grupo', time: 'Tiempo',
+    live: 'EN VIVO', watchStream: 'Ver transmisión', groupStageInProgress: 'Fase de grupos en curso',
+    players: 'jugadores', date: 'Fecha', schedule: 'Horario',
+    matchSingular: 'partido', matchPlural: 'partidos',
+    noLiveMatch: 'Aún no empezó ninguna partida', noLiveMatchSub: 'Cuando comience un enfrentamiento, aparecerá aquí.',
+    statsLoadError: 'No se pudieron cargar las estadísticas.', noDataYet: 'Sin datos todavía.', noMatchesLoaded: 'Sin partidos cargados todavía.',
+    roundOf16: 'Octavos', quarterfinals: 'Cuartos', semifinals: 'Semifinales', final: 'Final', thirdPlace: 'Tercer puesto',
+    standings: 'Posiciones', groupStage: 'Fase de grupos', twitchChannel: 'Canal de Twitch', of: 'de', inGroup: 'en el Grupo',
+    positionPending: 'Posición pendiente', matchesOfGroup: 'Partidos del Grupo',
+    pastMatches: 'Pasadas', upcomingMatches: 'Próximas', noPastMatches: 'Todavía no hay partidos finalizados.', noUpcomingMatches: 'No hay próximos partidos cargados.',
+    groupStageOnlyNote: 'La posición y los partidos corresponden exclusivamente a la fase de grupos.',
+    noRunsYet: 'Sin runs registradas todavía.', noDataForGroups: 'Sin datos para generar grupos.', leaderboardLoadError: 'No se pudo cargar el leaderboard.',
+    upcomingLabel: 'Próximo', finishedLabel: 'Finalizado',
+    colMatches: 'Partidos', colWins: 'Victorias', colDraws: 'Empates', colLosses: 'Derrotas', colBestTime: 'Tiempo best', colPoints: 'Puntos',
+    dateLabel: 'Fecha', visits: 'Visitas', notAvailable: 'No disponible', notAvailableShort: 'N/D', notAvailablePlural: 'No disponibles',
+    channels: 'Canales', signupDate: 'Fecha de inscripción', pbUploadDate: 'Fecha de subida del PB',
+    aboutKicker: 'Streamer · Speedrunner · Creador', aboutSectionLabel: 'Sobre mí',
+    aboutCopy1: 'Soy <strong>Gabriel Pereyra</strong>, streamer en Twitch conocido como <strong>GabiAle97</strong>. Creo contenido de gaming, speedrunning y videojuegos clásicos, además de proyectos técnicos y herramientas para la comunidad.',
+    aboutCopy2: 'Soy un participante de la <strong>Basement World Cup 2026</strong>, así que me veran enfrentarme a los mejores runners de RE3 de este año. <strong>NOS VEMOS ALLÁ!</strong>',
+    aboutSupportTitle: 'Invitame un Cafecito', aboutSupportSub: 'Ayudá a sostener el contenido y los proyectos',
+    aboutNote: 'Gracias por acompañar y ser parte de la comunidad.'
+  },
+  en: {
+    navInicio: 'Home', navTabla: 'Standings', navStats: 'Statistics',
+    navGrupos: 'Group Stage', navFixture: 'Fixture', navEliminatorias: 'Playoffs', navAbout: 'About me',
+    loadingLive: 'Looking for a live match…', loadingTabla: 'Loading data…', loadingStats: 'Loading statistics…',
+    pendingGrupos: 'Group Stage: content coming soon.', pendingFixture: 'Fixture: content coming soon.', pendingEliminatorias: 'Playoffs: content coming soon.',
+    aboutClose: 'Close',
+    footerSource: '· Source: speedrun.com API',
+    tbd: 'TBD', qualified: 'Qualified', champion: 'Champion', drawPending: 'draw pending', pendingSingle: 'pending',
+    leader: 'Leader', position2: '2nd place', position3: '3rd place', position4: '4th place', position: 'Position',
+    player: 'Player', category: 'Category', game: 'Game', noGroup: 'No group', group: 'Group', time: 'Time',
+    live: 'LIVE', watchStream: 'Watch stream', groupStageInProgress: 'Group stage in progress',
+    players: 'players', date: 'Date', schedule: 'Time',
+    matchSingular: 'match', matchPlural: 'matches',
+    noLiveMatch: 'No match has started yet', noLiveMatchSub: 'When a match starts, it will appear here.',
+    statsLoadError: 'Could not load statistics.', noDataYet: 'No data yet.', noMatchesLoaded: 'No matches loaded yet.',
+    roundOf16: 'Round of 16', quarterfinals: 'Quarterfinals', semifinals: 'Semifinals', final: 'Final', thirdPlace: 'Third place',
+    standings: 'Standings', groupStage: 'Group stage', twitchChannel: 'Twitch channel', of: 'of', inGroup: 'in Group',
+    positionPending: 'Position pending', matchesOfGroup: 'Matches of Group',
+    pastMatches: 'Past', upcomingMatches: 'Upcoming', noPastMatches: 'No finished matches yet.', noUpcomingMatches: 'No upcoming matches loaded.',
+    groupStageOnlyNote: 'The position and matches correspond exclusively to the group stage.',
+    noRunsYet: 'No runs registered yet.', noDataForGroups: 'No data to generate groups.', leaderboardLoadError: 'Could not load the leaderboard.',
+    upcomingLabel: 'Upcoming', finishedLabel: 'Finished',
+    colMatches: 'Matches', colWins: 'Wins', colDraws: 'Draws', colLosses: 'Losses', colBestTime: 'Best time', colPoints: 'Points',
+    dateLabel: 'Date', visits: 'Visits', notAvailable: 'Not available', notAvailableShort: 'N/A', notAvailablePlural: 'Not available',
+    channels: 'Channels', signupDate: 'Signup date', pbUploadDate: 'PB upload date',
+    aboutKicker: 'Streamer · Speedrunner · Creator', aboutSectionLabel: 'About me',
+    aboutCopy1: 'I\'m <strong>Gabriel Pereyra</strong>, a Twitch streamer known as <strong>GabiAle97</strong>. I create gaming, speedrunning and classic video game content, plus technical projects and tools for the community.',
+    aboutCopy2: 'I\'m a participant in the <strong>Basement World Cup 2026</strong>, so you\'ll see me facing off against the best RE3 runners this year. <strong>SEE YOU THERE!</strong>',
+    aboutSupportTitle: 'Buy me a Cafecito', aboutSupportSub: 'Help support the content and projects',
+    aboutNote: 'Thanks for following along and being part of the community.'
+  }
+};
+
+function detectLanguage(){
+  try{
+    const stored = localStorage.getItem(LANG_STORAGE_KEY);
+    if(stored && SUPPORTED_LANGS.includes(stored)) return stored;
+  }catch(err){}
+  const browserLangs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'es'];
+  for(const lang of browserLangs){
+    const short = String(lang || '').slice(0, 2).toLowerCase();
+    if(SUPPORTED_LANGS.includes(short)) return short;
+  }
+  return 'es';
+}
+
+let currentLang = detectLanguage();
+
+function t(key){
+  return (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key]) ?? TRANSLATIONS.es[key] ?? key;
+}
+
+function applyStaticTranslations(){
+  document.documentElement.lang = currentLang;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  });
+  document.querySelectorAll('[data-i18n-attr]').forEach(el => {
+    el.dataset.i18nAttr.split(';').forEach(pair => {
+      const [attr, key] = pair.split(':').map(part => part.trim());
+      if(attr && key) el.setAttribute(attr, t(key));
+    });
+  });
+  document.querySelectorAll('.lang-button').forEach(button => {
+    button.classList.toggle('active', button.dataset.lang === currentLang);
+  });
+}
+
+function setLanguage(lang){
+  if(!SUPPORTED_LANGS.includes(lang) || lang === currentLang) return;
+  currentLang = lang;
+  try{ localStorage.setItem(LANG_STORAGE_KEY, lang); }catch(err){}
+  location.reload();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  applyStaticTranslations();
+  document.querySelectorAll('.lang-button').forEach(button => {
+    button.addEventListener('click', () => setLanguage(button.dataset.lang));
+  });
+});
+
 let externalPlayerStats = new Map();
 let externalStatsLoad = null;
 let externalMatchSchedule = null;
@@ -148,14 +269,14 @@ function buildQualifyingRows(runs, players){
     const playerName = playerObj && playerObj.rel === 'guest'
       ? playerObj.name
       : (playerObj && playersById.get(playerObj.id)
-        ? playersById.get(playerObj.id).names?.international || 'Jugador'
+        ? playersById.get(playerObj.id).names?.international || t('player')
         : getPlayerName(runEntry, players));
 
     const normalized = normalizeParticipantName(playerName);
     if(!normalized) return;
 
     knownByName.set(normalized, {
-      name: playerName || 'Jugador',
+      name: playerName || t('player'),
       place: runEntry.place ?? null,
       time: runEntry.run && runEntry.run.times && runEntry.run.times.primary_t != null
         ? runEntry.run.times.primary_t
@@ -340,8 +461,8 @@ function renderHomePanel(players = []){
     container.innerHTML = `
       <div class="home-empty">
         <span class="home-empty-mark" aria-hidden="true">◷</span>
-        <h2>Aún no empezó ninguna partida</h2>
-        <p>Cuando comience un enfrentamiento, aparecerá aquí.</p>
+        <h2>${t('noLiveMatch')}</h2>
+        <p>${t('noLiveMatchSub')}</p>
       </div>
     `;
     return;
@@ -357,8 +478,8 @@ function renderHomePanel(players = []){
     <div class="home-live-card">
       <div class="home-live-backdrop"></div>
       <div class="home-live-header">
-        <span class="home-live-pill"><i></i> EN VIVO</span>
-        <span>Grupo ${match.group}</span>
+        <span class="home-live-pill"><i></i> ${t('live')}</span>
+        <span>${t('group')} ${match.group}</span>
       </div>
       <div class="home-matchup">
         <div class="home-contestant">
@@ -377,7 +498,7 @@ function renderHomePanel(players = []){
       </div>
       <div class="home-live-footer">
         <span>${schedule.dateLabel} · ${schedule.timeLabel}</span>
-        <a href="${LIVE_STREAM_URL}" target="_blank" rel="noopener noreferrer">Ver transmisión</a>
+        <a href="${LIVE_STREAM_URL}" target="_blank" rel="noopener noreferrer">${t('watchStream')}</a>
       </div>
     </div>
   `;
@@ -413,7 +534,7 @@ async function loadVisitCounter(){
     const data = await response.json();
     const count = data?.data?.up_count ?? data?.data?.value ?? data?.data?.count ?? data?.value ?? data?.count;
     if(count == null) throw new Error('Respuesta sin contador');
-    counter.textContent = `· Visitas: ${Number(count).toLocaleString('es-AR')}`;
+    counter.textContent = `· ${t('visits')}: ${Number(count).toLocaleString(currentLang === 'es' ? 'es-AR' : 'en-US')}`;
   }catch(err){
     counter.hidden = true;
     console.warn('No se pudo cargar el contador de visitas.', err);
@@ -585,7 +706,7 @@ function parseMatchScheduleTable(table){
       const detailRow = rows[detailRowIndex] || nextRow || { c: [] };
       const groupValue = getSheetCell(detailRow, schedule);
       const groupMatch = groupValue.match(/GROUP\s+([A-H])/i);
-      const group = inferScheduleGroup(playerA, playerB) || 'Sin grupo';
+      const group = inferScheduleGroup(playerA, playerB) || t('noGroup');
 
       const scoreA = getSheetCell(row, start + 1);
       const scoreB = getSheetCell(row, start + 2);
@@ -622,7 +743,7 @@ function parseMatchScheduleTable(table){
 
   const dates = matchesByRound.map((matches, index) => ({
     number: index + 1,
-    label: `Fecha ${index + 1} de ${rounds.length}`,
+    label: `${t('dateLabel')} ${index + 1} ${t('of')} ${rounds.length}`,
     groups: [...Object.keys(FINAL_GROUPS), ...new Set(matches.map(match => match.group).filter(group => !FINAL_GROUPS[group]))].map(group => ({
       name: group,
       matches: removeRescheduledDuplicates(matches)
@@ -711,10 +832,10 @@ function renderStatsPanel(){
       });
 
     container.innerHTML = rows.length
-      ? `<div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>#</th><th>Jugador</th><th>${definition.label}</th></tr></thead><tbody>${rows.map((row, index) => `
+      ? `<div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>#</th><th>${t('player')}</th><th>${definition.label}</th></tr></thead><tbody>${rows.map((row, index) => `
           <tr class="${index === 0 ? 'stats-first' : ''} ${index === rows.length - 1 ? 'stats-last' : ''}"><td class="stats-rank">${index + 1}</td><td class="stats-player"><button class="player-profile-button stats-player-button" type="button" data-player-name="${row.name}">${row.flag ? `<span class="flag">${row.flag}</span>` : ''}<span>${row.name}</span></button></td><td class="stats-value${row.seconds == null ? ' stats-missing' : ''}">${row.value}</td></tr>
         `).join('')}</tbody></table></div>`
-      : '<div class="loading">No se pudieron cargar las estadísticas.</div>';
+      : `<div class="loading">${t('statsLoadError')}</div>`;
   };
 
   document.querySelectorAll('.stats-tab-button').forEach(button => {
@@ -744,7 +865,7 @@ function normalizeResultsData(rawResults){
       return {
         ...date,
         number,
-        label: date.label || `Fecha ${number} de ${rawResults.dates.length}`,
+        label: date.label || `${t('dateLabel')} ${number} ${t('of')} ${rawResults.dates.length}`,
         matches: matches.map(match => ({ ...match, fixtureDateNumber: number }))
       };
     });
@@ -1003,7 +1124,7 @@ function countryFlag(playersData, playerId){
 }
 
 function formatDate(value){
-  if(!value) return "No disponible";
+  if(!value) return t('notAvailable');
   const date = new Date(value);
   if(Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString('es-AR', {
@@ -1038,7 +1159,7 @@ function playerChannels(player){
 }
 
 async function getCategoryName(categoryId){
-  if(!categoryId) return 'Categoría';
+  if(!categoryId) return t('category');
 
   if(categoryCache.has(categoryId)){
     return categoryCache.get(categoryId);
@@ -1061,7 +1182,7 @@ async function getCategoryName(categoryId){
 }
 
 async function getGameName(gameId){
-  if(!gameId) return 'Juego';
+  if(!gameId) return t('game');
 
   if(gameCache.has(gameId)){
     return gameCache.get(gameId);
@@ -1109,12 +1230,12 @@ async function fetchPlayerPersonalBests(player){
     for(const pb of pbs){
       const run = pb && pb.run ? pb.run : null;
       const gameId = run && run.game ? run.game : null;
-      const gameName = gameId ? await getGameName(gameId) : 'Juego';
+      const gameName = gameId ? await getGameName(gameId) : t('game');
       const categoryId = run && run.category ? run.category : null;
-      const categoryName = categoryId ? await getCategoryName(categoryId) : 'Categoría';
+      const categoryName = categoryId ? await getCategoryName(categoryId) : t('category');
       const primaryTime = run && run.times && run.times.primary_t != null
         ? formatTime(run.times.primary_t)
-        : 'N/D';
+        : t('notAvailableShort');
 
       const videoLinks = run && run.videos && Array.isArray(run.videos.links)
         ? run.videos.links
@@ -1202,7 +1323,7 @@ function buildGroupStage(runs, players){
 
       playersWithScore.forEach((player, index) => {
         player.qualifies = index < 2;
-        player.slotLabel = ['Cabecera', '2ª posición', '3ª posición', '4ª posición'][index] || 'Posición';
+        player.slotLabel = [t('leader'), t('position2'), t('position3'), t('position4')][index] || t('position');
       });
 
       return { letter, players: playersWithScore };
@@ -1233,7 +1354,7 @@ function buildGroupStage(runs, players){
 
     const playerName = playerObj && playerObj.rel === 'guest'
       ? playerObj.name
-      : (playerProfile ? playerProfile.names?.international || 'Jugador' : 'Jugador');
+      : (playerProfile ? playerProfile.names?.international || t('player') : t('player'));
 
     const flag = playerObj && playerObj.rel !== 'guest'
       ? countryFlag(players, playerObj.id)
@@ -1243,7 +1364,7 @@ function buildGroupStage(runs, players){
       name: playerName,
       flag,
       points: '?',
-      slotLabel: ['Cabecera', '2ª posición', '3ª posición', '4ª posición'][slotIndex] || 'Posición'
+      slotLabel: [t('leader'), t('position2'), t('position3'), t('position4')][slotIndex] || t('position')
     };
   });
 
@@ -1258,7 +1379,7 @@ function renderGroupsPanel(runs, players){
   const groupsHtml = groups.map(group => {
     const playersHtml = group.players.map((player, index) => {
       if(!player){
-        return `<tr class="group-player placeholder"><td colspan="8">${['Cabecera', '2ª posición', '3ª posición', '4ª posición'][index]}: por determinar</td></tr>`;
+        return `<tr class="group-player placeholder"><td colspan="8">${[t('leader'), t('position2'), t('position3'), t('position4')][index]}: ${t('tbd')}</td></tr>`;
       }
 
       return `<tr class="group-player">
@@ -1276,13 +1397,13 @@ function renderGroupsPanel(runs, players){
     return `
       <div class="group-card">
         <div class="group-header">
-          <span>Grupo ${group.letter}</span>
-          <span class="group-badge">${group.players.length} jugadores</span>
+          <span>${t('group')} ${group.letter}</span>
+          <span class="group-badge">${group.players.length} ${t('players')}</span>
         </div>
-        <div class="group-status">Fase de grupos en curso</div>
-        <table class="group-table" aria-label="Tabla del Grupo ${group.letter}">
+        <div class="group-status">${t('groupStageInProgress')}</div>
+        <table class="group-table" aria-label="Tabla del ${t('group')} ${group.letter}">
           <colgroup><col class="group-col-position"><col class="group-col-player"><col span="4" class="group-col-stat"><col class="group-col-time"><col class="group-col-points"></colgroup>
-          <thead><tr><th>#</th><th>Jugador</th><th title="Partidos">P</th><th title="Victorias">W</th><th title="Empates">D</th><th title="Derrotas">L</th><th title="Tiempo best">TB</th><th title="Puntos">PTS</th></tr></thead>
+          <thead><tr><th>#</th><th>${t('player')}</th><th title="${t('colMatches')}">P</th><th title="${t('colWins')}">W</th><th title="${t('colDraws')}">D</th><th title="${t('colLosses')}">L</th><th title="${t('colBestTime')}">TB</th><th title="${t('colPoints')}">PTS</th></tr></thead>
           <tbody>${playersHtml}</tbody>
         </table>
       </div>
@@ -1292,7 +1413,7 @@ function renderGroupsPanel(runs, players){
   const container = document.getElementById('grupos-content');
   container.innerHTML = groupsHtml
     ? `<div class="groups-grid">${groupsHtml}</div>`
-    : '<div class="loading">Sin datos todavía.</div>';
+    : `<div class="loading">${t('noDataYet')}</div>`;
 }
 
 function normalizeDateKey(rawDate){
@@ -1414,7 +1535,7 @@ function renderCalendarFixturePanel(players = []){
       const number = Number(date.number || date.numero || index + 1);
       const key = `fixture-${number}`;
       calendarBuckets.set(key, {
-        label: date.label || `Fecha ${number} de ${storedResults.dates.length}`,
+        label: date.label || `${t('dateLabel')} ${number} ${t('of')} ${storedResults.dates.length}`,
         matches: []
       });
 
@@ -1504,12 +1625,12 @@ function renderCalendarFixturePanel(players = []){
         const scheduledTime = resultMatch && (resultMatch.time || resultMatch.horario) ? (resultMatch.time || resultMatch.horario) : match.time;
         const schedule = formatScheduledDateTime(scheduledDate, scheduledTime);
         const liveButton = schedule && isMatchLive(schedule.date)
-          ? `<a class="fixture-live-button" href="${LIVE_STREAM_URL}">En vivo</a>`
+          ? `<a class="fixture-live-button" href="${LIVE_STREAM_URL}">${t('live')}</a>`
           : '';
 
         return `
           <div class="fixture-match">
-            <div class="fixture-match-group">Grupo ${match.group}</div>
+            <div class="fixture-match-group">${t('group')} ${match.group}</div>
             <div class="fixture-teams">
               <div class="fixture-team-row ${playerAWon ? '' : winner ? 'loser' : ''}">
                 <div class="fixture-team">
@@ -1527,13 +1648,13 @@ function renderCalendarFixturePanel(players = []){
               </div>
             </div>
             <div class="fixture-meta">
-              <div class="fixture-meta-row"><span class="fixture-meta-label">Fecha:</span> <span>${schedule?.dateLabel || scheduledDate}</span></div>
-              <div class="fixture-meta-row"><span class="fixture-meta-label">Horario:</span> <span>${schedule?.timeLabel || scheduledTime}</span></div>
+              <div class="fixture-meta-row"><span class="fixture-meta-label">${t('date')}:</span> <span>${schedule?.dateLabel || scheduledDate}</span></div>
+              <div class="fixture-meta-row"><span class="fixture-meta-label">${t('schedule')}:</span> <span>${schedule?.timeLabel || scheduledTime}</span></div>
               ${liveButton}
             </div>
           </div>
         `;
-      }).join('') : '<div class="loading">Sin partidos cargados todavía.</div>';
+      }).join('') : `<div class="loading">${t('noMatchesLoaded')}</div>`;
 
       const isOpen = hasRenderedFixture
         ? dateKey === previousOpenDate
@@ -1542,7 +1663,7 @@ function renderCalendarFixturePanel(players = []){
         <details class="fixture-round fixture-date" data-fixture-date-key="${dateKey}"${isOpen ? ' open' : ''}>
           <summary class="fixture-round-summary">
             <span class="fixture-label">${dateLabel}</span>
-            <span class="fixture-badge">${matches.length} partido${matches.length === 1 ? '' : 's'}</span>
+            <span class="fixture-badge">${matches.length} ${matches.length === 1 ? t('matchSingular') : t('matchPlural')}</span>
           </summary>
           <div class="fixture-round-body fixture-calendar-matches">${matchesHtml}</div>
         </details>
@@ -1551,7 +1672,7 @@ function renderCalendarFixturePanel(players = []){
 
   container.innerHTML = calendarHtml
     ? `<div class="fixture-dates">${calendarHtml}</div>`
-    : '<div class="loading">Sin datos todavía.</div>';
+    : `<div class="loading">${t('noDataYet')}</div>`;
 
   container.querySelectorAll('.fixture-date').forEach(dateDetails => {
     dateDetails.addEventListener('toggle', () => {
@@ -1572,7 +1693,7 @@ function buildKnockoutBracket(runs, players){
   const knockoutResults = storedResults && storedResults.knockout;
 
   if(knockoutResults){
-    const participant = (name, label = 'Clasificado') => ({
+    const participant = (name, label = t('qualified')) => ({
       label,
       name,
       flag: (() => {
@@ -1583,12 +1704,12 @@ function buildKnockoutBracket(runs, players){
     });
     const readRound = (roundName, expectedLength) => Array.from({ length: expectedLength }, (_, index) => {
       const match = Array.isArray(knockoutResults[roundName]) ? knockoutResults[roundName][index] : null;
-      const playerA = match?.playerA || match?.a || 'Por determinar';
-      const playerB = match?.playerB || match?.b || 'Por determinar';
+      const playerA = match?.playerA || match?.a || t('tbd');
+      const playerB = match?.playerB || match?.b || t('tbd');
       const winner = match?.winner || '';
       return Object.assign([
-        participant(playerA, match?.labelA || 'Clasificado'),
-        participant(playerB, match?.labelB || 'Clasificado')
+        participant(playerA, match?.labelA || t('qualified')),
+        participant(playerB, match?.labelB || t('qualified'))
       ], { winnerIndex: winner === playerB ? 1 : winner === playerA ? 0 : null });
     });
 
@@ -1598,17 +1719,17 @@ function buildKnockoutBracket(runs, players){
       cuartos: readRound('cuartos', 4),
       semis: readRound('semifinales', 2),
       final: Object.assign([
-        participant(finalMatch.playerA || finalMatch.a || 'Por determinar'),
-        participant(finalMatch.playerB || finalMatch.b || 'Por determinar')
+        participant(finalMatch.playerA || finalMatch.a || t('tbd')),
+        participant(finalMatch.playerB || finalMatch.b || t('tbd'))
       ], { winnerIndex: finalMatch.winner === finalMatch.playerB ? 1 : finalMatch.winner ? 0 : null }),
       thirdPlace: (() => {
         const match = knockoutResults.tercerPuesto || knockoutResults.thirdPlace || {};
         return Object.assign([
-          participant(match.playerA || match.a || 'Por determinar'),
-          participant(match.playerB || match.b || 'Por determinar')
+          participant(match.playerA || match.a || t('tbd')),
+          participant(match.playerB || match.b || t('tbd'))
         ], { winnerIndex: match.winner === match.playerB ? 1 : match.winner ? 0 : null });
       })(),
-      champion: participant(finalMatch.winner || 'Por determinar', 'Campeón')
+      champion: participant(finalMatch.winner || t('tbd'), t('champion'))
     };
   }
 
@@ -1616,22 +1737,22 @@ function buildKnockoutBracket(runs, players){
 
   if(!finishedGroups){
     const pendingParticipants = [
-      { label: '1º Grupo A', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '2º Grupo B', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '1º Grupo C', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '2º Grupo D', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '1º Grupo E', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '2º Grupo F', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '1º Grupo G', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '2º Grupo H', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '1º Grupo B', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '2º Grupo A', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '1º Grupo D', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '2º Grupo C', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '1º Grupo F', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '2º Grupo E', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '1º Grupo H', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-      { label: '2º Grupo G', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }
+      { label: '1º Grupo A', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '2º Grupo B', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '1º Grupo C', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '2º Grupo D', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '1º Grupo E', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '2º Grupo F', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '1º Grupo G', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '2º Grupo H', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '1º Grupo B', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '2º Grupo A', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '1º Grupo D', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '2º Grupo C', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '1º Grupo F', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '2º Grupo E', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '1º Grupo H', name: t('tbd'), flag: null, details: t('drawPending') },
+      { label: '2º Grupo G', name: t('tbd'), flag: null, details: t('drawPending') }
     ];
 
     return {
@@ -1646,17 +1767,17 @@ function buildKnockoutBracket(runs, players){
         [pendingParticipants[14], pendingParticipants[15]]
       ],
       cuartos: [
-        [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }],
-        [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }],
-        [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }],
-        [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }]
+        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
+        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
+        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
+        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }]
       ],
       semis: [
-        [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }],
-        [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }]
+        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
+        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }]
       ],
-      final: [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }],
-      champion: { label: 'Campeón', name: 'Por determinar', flag: null, details: 'pendiente' }
+      final: [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
+      champion: { label: t('champion'), name: t('tbd'), flag: null, details: t('pendingSingle') }
     };
   }
 
@@ -1664,10 +1785,10 @@ function buildKnockoutBracket(runs, players){
     return FINAL_GROUPS[groupLetter].slice(0, 2).map((name, index) => {
       const playerProfile = resolvePlayerByName(players, name);
       return {
-        label: `${index === 0 ? '1º' : '2º'} Grupo ${groupLetter}`,
+        label: `${index === 0 ? '1º' : '2º'} ${t('group')} ${groupLetter}`,
         name,
         flag: playerProfile ? countryFlag(players, playerProfile.id) : null,
-        details: 'clasificado'
+        details: t('qualified')
       };
     });
   });
@@ -1684,20 +1805,20 @@ function buildKnockoutBracket(runs, players){
   ];
 
   const cuartos = [
-    [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }],
-    [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }],
-    [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }],
-    [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }]
+    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
+    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
+    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
+    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }]
   ];
 
   const semis = [
-    [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }],
-    [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }]
+    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
+    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }]
   ];
 
-  const final = [{ label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }, { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }];
+  const final = [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }];
 
-  const champion = { label: 'Campeón', name: 'Por determinar', flag: null, details: 'pendiente' };
+  const champion = { label: t('champion'), name: t('tbd'), flag: null, details: t('pendingSingle') };
 
   return { octavos, cuartos, semis, final, champion };
 }
@@ -1707,14 +1828,14 @@ function renderEliminatoriasPanel(runs, players){
   const hasKnockoutResults = Boolean(getLoadedResults()?.knockout);
   const renderMatch = (match, index, winnerIndex = null, matchClass = '') => {
     const canShowParticipants = finishedGroups || hasKnockoutResults;
-    const teamA = canShowParticipants ? match[0] || { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' } : { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' };
-    const teamB = canShowParticipants ? match[1] || { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' } : { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' };
+    const teamA = canShowParticipants ? match[0] || { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') } : { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
+    const teamB = canShowParticipants ? match[1] || { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') } : { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
 
     const isWinnerA = winnerIndex === 0;
     const isWinnerB = winnerIndex === 1;
     const isLoserA = winnerIndex !== null && !isWinnerA;
     const isLoserB = winnerIndex !== null && !isWinnerB;
-    const teamName = (team) => team.name === 'Por determinar'
+    const teamName = (team) => team.name === t('tbd')
       ? `<span class="team-name"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</span>`
       : `<button class="player-profile-button team-name" type="button" data-player-name="${team.name}"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</button>`;
 
@@ -1741,29 +1862,29 @@ function renderEliminatoriasPanel(runs, players){
   };
 
   const pendingMatch = [
-    { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' },
-    { label: 'Por determinar', name: 'Por determinar', flag: null, details: 'sorteo pendiente' }
+    { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') },
+    { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }
   ];
 
   const bracketHtml = `
     <div class="bracket-wrap">
-      ${renderSide(bracket.octavos.slice(0, 4), 'left', 'Octavos')}
-      ${renderSide(bracket.cuartos.slice(0, 2), 'left', 'Cuartos')}
-      ${renderSide(bracket.semis.slice(0, 1), 'left', 'Semifinales')}
+      ${renderSide(bracket.octavos.slice(0, 4), 'left', t('roundOf16'))}
+      ${renderSide(bracket.cuartos.slice(0, 2), 'left', t('quarterfinals'))}
+      ${renderSide(bracket.semis.slice(0, 1), 'left', t('semifinals'))}
       <div class="bracket-center">
-        <div class="round-title">Final</div>
+        <div class="round-title">${t('final')}</div>
         <div class="champion-banner">
           <span class="champion-trophy" aria-hidden="true">🏆</span>
-          <span class="champion-label">Campeón</span>
+          <span class="champion-label">${t('champion')}</span>
           <span class="champion-name">${bracket.champion.flag || ''} ${bracket.champion.name}</span>
         </div>
         ${renderMatch(bracket.final, 'final', bracket.final.winnerIndex ?? null, 'final-match')}
-        <div class="third-place-title">Tercer puesto</div>
+        <div class="third-place-title">${t('thirdPlace')}</div>
         ${renderMatch(bracket.thirdPlace || pendingMatch, 'third-place', bracket.thirdPlace?.winnerIndex ?? null, 'third-place-match')}
       </div>
-      ${renderSide(bracket.semis.slice(1, 2), 'right', 'Semifinales')}
-      ${renderSide(bracket.cuartos.slice(2, 4), 'right', 'Cuartos')}
-      ${renderSide(bracket.octavos.slice(4, 8), 'right', 'Octavos')}
+      ${renderSide(bracket.semis.slice(1, 2), 'right', t('semifinals'))}
+      ${renderSide(bracket.cuartos.slice(2, 4), 'right', t('quarterfinals'))}
+      ${renderSide(bracket.octavos.slice(4, 8), 'right', t('roundOf16'))}
     </div>
   `;
 
@@ -1784,12 +1905,12 @@ function buildPlayerDetails(player, pbs, runUrl, datePb){
         const label = link.label || link.rel;
         return `<a class="detail-link" ${href}>${label}</a>${index < channelList.length - 1 ? ', ' : ''}`;
       }).join('')}</li>`
-    : '<li><strong>Canales:</strong> No disponibles</li>';
+    : `<li><strong>${t('channels')}:</strong> ${t('notAvailablePlural')}</li>`;
 
   const firstPb = Array.isArray(pbs) && pbs.length > 0 ? pbs[0] : null;
   const pbList = Array.isArray(pbs) && pbs.length > 0
-    ? pbs.slice(0, 3).map(pb => `<li>${pb.gameName || 'Juego'} — ${pb.categoryName || 'Categoría'}: ${pb.primaryTime || 'N/D'}</li>`).join('')
-    : '<li>No disponibles</li>';
+    ? pbs.slice(0, 3).map(pb => `<li>${pb.gameName || t('game')} — ${pb.categoryName || t('category')}: ${pb.primaryTime || t('notAvailableShort')}</li>`).join('')
+    : `<li>${t('notAvailablePlural')}</li>`;
 
   const submitted = formatDate(datePb);
 
@@ -1813,15 +1934,15 @@ function buildPlayerDetails(player, pbs, runUrl, datePb){
       
   
   return `<div class="player-detail">
-    <div class="player-detail-title">${player.names?.international || 'Jugador'}</div>
+    <div class="player-detail-title">${player.names?.international || t('player')}</div>
     <ul class="detail-stats">
-      <li><strong>Fecha de inscripción:</strong> ${signupDate}</li>
+      <li><strong>${t('signupDate')}:</strong> ${signupDate}</li>
       ${channelHtml}
       ${statsHtml}
       <li class="pb-item"><strong>Personal Bests:</strong>
         <ul class="pb-sublist">${pbList}</ul>
       </li>
-      <li><strong>Fecha de subida del PB:</strong> ${submitted}</li>
+      <li><strong>${t('pbUploadDate')}:</strong> ${submitted}</li>
     </ul>
     ${videoHtml}
   </div>`;
@@ -1893,7 +2014,7 @@ function openPlayerModal(playerName){
     return `<div class="player-match">
       <div class="player-match-top"><strong>${formatCalendarDate(match.date)}</strong><span>${match.time}</span></div>
       <div class="player-match-teams"><span>${match.playerA}</span><b>${formattedA}</b><span>${match.playerB}</span><b>${formattedB}</b></div>
-      <div class="player-match-status">${isUpcoming(match) ? 'Próximo' : (winnerText || 'Finalizado')}</div>
+      <div class="player-match-status">${isUpcoming(match) ? t('upcomingLabel') : (winnerText || t('finishedLabel'))}</div>
     </div>`;
   };
   const pastMatches = groupMatches.filter(match => !isUpcoming(match));
@@ -1904,8 +2025,8 @@ function openPlayerModal(playerName){
       ${matches.length ? matches.map(renderMatch).join('') : `<div class="player-modal-empty">${emptyText}</div>`}
     </div>`;
   const groupTable = summary ? `<div class="player-modal-section">
-    <div class="player-modal-section-title">Posiciones · Grupo ${summary.letter}</div>
-    <div class="player-group-table-wrap"><table class="player-group-table"><thead><tr><th>#</th><th>Jugador</th><th>P</th><th>W</th><th>D</th><th>L</th><th>TB</th><th>PTS</th></tr></thead><tbody>
+    <div class="player-modal-section-title">${t('standings')} · ${t('group')} ${summary.letter}</div>
+    <div class="player-group-table-wrap"><table class="player-group-table"><thead><tr><th>#</th><th>${t('player')}</th><th>P</th><th>W</th><th>D</th><th>L</th><th>TB</th><th>PTS</th></tr></thead><tbody>
       ${summary.entries.map((groupEntry, index) => `<tr class="${normalizeManualMatchName(groupEntry.name) === normalizeManualMatchName(playerName) ? 'is-selected' : ''}"><td>${index + 1}</td><td>${groupEntry.name}</td><td>${groupEntry.matches}</td><td>${groupEntry.wins}</td><td>${groupEntry.draws}</td><td>${groupEntry.losses}</td><td>${groupEntry.bestTimeLabel || (groupEntry.bestTime != null ? formatTime(groupEntry.bestTime) : '-')}</td><td>${groupEntry.points}</td></tr>`).join('')}
     </tbody></table></div>
   </div>` : '';
@@ -1922,10 +2043,10 @@ function openPlayerModal(playerName){
   </div>` : '';
 
   content.innerHTML = `
-    <div class="player-modal-kicker">Fase de grupos${summary ? ` · Grupo ${summary.letter}` : ''}</div>
+    <div class="player-modal-kicker">${t('groupStage')}${summary ? ` · ${t('group')} ${summary.letter}` : ''}</div>
     <h2 id="player-modal-title">${flag ? `<span class="flag">${flag}</span> ` : ''}${playerName}</h2>
-    ${twitchChannel ? `<a class="player-modal-twitch" href="${twitchChannel.href}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">TW</span> Canal de Twitch</a>` : ''}
-    <div class="player-modal-position">${summary ? `<strong>${summary.rank}º</strong> de ${summary.total} en el Grupo ${summary.letter}` : 'Posición pendiente'}</div>
+    ${twitchChannel ? `<a class="player-modal-twitch" href="${twitchChannel.href}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">TW</span> ${t('twitchChannel')}</a>` : ''}
+    <div class="player-modal-position">${summary ? `<strong>${summary.rank}º</strong> ${t('of')} ${summary.total} ${t('inGroup')} ${summary.letter}` : t('positionPending')}</div>
     <div class="player-modal-stats">
       <div><span>P</span><strong>${entry.matches}</strong></div>
       <div><span>W</span><strong>${entry.wins}</strong></div>
@@ -1937,11 +2058,11 @@ function openPlayerModal(playerName){
     ${externalStatsHtml}
     ${groupTable}
     <div class="player-modal-section">
-      <div class="player-modal-section-title">Partidos del Grupo ${summary?.letter || ''}</div>
-      ${renderMatchSection('Pasadas', pastMatches, 'Todavía no hay partidos finalizados.')}
-      ${renderMatchSection('Próximas', upcomingMatches, 'No hay próximos partidos cargados.')}
+      <div class="player-modal-section-title">${t('matchesOfGroup')} ${summary?.letter || ''}</div>
+      ${renderMatchSection(t('pastMatches'), pastMatches, t('noPastMatches'))}
+      ${renderMatchSection(t('upcomingMatches'), upcomingMatches, t('noUpcomingMatches'))}
     </div>
-    ${profile ? `<div class="player-modal-note">La posición y los partidos corresponden exclusivamente a la fase de grupos.</div>` : ''}
+    ${profile ? `<div class="player-modal-note">${t('groupStageOnlyNote')}</div>` : ''}
   `;
   modal.hidden = false;
   document.body.classList.add('modal-open');
@@ -1982,8 +2103,8 @@ async function loadLeaderboard(){
     const container = document.getElementById('tabla-content');
     if(runs.length === 0){
       renderHomePanel(players);
-      container.innerHTML = '<div class="loading">Sin runs registradas todavía.</div>';
-      document.getElementById('grupos-content').innerHTML = '<div class="loading">Sin datos para generar grupos.</div>';
+      container.innerHTML = `<div class="loading">${t('noRunsYet')}</div>`;
+      document.getElementById('grupos-content').innerHTML = `<div class="loading">${t('noDataForGroups')}</div>`;
       return;
     }
 
@@ -2013,7 +2134,7 @@ async function loadLeaderboard(){
     }));
 
     const qualifyingRows = buildQualifyingRows(runs, players);
-    let html = '<table><thead><tr><th>#</th><th>Jugador</th><th>Tiempo</th></tr></thead><tbody>';
+    let html = `<table><thead><tr><th>#</th><th>${t('player')}</th><th>${t('time')}</th></tr></thead><tbody>`;
     const currentOrder = [];
 
     qualifyingRows.forEach(row => {
@@ -2124,7 +2245,7 @@ async function loadLeaderboard(){
     statusEl.textContent = "error: " + err.message;
     statusEl.className = "status error";
     document.getElementById('tabla-content').innerHTML =
-      '<div class="loading">No se pudo cargar el leaderboard.<br><small style="opacity:.7">' +
+      `<div class="loading">${t('leaderboardLoadError')}<br><small style="opacity:.7">` +
       err.message.replace(/</g,'&lt;') + '</small></div>';
     console.error(err);
   }
