@@ -430,6 +430,14 @@ function parseScheduleDateCells(dayValue, dateValue){
   const fullDate = parseScheduleDayLabel(dateValue);
   if(fullDate) return fullDate;
 
+  const compactDate = `${String(dayValue || '').trim()} ${String(dateValue || '').trim()}`
+    .replace(/\s+/g, ' ')
+    .trim();
+  const compactMatch = compactDate.match(/^(\d{1,2})\s+([A-ZÁÉÍÓÚ]+)[.]?$/i);
+  if(compactMatch){
+    return parseScheduleDayLabel(`DAY 1 ${compactMatch[2]} ${compactMatch[1]}`);
+  }
+
   const combinedDate = `${String(dayValue || '').trim()} ${String(dateValue || '').trim()}`;
   const combinedMatch = combinedDate.match(/^DAY\s+\d+\s+([A-ZÁÉÍÓÚ]+)[.]?\s+(\d{1,2})$/i);
   if(!combinedMatch) return null;
@@ -480,7 +488,7 @@ function parseMatchScheduleTable(table){
   const rounds = [
     { start: 1, schedule: 6, dateDay: 0, date: 1 },
     { start: 9, schedule: 14, dateDay: 8, date: 9 },
-    { start: 18, schedule: 22, dateDay: 16, date: 17 }
+    { start: 17, schedule: 22, dateDay: 16, date: 17 }
   ];
   const matchesByRound = rounds.map(() => []);
   const currentDates = rounds.map(() => null);
