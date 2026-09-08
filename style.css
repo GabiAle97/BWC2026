@@ -148,9 +148,7 @@ tbody tr:hover{background:#1d2030}
 }
 
 .player{
-  display:flex;
-  align-items:center;
-  gap:8px;
+  vertical-align:middle;
 }
 
 .player-button{
@@ -440,6 +438,11 @@ footer{
 .home-empty h2{margin:0;color:#fff;font-size:1.35rem}
 .home-empty p{margin:0;color:var(--muted);font-size:.85rem}
 
+#tabla-content{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
 /* Superficies de datos: dejan visible el fondo general sin afectar modals. */
 #tabla-content table,
 #stats-content .stats-table,
@@ -475,7 +478,7 @@ footer{
 .stats-table-wrap{overflow-x:auto;border-radius:10px}
 .stats-table{min-width:420px}
 .stats-rank{width:52px;color:var(--muted);font-weight:700}
-.stats-player{font-weight:600;display:flex;align-items:center;gap:8px}
+.stats-player{font-weight:600;vertical-align:middle}
 .stats-player-button{display:inline-flex;align-items:center;gap:8px;padding:2px 0;margin:0}
 .stats-value{color:var(--accent);font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
 .stats-missing{color:var(--muted);font-weight:400}
@@ -483,6 +486,52 @@ footer{
 .stats-first .stats-rank,.stats-first .stats-value{color:var(--gold)}
 .stats-last td{background:rgba(255,82,82,.14)}
 .stats-last .stats-rank,.stats-last .stats-value{color:#ff7777}
+
+@media (max-width:480px){
+  #tabla-content table,
+  #stats-content .stats-table{
+    min-width:0;
+    width:100%;
+    table-layout:fixed;
+  }
+
+  #tabla-content thead th,
+  #tabla-content tbody td,
+  #stats-content .stats-table thead th,
+  #stats-content .stats-table tbody td{
+    padding:8px 6px;
+    font-size:.78rem;
+  }
+
+  /* table-layout:fixed toma el ancho de la fila del thead, no de las clases del tbody. */
+  #tabla-content thead th:nth-child(1),
+  #tabla-content tbody td:nth-child(1){width:13%}
+  #tabla-content thead th:nth-child(2),
+  #tabla-content tbody td:nth-child(2){width:60%}
+  #tabla-content thead th:nth-child(3),
+  #tabla-content tbody td:nth-child(3){width:27%}
+
+  #stats-content .stats-table thead th:nth-child(1),
+  #stats-content .stats-table tbody td:nth-child(1){width:14%}
+  #stats-content .stats-table thead th:nth-child(2),
+  #stats-content .stats-table tbody td:nth-child(2){width:50%}
+  #stats-content .stats-table thead th:nth-child(3),
+  #stats-content .stats-table tbody td:nth-child(3){width:36%}
+
+  #tabla-content .player-name,
+  #stats-content .stats-player span:last-child{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    max-width:35vw;
+  }
+
+  #tabla-content .flag-image,
+  #stats-content .flag-image{width:18px;height:13px}
+
+  #tabla-content .time,
+  #stats-content .stats-value{font-size:.78rem}
+}
 
 /* ========== ABOUT ME ========== */
 .about-page{
@@ -520,6 +569,14 @@ footer{
   margin:0 auto 14px;
   object-fit:contain;
   filter:drop-shadow(0 8px 18px rgba(0,0,0,.35));
+}
+
+.site-logo{
+  display:block;
+  width:min(100%,700px);
+  height:auto;
+  max-height:100px;
+  object-fit:contain;
 }
 .about-kicker,
 .about-section-label{
@@ -1245,20 +1302,25 @@ footer{
 
 @media (max-width: 520px){
   #eliminatorias-content .bracket-wrap{
-    width:700px;
-    min-width:700px;
-    height:420px;
-    min-height:420px;
-    gap:0 6px;
+    width:1080px;
+    min-width:1080px;
+    height:600px;
+    min-height:600px;
+    gap:0 10px;
   }
 
   #eliminatorias-content .round-title,
-  #eliminatorias-content .third-place-title{font-size:.54rem}
-  #eliminatorias-content .knockout-match{min-height:50px}
-  #eliminatorias-content .team-slot{min-height:24px;padding:2px 4px}
-  #eliminatorias-content .team-label{font-size:.34rem}
-  #eliminatorias-content .team-name{font-size:.46rem}
-  #eliminatorias-content .team-detail{font-size:.34rem}
+  #eliminatorias-content .third-place-title{font-size:.88rem}
+  #eliminatorias-content .knockout-match{min-height:78px}
+  #eliminatorias-content .team-slot{min-height:38px;padding:5px 8px}
+  #eliminatorias-content .team-label{font-size:.58rem}
+  #eliminatorias-content .team-name{font-size:.78rem}
+  #eliminatorias-content .team-detail{font-size:.54rem}
+  #eliminatorias-content .team-flag{font-size:1rem}
+  #eliminatorias-content .champion-trophy{font-size:1.9rem}
+  #eliminatorias-content .champion-label{font-size:.7rem}
+  #eliminatorias-content .champion-name{font-size:.9rem}
+  #eliminatorias-content .champion-name .flag-image{width:25px;height:19px}
 }
 
 .champion-banner{
