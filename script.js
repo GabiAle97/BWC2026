@@ -57,7 +57,7 @@ const TRANSLATIONS = {
     aboutCopy1: 'Soy <strong>Gabriel Pereyra</strong>, streamer en Twitch conocido como <strong>GabiAle97</strong>. Creo contenido de gaming, speedrunning y videojuegos clásicos, además de proyectos técnicos y herramientas para la comunidad.',
     aboutCopy2: 'Soy un participante de la <strong>Basement World Cup 2026</strong>, así que me veran enfrentarme a los mejores runners de RE3 de este año. <strong>NOS VEMOS ALLÁ!</strong>',
     aboutSupportTitle: 'Invitame un Cafecito', aboutSupportSub: 'Ayudá a sostener el contenido y los proyectos',
-    aboutNote: 'Gracias por acompañar y ser parte de la comunidad.', aboutFileButton: 'EX-File'
+    aboutNote: 'Gracias por acompañar y ser parte de la comunidad.', aboutFileButton: 'Diario de Jill'
   },
   en: {
     navInicio: 'Home', navTabla: 'Qualifiers', navStats: 'Statistics',
@@ -88,7 +88,7 @@ const TRANSLATIONS = {
     aboutCopy1: 'I\'m <strong>Gabriel Pereyra</strong>, a Twitch streamer known as <strong>GabiAle97</strong>. I create gaming, speedrunning and classic video game content, plus technical projects and tools for the community.',
     aboutCopy2: 'I\'m a participant in the <strong>Basement World Cup 2026</strong>, so you\'ll see me facing off against the best RE3 runners this year. <strong>SEE YOU THERE!</strong>',
     aboutSupportTitle: 'Buy me a Cafecito', aboutSupportSub: 'Help support the content and projects',
-    aboutNote: 'Thanks for following along and being part of the community.', aboutFileButton: 'EX-File'
+    aboutNote: 'Thanks for following along and being part of the community.', aboutFileButton: 'Jill\'s Diary'
   }
 };
 
