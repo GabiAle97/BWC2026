@@ -45,6 +45,7 @@ header{
 .lang-switch{
   display:flex;
   gap:6px;
+  flex-shrink:0;
 }
 
 .lang-button{
@@ -576,6 +577,8 @@ footer{
   width:min(100%,700px);
   height:auto;
   max-height:100px;
+  min-width:0;
+  flex-shrink:1;
   object-fit:contain;
 }
 .about-kicker,
