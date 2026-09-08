@@ -426,7 +426,7 @@ tbody tr:hover{background:#1d2030}
   overflow:hidden;
   color:#fff;
   font-family:"PixelFont","Press Start 2P",monospace;
-  font-size:clamp(9px,0.5vw,20px);
+  font-size:clamp(8px,0.8vw,20px);
   line-height:1.5;
   text-align:left;
   text-rendering:optimizeSpeed;
