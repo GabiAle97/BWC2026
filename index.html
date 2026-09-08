@@ -59,6 +59,13 @@
 
     <section id="about" class="tab-panel">
       <div class="about-page">
+        <div class="about-code-trigger">
+          <span class="about-code-legend-wrap" id="about-code-legend-wrap">
+            <span class="about-code-legend">Introduce el código</span>
+          </span>
+          <button type="button" id="about-pulse-dot" class="about-pulse-dot" aria-label="Código secreto"></button>
+        </div>
+        <input id="about-code-input" class="about-code-input" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-hidden="true" tabindex="-1">
         <div class="about-identity">
           <img class="about-logo" src="gabiale97.png" alt="Logo de GabiAle97">
           <p class="about-kicker" data-i18n="aboutKicker">Streamer · Speedrunner · Creador</p>

@@ -2405,42 +2405,80 @@ externalMatchScheduleLoad = loadExternalMatchSchedule();
 loadLeaderboard();
 loadVisitCounter();
 
-let aboutInputBuffer = '';
 let aboutInputResetTimer = null;
 
-function clearAboutInputBuffer(){
-  aboutInputBuffer = '';
-  if(aboutInputResetTimer){
-    clearTimeout(aboutInputResetTimer);
-    aboutInputResetTimer = null;
+function hideAboutCodeLegend(){
+  const legendWrap = document.getElementById('about-code-legend-wrap');
+  if(legendWrap) legendWrap.classList.remove('visible');
+}
+
+function resetAboutSecretInput(){
+  clearTimeout(aboutInputResetTimer);
+  aboutInputResetTimer = null;
+  hideAboutCodeLegend();
+  const input = document.getElementById('about-code-input');
+  if(input){
+    input.value = '';
+    input.blur();
+  }
+}
+
+function checkAboutSecretCode(code){
+  if(code === '4312'){
+    window.location.href = 'https://gabiale97.github.io/pharmacy_practice/';
   }
 }
 
 function setupAboutSecretInput(){
-  document.addEventListener('keydown', (event) => {
-    const aboutPanel = document.getElementById('about');
-    if(!aboutPanel || !aboutPanel.classList.contains('active')){
-      clearAboutInputBuffer();
-      return;
-    }
+  const dot = document.getElementById('about-pulse-dot');
+  const legendWrap = document.getElementById('about-code-legend-wrap');
+  const input = document.getElementById('about-code-input');
+  if(!dot || !legendWrap || !input) return;
 
+  dot.addEventListener('click', () => {
+    legendWrap.classList.add('visible');
+    input.value = '';
+    input.focus();
     clearTimeout(aboutInputResetTimer);
-    aboutInputResetTimer = setTimeout(clearAboutInputBuffer, 2000);
+    aboutInputResetTimer = setTimeout(resetAboutSecretInput, 5000);
+  });
 
-    if(!/^\d$/.test(event.key)) return;
+  input.addEventListener('input', () => {
+    clearTimeout(aboutInputResetTimer);
+    aboutInputResetTimer = setTimeout(resetAboutSecretInput, 5000);
 
-    aboutInputBuffer += event.key;
-    if(aboutInputBuffer.length < 4) return;
-
-    const enteredCode = aboutInputBuffer;
-    clearAboutInputBuffer();
-    if(enteredCode === '4312'){
-      window.location.href = 'https://gabiale97.github.io/pharmacy_practice/';
+    const digits = input.value.replace(/\D/g, '').slice(0, 4);
+    input.value = digits;
+    if(digits.length === 4){
+      checkAboutSecretCode(digits);
+      resetAboutSecretInput();
     }
   });
+
+  input.addEventListener('blur', hideAboutCodeLegend);
 }
 
 // Pestañas simples para cambiar secciones
+let aboutPulseInterval = null;
+
+function startAboutPulse(){
+  const dot = document.getElementById('about-pulse-dot');
+  if(!dot || aboutPulseInterval) return;
+  const start = Date.now();
+  aboutPulseInterval = setInterval(() => {
+    const phase = ((Date.now() - start) % 90) / 90;
+    const intensity = 0.3 + 0.7 * Math.abs(Math.sin(phase * Math.PI));
+    dot.style.opacity = intensity.toFixed(3);
+    dot.style.boxShadow = `0 0 ${6 + intensity * 12}px ${2 + intensity * 4}px rgba(255,59,59,${(intensity * 0.65).toFixed(3)})`;
+  }, 10);
+}
+
+function stopAboutPulse(){
+  if(!aboutPulseInterval) return;
+  clearInterval(aboutPulseInterval);
+  aboutPulseInterval = null;
+}
+
 function setupTabs(){
   const buttons = document.querySelectorAll('.tab-button');
   const panels = document.querySelectorAll('.tab-panel');
@@ -2449,7 +2487,9 @@ function setupTabs(){
       const target = btn.dataset.target;
       buttons.forEach(b => b.classList.toggle('active', b === btn));
       panels.forEach(p => p.classList.toggle('active', p.id === target));
-      if(target !== 'about') clearAboutInputBuffer();
+      if(target !== 'about') resetAboutSecretInput();
+      if(target === 'about') startAboutPulse();
+      else stopAboutPulse();
     });
   });
 }
