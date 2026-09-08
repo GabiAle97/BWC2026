@@ -29,7 +29,7 @@ const LANG_STORAGE_KEY = 'bc-lang';
 
 const TRANSLATIONS = {
   es: {
-    navInicio: 'Inicio', navTabla: 'Tabla de Posiciones', navStats: 'Estadísticas',
+    navInicio: 'Inicio', navTabla: 'Clasificatorias', navStats: 'Estadísticas',
     navGrupos: 'Fase de Grupos', navFixture: 'Fixture', navEliminatorias: 'Eliminatorias', navAbout: 'Acerca de mí',
     loadingLive: 'Buscando partida en vivo…', loadingTabla: 'Cargando datos…', loadingStats: 'Cargando estadísticas…',
     pendingGrupos: 'Fase de Grupos: contenido pendiente.', pendingFixture: 'Fixture: contenido pendiente.', pendingEliminatorias: 'Eliminatorias: contenido pendiente.',
@@ -60,7 +60,7 @@ const TRANSLATIONS = {
     aboutNote: 'Gracias por acompañar y ser parte de la comunidad.'
   },
   en: {
-    navInicio: 'Home', navTabla: 'Standings', navStats: 'Statistics',
+    navInicio: 'Home', navTabla: 'Qualifiers', navStats: 'Statistics',
     navGrupos: 'Group Stage', navFixture: 'Fixture', navEliminatorias: 'Playoffs', navAbout: 'About me',
     loadingLive: 'Looking for a live match…', loadingTabla: 'Loading data…', loadingStats: 'Loading statistics…',
     pendingGrupos: 'Group Stage: content coming soon.', pendingFixture: 'Fixture: content coming soon.', pendingEliminatorias: 'Playoffs: content coming soon.',
