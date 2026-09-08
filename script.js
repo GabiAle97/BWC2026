@@ -311,6 +311,78 @@ function isMatchLive(startDate){
   return elapsed >= 0 && elapsed <= LIVE_WINDOW_MS;
 }
 
+function getPlayerAvatarMarkup(player){
+  const imageUrl = player?.assets?.image?.uri;
+  if(imageUrl){
+    return `<img src="${imageUrl}" alt="" loading="lazy">`;
+  }
+
+  const playerName = player?.names?.international || player?.names?.twitch || player?.name;
+  if(playerName){
+    const localImageUrl = `./playerimg/${encodeURIComponent(playerName)}.png`;
+    return `<img src="${localImageUrl}" alt="" loading="lazy">`;
+  }
+
+  return '<span class="home-avatar-placeholder" aria-hidden="true">🏃</span>';
+}
+
+function renderHomePanel(players = []){
+  const container = document.getElementById('inicio-content');
+  if(!container) return;
+
+  const results = externalMatchSchedule;
+  const matches = Array.isArray(results?.matches) ? results.matches : [];
+  const liveMatch = matches
+    .map(match => ({ match, schedule: formatScheduledDateTime(match.date, match.time) }))
+    .find(item => item.schedule && isMatchLive(item.schedule.date));
+
+  if(!liveMatch){
+    container.innerHTML = `
+      <div class="home-empty">
+        <span class="home-empty-mark" aria-hidden="true">◷</span>
+        <h2>Aún no empezó ninguna partida</h2>
+        <p>Cuando comience un enfrentamiento, aparecerá aquí.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const { match, schedule } = liveMatch;
+  const playerA = resolvePlayerByName(players, match.playerA);
+  const playerB = resolvePlayerByName(players, match.playerB);
+  const flagA = playerA ? countryFlag(players, playerA.id) : '🏳️';
+  const flagB = playerB ? countryFlag(players, playerB.id) : '🏳️';
+
+  container.innerHTML = `
+    <div class="home-live-card">
+      <div class="home-live-backdrop"></div>
+      <div class="home-live-header">
+        <span class="home-live-pill"><i></i> EN VIVO</span>
+        <span>Grupo ${match.group}</span>
+      </div>
+      <div class="home-matchup">
+        <div class="home-contestant">
+          <div class="home-avatar">${getPlayerAvatarMarkup(playerA)}</div>
+          <div class="home-player-name">${match.playerA}</div>
+          <div class="home-player-flag">${flagA}</div>
+          <div class="home-player-time">${match.timeA || '-'}</div>
+        </div>
+        <div class="home-versus"><strong>VS</strong><span>BEST OF 1</span></div>
+        <div class="home-contestant">
+          <div class="home-avatar">${getPlayerAvatarMarkup(playerB)}</div>
+          <div class="home-player-name">${match.playerB}</div>
+          <div class="home-player-flag">${flagB}</div>
+          <div class="home-player-time">${match.timeB || '-'}</div>
+        </div>
+      </div>
+      <div class="home-live-footer">
+        <span>${schedule.dateLabel} · ${schedule.timeLabel}</span>
+        <a href="${LIVE_STREAM_URL}" target="_blank" rel="noopener noreferrer">Ver transmisión</a>
+      </div>
+    </div>
+  `;
+}
+
 function getStoredResults(){
   try{
     const raw = localStorage.getItem(RESULTS_STORAGE_KEY);
@@ -955,9 +1027,10 @@ function playerChannels(player){
   ];
 
   fields.forEach(({ key, label }) => {
-    const value = player[key];
-    if(value && value.trim && value.trim() !== '') {
-      channelMap.push({ label, href: value, rel: key });
+    const rawValue = player[key];
+    const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue?.uri;
+    if(value && String(value).trim() !== '') {
+      channelMap.push({ label, href: String(value).trim(), rel: key });
     }
   });
 
@@ -1804,6 +1877,7 @@ function openPlayerModal(playerName){
   const profile = resolvePlayerByName(players, playerName);
   const summary = getGroupPlayerSummary(playerName);
   const flag = profile ? countryFlag(players, profile.id) : null;
+  const twitchChannel = profile ? playerChannels(profile).find(channel => channel.rel === 'twitch') : null;
   const externalStats = externalPlayerStats.get(normalizeParticipantName(profile?.names?.international || playerName));
   const entry = summary?.entry || { matches: 0, wins: 0, draws: 0, losses: 0, bestTime: null, bestTimeLabel: null, points: 0 };
   const bestTime = entry.bestTimeLabel || (entry.bestTime != null ? formatTime(entry.bestTime) : '-');
@@ -1850,6 +1924,7 @@ function openPlayerModal(playerName){
   content.innerHTML = `
     <div class="player-modal-kicker">Fase de grupos${summary ? ` · Grupo ${summary.letter}` : ''}</div>
     <h2 id="player-modal-title">${flag ? `<span class="flag">${flag}</span> ` : ''}${playerName}</h2>
+    ${twitchChannel ? `<a class="player-modal-twitch" href="${twitchChannel.href}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">TW</span> Canal de Twitch</a>` : ''}
     <div class="player-modal-position">${summary ? `<strong>${summary.rank}º</strong> de ${summary.total} en el Grupo ${summary.letter}` : 'Posición pendiente'}</div>
     <div class="player-modal-stats">
       <div><span>P</span><strong>${entry.matches}</strong></div>
@@ -1906,12 +1981,14 @@ async function loadLeaderboard(){
 
     const container = document.getElementById('tabla-content');
     if(runs.length === 0){
+      renderHomePanel(players);
       container.innerHTML = '<div class="loading">Sin runs registradas todavía.</div>';
       document.getElementById('grupos-content').innerHTML = '<div class="loading">Sin datos para generar grupos.</div>';
       return;
     }
 
     lastLeaderboardSnapshot = { runs, players };
+    renderHomePanel(players);
     renderStatsPanel();
     renderGroupsPanel(runs, players);
     renderFixturePanel(players);

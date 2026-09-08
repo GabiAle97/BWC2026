@@ -392,6 +392,33 @@ footer{
 .tab-panel{display:block}
 .tab-panel:not(.active){display:none}
 
+/* ========== INICIO / PARTIDA EN VIVO ========== */
+#inicio-content{min-height:460px}
+.home-live-card{position:relative;min-height:460px;overflow:hidden;border:1px solid #41485b;border-radius:12px;background:transparent;box-shadow:none}
+.home-live-backdrop{display:none}
+.home-live-header,.home-live-footer,.home-matchup{position:relative;z-index:1}
+.home-live-header{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;color:#d5d9e3;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.home-live-pill{display:inline-flex;align-items:center;gap:7px;color:#ff7777}
+.home-live-pill i{width:8px;height:8px;border-radius:50%;background:#ff5555;box-shadow:0 0 0 5px rgba(255,85,85,.16)}
+.home-matchup{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:24px;padding:26px 8%;text-align:center}
+.home-contestant{min-width:0}
+.home-avatar{width:min(190px,100%);aspect-ratio:1;margin:0 auto 16px;overflow:hidden;border:3px solid rgba(255,255,255,.7);border-radius:8px;background:#252b38;box-shadow:0 10px 28px rgba(0,0,0,.35)}
+.home-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+.home-avatar-placeholder{display:grid;place-items:center;width:100%;height:100%;font-size:3rem;filter:grayscale(1)}
+.home-player-name{overflow:hidden;color:#fff;font-size:clamp(1rem,2.2vw,1.5rem);font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.home-player-flag{min-height:24px;margin-top:6px;font-size:1.35rem}
+.home-player-time{margin-top:7px;color:#aef09b;font-size:1.15rem;font-weight:800;font-variant-numeric:tabular-nums}
+.home-versus{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff}
+.home-versus strong{font-size:clamp(2rem,5vw,4.5rem);line-height:1;text-shadow:3px 3px 0 #12151b}
+.home-versus span{padding:7px 10px;border:1px solid rgba(255,255,255,.35);color:#e7e9ef;font-size:.62rem;font-weight:700;letter-spacing:.1em}
+.home-live-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 8%;padding:16px 0;border-top:1px solid rgba(255,255,255,.2);color:#d4d8e1;font-size:.8rem}
+.home-live-footer a{padding:8px 12px;border-radius:5px;background:#e64949;color:#fff;font-weight:700;text-decoration:none}
+.home-live-footer a:hover{filter:brightness(1.1)}
+.home-empty{display:grid;min-height:460px;place-items:center;align-content:center;gap:10px;border:1px solid var(--border);border-radius:12px;background:transparent;text-align:center}
+.home-empty-mark{color:var(--gold);font-size:3rem}
+.home-empty h2{margin:0;color:#fff;font-size:1.35rem}
+.home-empty p{margin:0;color:var(--muted);font-size:.85rem}
+
 /* Superficies de datos: dejan visible el fondo general sin afectar modals. */
 #tabla-content table,
 #stats-content .stats-table,
@@ -928,6 +955,28 @@ footer{
   padding:0 0 12px;
 }
 
+.player-modal-twitch{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  margin:4px 0 8px;
+  color:#d99cff;
+  font-size:.8rem;
+  font-weight:700;
+  text-decoration:none;
+}
+.player-modal-twitch span{
+  display:grid;
+  width:22px;
+  height:22px;
+  place-items:center;
+  border-radius:4px;
+  background:#9146ff;
+  color:#fff;
+  font-size:.58rem;
+}
+.player-modal-twitch:hover{text-decoration:underline}
+
 .knockout-match{
   width:100%;
   min-width:0;
@@ -1273,6 +1322,14 @@ footer{
     padding:7px 10px;
     font-size:.85rem;
   }
+  .home-matchup{grid-template-columns:1fr 58px 1fr;gap:8px;padding:28px 12px}
+  .home-avatar{width:100%;max-width:130px}
+  .home-player-name{font-size:.9rem}
+  .home-player-time{font-size:.95rem}
+  .home-versus strong{font-size:2.2rem}
+  .home-versus span{font-size:.48rem;padding:5px 4px}
+  .home-live-footer{align-items:stretch;flex-direction:column;margin:0 12px}
+  .home-live-footer a{text-align:center}
   table{
     min-width:420px;
     font-size:.9rem;
