@@ -57,7 +57,7 @@ const TRANSLATIONS = {
     aboutCopy1: 'Soy <strong>Gabriel Pereyra</strong>, streamer en Twitch conocido como <strong>GabiAle97</strong>. Creo contenido de gaming, speedrunning y videojuegos clásicos, además de proyectos técnicos y herramientas para la comunidad.',
     aboutCopy2: 'Soy un participante de la <strong>Basement World Cup 2026</strong>, así que me veran enfrentarme a los mejores runners de RE3 de este año. <strong>NOS VEMOS ALLÁ!</strong>',
     aboutSupportTitle: 'Invitame un Cafecito', aboutSupportSub: 'Ayudá a sostener el contenido y los proyectos',
-    aboutNote: 'Gracias por acompañar y ser parte de la comunidad.'
+    aboutNote: 'Gracias por acompañar y ser parte de la comunidad.', aboutFileButton: 'EX-File'
   },
   en: {
     navInicio: 'Home', navTabla: 'Qualifiers', navStats: 'Statistics',
@@ -88,7 +88,7 @@ const TRANSLATIONS = {
     aboutCopy1: 'I\'m <strong>Gabriel Pereyra</strong>, a Twitch streamer known as <strong>GabiAle97</strong>. I create gaming, speedrunning and classic video game content, plus technical projects and tools for the community.',
     aboutCopy2: 'I\'m a participant in the <strong>Basement World Cup 2026</strong>, so you\'ll see me facing off against the best RE3 runners this year. <strong>SEE YOU THERE!</strong>',
     aboutSupportTitle: 'Buy me a Cafecito', aboutSupportSub: 'Help support the content and projects',
-    aboutNote: 'Thanks for following along and being part of the community.'
+    aboutNote: 'Thanks for following along and being part of the community.', aboutFileButton: 'EX-File'
   }
 };
 
@@ -2075,6 +2075,149 @@ function closePlayerModal(){
   document.body.classList.remove('modal-open');
 }
 
+let fileViewerState = null;
+
+function fadeOutAndStop(audio, duration = 800){
+  if(audio._fadeInterval) clearInterval(audio._fadeInterval);
+  const startVolume = audio.volume || 1;
+  const steps = 20;
+  let step = 0;
+  audio._fadeInterval = setInterval(() => {
+    step++;
+    audio.volume = Math.max(0, startVolume * (1 - step / steps));
+    if(step >= steps){
+      clearInterval(audio._fadeInterval);
+      audio._fadeInterval = null;
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = startVolume;
+    }
+  }, duration / steps);
+}
+
+// file:// no soporta Range requests para audio: Chromium aborta la carga de mp3/wav grandes.
+// Se descarga como blob y se asigna como src para evitar ese bug.
+function loadAudioAsBlob(src, audio){
+  return fetch(src)
+    .then(res => res.blob())
+    .then(blob => { audio.src = URL.createObjectURL(blob); })
+    .catch(() => { audio.src = src; });
+}
+
+function initFileViewer(){
+  const modal = document.getElementById('file-modal');
+  if(!modal) return null;
+  const pages = Array.from(modal.querySelectorAll('.page'));
+  const arrowLeft = document.getElementById('fileArrowLeft');
+  const arrowRight = document.getElementById('fileArrowRight');
+  const indicator = document.getElementById('filePageIndicator');
+  const exitPrompt = document.getElementById('fileExitPrompt');
+  const pageSound = new Audio();
+  const cancelSound = new Audio();
+  const mainTheme = new Audio();
+  mainTheme.loop = true;
+
+  const ready = Promise.all([
+    loadAudioAsBlob('exfile/page.mp3', pageSound),
+    loadAudioAsBlob('exfile/cancel.wav', cancelSound),
+    loadAudioAsBlob('exfile/main.mp3', mainTheme)
+  ]);
+
+  let current = 0;
+
+  function render(){
+    pages.forEach((page, index) => {
+      page.classList.toggle('active', index === current);
+      page.classList.toggle('prev', index < current);
+    });
+    indicator.textContent = `${current + 1} / ${pages.length}`;
+    arrowLeft.classList.toggle('hidden', current === 0);
+    arrowRight.classList.toggle('hidden', current === pages.length - 1);
+    if(current === pages.length - 1) exitPrompt.focus({ preventScroll: true });
+  }
+
+  function playPageSound(){
+    pageSound.currentTime = 0;
+    pageSound.play().catch(() => {});
+  }
+
+  function goNext(){
+    if(current < pages.length - 1){
+      current++;
+      playPageSound();
+      render();
+    }
+  }
+
+  function goPrev(){
+    if(current > 0){
+      current--;
+      playPageSound();
+      render();
+    }
+  }
+
+  function reset(){
+    current = 0;
+    render();
+  }
+
+  function exit(){
+    cancelSound.currentTime = 0;
+    cancelSound.play().catch(() => {});
+    closeFileModal();
+  }
+
+  function handleKeydown(event){
+    if(modal.hidden) return;
+    const onLastPage = current === pages.length - 1;
+    if(event.key === 'ArrowRight'){
+      if(onLastPage) exit(); else goNext();
+    }else if(event.key === 'ArrowLeft'){
+      goPrev();
+    }else if(event.key === 'Enter' && onLastPage){
+      exit();
+    }
+  }
+
+  arrowRight.addEventListener('click', goNext);
+  arrowLeft.addEventListener('click', goPrev);
+  exitPrompt.addEventListener('click', exit);
+  document.addEventListener('keydown', handleKeydown);
+
+  render();
+
+  return { reset, mainTheme, cancelSound, ready };
+}
+
+function openFileModal(){
+  const modal = document.getElementById('file-modal');
+  if(!modal) return;
+  if(!fileViewerState) fileViewerState = initFileViewer();
+  if(fileViewerState){
+    fileViewerState.reset();
+    fileViewerState.ready.then(() => {
+      const audio = fileViewerState.mainTheme;
+      if(audio._fadeInterval){
+        clearInterval(audio._fadeInterval);
+        audio._fadeInterval = null;
+      }
+      audio.volume = 1;
+      audio.play().catch(() => {});
+    });
+  }
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+
+function closeFileModal(){
+  const modal = document.getElementById('file-modal');
+  if(!modal) return;
+  modal.hidden = true;
+  document.body.classList.remove('modal-open');
+  if(fileViewerState) fadeOutAndStop(fileViewerState.mainTheme);
+}
+
 document.addEventListener('click', (event) => {
   const playerButton = event.target.closest('.player-profile-button');
   if(playerButton){
@@ -2083,10 +2226,16 @@ document.addEventListener('click', (event) => {
   }
 
   if(event.target.closest('[data-close-player-modal]')) closePlayerModal();
+
+  if(event.target.closest('[data-open-file-modal]')) openFileModal();
+  if(event.target.closest('[data-close-file-modal]')) closeFileModal();
 });
 
 document.addEventListener('keydown', (event) => {
-  if(event.key === 'Escape') closePlayerModal();
+  if(event.key === 'Escape'){
+    closePlayerModal();
+    closeFileModal();
+  }
 });
 
 async function loadLeaderboard(){

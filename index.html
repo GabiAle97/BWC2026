@@ -75,6 +75,7 @@
           <a class="about-link" href="https://www.youtube.com/@EmuTesting" target="_blank" rel="noopener noreferrer"><span class="about-link-icon">YT</span><span>YouTube</span></a>
           <a class="about-link" href="https://github.com/GabiAle97" target="_blank" rel="noopener noreferrer"><span class="about-link-icon">GH</span><span>GitHub</span></a>
           <a class="about-link" href="https://cafecito.app/gabimufas97" target="_blank" rel="noopener noreferrer"><span class="about-link-icon">☕</span><span>Cafecito</span></a>
+          <button class="about-link" type="button" data-open-file-modal><span class="about-link-icon">EF</span><span data-i18n="aboutFileButton">EX-File</span></button>
         </div>
 
         <a class="about-support" href="https://cafecito.app/gabimufas97" target="_blank" rel="noopener noreferrer">
@@ -100,6 +101,83 @@
     <button class="player-modal-close" type="button" data-i18n-attr="aria-label:aboutClose" aria-label="Cerrar" data-close-player-modal>×</button>
     <div id="player-modal-content"></div>
   </section>
+</div>
+
+<div id="file-modal" class="file-modal" hidden>
+  <div class="file-modal-backdrop" data-close-file-modal></div>
+  <div class="file-viewer">
+    <button class="file-modal-close" type="button" aria-label="Cerrar" data-close-file-modal>×</button>
+
+    <div class="page active" data-page="1">
+      <div class="page-content">
+        <p>Septiembre 3. Tarde</p>
+        <br>
+        <p>La ciudad está infestada de zombis.</p>
+        <p>Los gritos de gente siendo masticada... Una y otra vez.</p>
+        <p>Debo encontrar una manera de salir de esta pesadilla.</p>
+        <p>No importa lo que haga, siempre vuelvo al punto de partida.</p>
+        <p>Es como si viviera en un bucle interminable de terror y desesperación.</p>
+        <br>
+        <p>Escuché disparos en algun lugar cerca de la RPD.  Voy a investigar.</p>
+        <p>Malditas publicidades, estan por todos lados... Ojalá te pudras en el infierno, Umbrella...</p>
+      </div>
+    </div>
+
+    <div class="page" data-page="2">
+      <div class="page-content">
+        <p>Septiembre 4. Madrugada</p>
+        <br>
+        <p>A penas pude salir con vida.</p>
+        <p>Brad... Lo siento tanto. Debi disparar... No pude salvarte.</p>
+        <p>Esa maldita cosa es imparable, no importa cuantas balas desperdicie en él.</p>
+        <p>Parece una máquina programada con una misión, no es una mutación del virus...</p>
+        <p>Tengo que conseguir armamento pesado, si quiero llegar al final del camino en una pieza.</p>
+        <br>
+        <p>Debo encontrar a ese tipo de la radio. Iré al restaurante cerca de la plaza.</p>
+        <p>Si sobrevivió hasta ahora, puede tener ideas para escapar...</p>
+      </div>
+    </div>
+
+    <div class="page" data-page="3">
+      <div class="page-content">
+        <p>Septiembre 4. Noche</p>
+        <br>
+        <p>¡Ya estoy harta de esa cosa!</p>
+        <p>Carlos y yo tuvimos suerte de escapar más de una vez, pero sé que nos sigue.</p>
+        <p>Lo vi caer, una y otra vez, pero siempre se levanta.</p>
+        <p>Aunque, es extraño, pareciera que quiere algo más que matarnos.</p>
+        <p>Si no, ¿Por qué deja siempre un objeto util cuando cae?</p>
+        <br>
+        <p>Me pareció ver a alguien entre las sombras, pero desapareció antes de que pudiera acercarme.</p>
+        <p>¿Es él? ¿O solo estoy viendo cosas por el cansancio y el miedo?</p>
+      </div>
+    </div>
+
+    <div class="page" data-page="4">
+      <div class="page-content">
+        <p>Septiembre 6. Noche</p>
+        <br>
+        <p>Acabo de despertar</p>
+        <p>Ese maldito hijo de perra logró infectarme. Creí que ya estaría muerta, pero Carlos me salvó.</p>
+        <p>Nuestra escapatoria fracasó, el helicoptero se hizo trizas, y ya no nos queda tiempo.</p>
+        <p>Pero tengo una última esperanza...</p>
+        <p>Una última escapatoria...</p>
+        <br>
+        <p>Si tan solo... Pudiera alcanzarme...</p>
+        <p>Sé que suena desquiciado, pero me vi a mi misma correr, esquivarlos, pelear con uñas y dientes para alcanzar a otra yo...</p>
+        <p>Quizá sea el efecto del virus, pero no puedo evitar sentir que hay otra versión de mí luchando por sobrevivir en algún lugar.</p>
+        <p>Y para alcanzarla, debo seguir luchando, sin importar el costo.</p>
+        <p>No quiero volver al principio... Y tener que vivir esto otra vez.</p>
+        <p>Pero por ahora... Debo seguir adelante.</p>
+      </div>
+      <div class="exit-prompt" tabindex="0" id="fileExitPrompt">EXIT</div>
+    </div>
+
+    <div class="arrow arrow-left" id="fileArrowLeft">&#9664;</div>
+    <div class="arrow arrow-right" id="fileArrowRight">&#9654;</div>
+
+    <div class="page-indicator" id="filePageIndicator">1 / 4</div>
+  </div>
 </div>
 
 <script src="script.js"></script>
