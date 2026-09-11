@@ -23,6 +23,12 @@ const AUTO_RESULTS_PATHS = ['./resultados.json'];
 const VISIT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/bwc-views';
 const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
 const MATCH_SCHEDULE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule';
+// Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
+const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
+// Fallback gviz (sin colores) si el script falla
+const MATCH_DETAILS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1SoDlnUw47lV93_Mu1Gy195i5ukHOVGwta8ab_TAQPNg/gviz/tq?tqx=out:json&gid=0';
+let externalMatchDetails = null; // Map: sorted "normA|normB" -> { playerA, playerB, timeA, timeB, timeABetter, timeBBetter, segments: [{label, valueA, valueB, betterA, betterB}] }
+let externalMatchDetailsLoad = null;
 // --- Internacionalización (i18n) ---
 const SUPPORTED_LANGS = ['es', 'en'];
 const LANG_STORAGE_KEY = 'bc-lang';
@@ -61,7 +67,8 @@ const TRANSLATIONS = {
     diaryPage1: '<p>Septiembre 3. Tarde</p><br><p>La ciudad está infestada de zombis.</p><p>Los gritos de gente siendo masticada... Una y otra vez.</p><p>Debo encontrar una manera de salir de esta pesadilla.</p><p>No importa lo que haga, siempre vuelvo al punto de partida.</p><p>Es como si viviera en un bucle interminable de terror y desesperación.</p><br><p>Escuché disparos en algun lugar cerca de la RPD. Voy a investigar.</p><p>Malditas publicidades, estan por todos lados... Ojalá te pudras en el infierno, Umbrella...</p>',
     diaryPage2: '<p>Septiembre 4. Madrugada</p><br><p>A penas pude salir con vida.</p><p>Brad... Lo siento tanto. Debi disparar... No pude salvarte.</p><p>Esa maldita cosa es imparable, no importa cuantas balas desperdicie en él.</p><p>Parece una máquina programada con una misión, no es una mutación del virus...</p><p>Tengo que conseguir armamento pesado, si quiero llegar al final del camino en una pieza.</p><br><p>Debo encontrar a ese tipo de la radio. Iré al restaurante cerca de la plaza.</p><p>Si sobrevivió hasta ahora, puede tener ideas para escapar...</p>',
     diaryPage3: '<p>Septiembre 4. Noche</p><br><p>¡Ya estoy harta de esa cosa!</p><p>Carlos y yo tuvimos suerte de escapar más de una vez, pero sé que nos sigue.</p><p>Lo vi caer, una y otra vez, pero siempre se levanta.</p><p>Aunque, es extraño, pareciera que quiere algo más que matarnos.</p><p>Si no, ¿Por qué deja siempre un objeto util cuando cae?</p><br><p>Me pareció ver a alguien entre las sombras, pero desapareció antes de que pudiera acercarme.</p><p>¿Es él? ¿O solo estoy viendo cosas por el cansancio y el miedo?</p>',
-    diaryPage4: '<p>Septiembre 6. Noche</p><br><p>Acabo de despertar</p><p>Ese hijo de perra logró infectarme. Creí haber muerto, pero Carlos me salvó.</p><p>Nuestra huída fracasó, el helicoptero se hizo trizas, y ya no nos queda tiempo.</p><p>Pero tengo una última esperanza... Una última escapatoria...</p><p>Si tan solo... Pudiera alcanzarme...</p><p>Sé que suena desquiciado, pero me vi a mi misma pelear con uñas y dientes para alcanzar a otra yo...</p><p>Quizá sea obra del virus, pero no puedo evitar sentir que hay otra versión de mí luchando por sobrevivir en algún lugar.</p><p>No quiero volver al principio... Y tener que vivir esto otra vez.</p><p>Pero por ahora... Debo seguir adelante.</p>'
+    diaryPage4: '<p>Septiembre 6. Noche</p><br><p>Acabo de despertar</p><p>Ese hijo de perra logró infectarme. Creí haber muerto, pero Carlos me salvó.</p><p>Nuestra huída fracasó, el helicoptero se hizo trizas, y ya no nos queda tiempo.</p><p>Pero tengo una última esperanza... Una última escapatoria...</p><p>Si tan solo... Pudiera alcanzarme...</p><p>Sé que suena desquiciado, pero me vi a mi misma pelear con uñas y dientes para alcanzar a otra yo...</p><p>Quizá sea obra del virus, pero no puedo evitar sentir que hay otra versión de mí luchando por sobrevivir en algún lugar.</p><p>No quiero volver al principio... Y tener que vivir esto otra vez.</p><p>Pero por ahora... Debo seguir adelante.</p>',
+    matchDetailsTitle: 'Detalle del partido', matchDetailsNoData: 'Sin detalles de segmento disponibles para este partido.', matchDetailsSegment: 'Estadísticas del partido', matchDetailsFinalTime: 'Tiempo final'
   },
   en: {
     navInicio: 'Home', navTabla: 'Qualifiers', navStats: 'Statistics',
@@ -96,7 +103,8 @@ const TRANSLATIONS = {
     diaryPage1: '<p>September 3. Afternoon</p><br><p>The city is infested with zombies.</p><p>The screams of people being devoured... Over and over again.</p><p>I have to find a way out of this nightmare.</p><p>No matter what I do, I always end up back at square one.</p><p>It\'s as if I\'m living in an endless loop of terror and despair.</p><br><p>I heard gunshots somewhere near the RPD. I\'m going to investigate.</p><p>Damn ads, they\'re everywhere... I hope you rot in hell, Umbrella...</p>',
     diaryPage2: '<p>September 4. Early morning</p><br><p>I barely made it out alive.</p><p>Brad... I\'m so sorry. I should have shot... I couldn\'t save you.</p><p>That damn thing is unstoppable, no matter how many bullets I waste on it.</p><p>It looks like a machine programmed with a mission, not a mutation of the virus...</p><p>I need to get some heavy weaponry if I want to make it to the end in one piece.</p><br><p>I have to find that guy from the radio. I\'ll head to the restaurant near the plaza.</p><p>If he\'s survived this long, he might have ideas on how to escape...</p>',
     diaryPage3: '<p>September 4. Night</p><br><p>I\'m sick of that thing!</p><p>Carlos and I got lucky escaping more than once, but I know it\'s still following us.</p><p>I\'ve seen it fall, again and again, but it always gets back up.</p><p>Still, it\'s strange, it seems like it wants something more than just killing us.</p><p>Otherwise, why does it always drop something useful when it falls?</p><br><p>I thought I saw someone in the shadows, but he disappeared before I could get closer.</p><p>Is it him? Or am I just seeing things from exhaustion and fear?</p>',
-    diaryPage4: '<p>September 6. Night</p><br><p>I just woke up.</p><p>That son of a bitch managed to infect me. I thought I\'d be dead already, but Carlos saved me.</p><p>Our plan failed, the helicopter was smashed to pieces, and we\'re out of time.</p><p>But I have one last hope... My Last Escape...</p><p>If only... I could reach me...</p><p>I know it sounds insane, but I saw myself fighting tooth and nail to reach another me...</p><p>Maybe it\'s the virus talking, but I can\'t help feeling that there\'s another version of me out there fighting to survive.</p><p>I don\'t want to go back to the beginning... And have to live through this again.</p><p>But for now... I have to keep going.</p>'
+    diaryPage4: '<p>September 6. Night</p><br><p>I just woke up.</p><p>That son of a bitch managed to infect me. I thought I\'d be dead already, but Carlos saved me.</p><p>Our plan failed, the helicopter was smashed to pieces, and we\'re out of time.</p><p>But I have one last hope... My Last Escape...</p><p>If only... I could reach me...</p><p>I know it sounds insane, but I saw myself fighting tooth and nail to reach another me...</p><p>Maybe it\'s the virus talking, but I can\'t help feeling that there\'s another version of me out there fighting to survive.</p><p>I don\'t want to go back to the beginning... And have to live through this again.</p><p>But for now... I have to keep going.</p>',
+    matchDetailsTitle: 'Match details', matchDetailsNoData: 'No segment details available for this match.', matchDetailsSegment: 'Match statistics', matchDetailsFinalTime: 'Final time'
   }
 };
 
@@ -440,19 +448,33 @@ function isMatchLive(startDate){
   return elapsed >= 0 && elapsed <= LIVE_WINDOW_MS;
 }
 
-function getPlayerAvatarMarkup(player){
+function getPlayerAvatarMarkup(player, avatar){
   const imageUrl = player?.assets?.image?.uri;
-  if(imageUrl){
-    return `<img src="${imageUrl}" alt="" loading="lazy">`;
-  }
+  if (avatar) {
+    if(imageUrl){
+      return `<img src="${imageUrl}" class="md-avatar" alt="" loading="lazy">`;
+    }
 
-  const playerName = player?.names?.international || player?.names?.twitch || player?.name;
-  if(playerName){
-    const localImageUrl = `./playerimg/${encodeURIComponent(playerName)}.png`;
-    return `<img src="${localImageUrl}" alt="" loading="lazy">`;
-  }
+    const playerName = player?.names?.international || player?.names?.twitch || player?.name;
+    if(playerName){
+      const localImageUrl = `./playerimg/${encodeURIComponent(playerName)}.png`;
+      return `<img src="${localImageUrl}" class="md-avatar" alt="" loading="lazy">`;
+    }
 
-  return '<span class="home-avatar-placeholder" aria-hidden="true">🏃</span>';
+    return '<span class="home-avatar-placeholder" aria-hidden="true">🏃</span>';
+  }else{
+    if(imageUrl){
+      return `<img src="${imageUrl}" alt="" loading="lazy">`;
+    }
+
+    const playerName = player?.names?.international || player?.names?.twitch || player?.name;
+    if(playerName){
+      const localImageUrl = `./playerimg/${encodeURIComponent(playerName)}.png`;
+      return `<img src="${localImageUrl}" alt="" loading="lazy">`;
+    }
+
+    return '<span class="home-avatar-placeholder" aria-hidden="true">🏃</span>';
+  }
 }
 
 function renderHomePanel(players = []){
@@ -573,9 +595,12 @@ async function loadExternalPlayerStats(){
         flag: valueAt(row, 'flag'),
         overallPb: valueAt(row, 'overall pb'),
         qualifiersPb: valueAt(row, 'qualifiers pb'),
-        basementPb: valueAt(row, 'basement pb'),
-        trainCrash: valueAt(row, 'train crash'),
+        basementPb: valueAt(row, 'best basement'),
+        trainCrash: valueAt(row, 'best tc'),
         tournamentBest: valueAt(row, 'tournament best'),
+        worstBasement: valueAt(row, 'worst basement'),
+        worstTC: valueAt(row, 'worst tc'),
+        worstTB: valueAt(row, 'worst tb'),
         winLoss: valueAt(row, 'win - losess')
       });
     });
@@ -779,6 +804,210 @@ async function loadExternalMatchSchedule(){
   }
 }
 
+function isBetterCellBackground(background){
+  const bg = String(background || '').trim().toLowerCase();
+  if(!bg || bg === '#ffffff' || bg === '#fff' || bg === 'white' || bg === 'transparent') return false;
+  // Rojo puro del sheet (#ff0000) u otros rojos cercanos
+  if(bg === '#7c9eff' || bg === 'rgb(119, 163, 204)' || bg === 'blue') return true;
+  const hex = bg.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if(!hex) return false;
+  let r, g, b;
+  if(hex[1].length === 3){
+    r = parseInt(hex[1][0] + hex[1][0], 16);
+    g = parseInt(hex[1][1] + hex[1][1], 16);
+    b = parseInt(hex[1][2] + hex[1][2], 16);
+  }else{
+    r = parseInt(hex[1].slice(0, 2), 16);
+    g = parseInt(hex[1].slice(2, 4), 16);
+    b = parseInt(hex[1].slice(4, 6), 16);
+  }
+  // Rojo dominante: R alto, G y B bajos
+  return r >= 80 && g <= 80 && b <= 180;
+}
+
+function cellValue(cell){
+  return String(cell?.value ?? '').trim();
+}
+
+function parseHeaderPlayerAndTime(label){
+  const text = String(label || '').trim();
+  const withoutMatch = text.replace(/^Match\s+\d+\s+/i, '').trim();
+  const timeMatch = withoutMatch.match(/^(.*?)\s+((?:\d{1,2}:\d{2}(?:\.\d+)?)|DIED)$/i);
+  if(timeMatch){
+    return {
+      name: timeMatch[1].trim(),
+      time: timeMatch[2].toUpperCase() === 'DIED' ? 'DIED' : timeMatch[2]
+    };
+  }
+  return { name: withoutMatch, time: null };
+}
+
+// Parseo del endpoint Apps Script: rows[i][j] = { value, background }
+// Estructura típica:
+// row 0: Match 1, '', Match 2, ...
+// row 1: Jugador, playerA, playerB, ...
+// row 2: Time, timeA, timeB, ...
+// row 3+: segmento, valueA, valueB, ...
+function parseMatchDetailsColorsPayload(payload){
+  const rows = payload?.rows || [];
+  const detailsMap = new Map();
+  if(rows.length < 3) return detailsMap;
+
+  const playerRow = rows[1] || [];
+  const timeRow = rows[2] || [];
+  const maxCols = Math.max(
+    playerRow.length,
+    timeRow.length,
+    ...rows.map(r => (r || []).length)
+  );
+
+  for(let colA = 1; colA + 1 < maxCols; colA += 2){
+    const colB = colA + 1;
+    const nameA = cellValue(playerRow[colA]);
+    const nameB = cellValue(playerRow[colB]);
+    if(!nameA || !nameB) continue;
+
+    const playerA = normalizeSchedulePlayerName(nameA);
+    const playerB = normalizeSchedulePlayerName(nameB);
+    const timeARaw = cellValue(timeRow[colA]) || '-';
+    const timeBRaw = cellValue(timeRow[colB]) || '-';
+    const timeABetter = isBetterCellBackground(timeRow[colA]?.background);
+    const timeBBetter = isBetterCellBackground(timeRow[colB]?.background);
+
+    const segments = [];
+    for(let ri = 3; ri < rows.length; ri++){
+      const row = rows[ri] || [];
+      const label = cellValue(row[0]);
+      if(!label) continue;
+      const valueA = cellValue(row[colA]) || '-';
+      const valueB = cellValue(row[colB]) || '-';
+      if(valueA === '-' && valueB === '-' && !cellValue(row[colA]) && !cellValue(row[colB])) continue;
+      segments.push({
+        label,
+        valueA,
+        valueB,
+        betterA: isBetterCellBackground(row[colA]?.background),
+        betterB: isBetterCellBackground(row[colB]?.background)
+      });
+    }
+
+    const key = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
+    detailsMap.set(key, {
+      playerA,
+      playerB,
+      timeA: timeARaw,
+      timeB: timeBRaw,
+      timeABetter,
+      timeBBetter,
+      segments
+    });
+  }
+
+  return detailsMap;
+}
+
+// Fallback gviz (sin colores de celda)
+function parseMatchDetailsTable(table){
+  const cols = table?.cols || [];
+  const rows = table?.rows || [];
+  const detailsMap = new Map();
+
+  for(let colA = 1; colA + 1 < cols.length; colA += 2){
+    const colB = colA + 1;
+    const headerA = parseHeaderPlayerAndTime(cols[colA]?.label);
+    const headerB = parseHeaderPlayerAndTime(cols[colB]?.label);
+    if(!headerA.name || !headerB.name) continue;
+
+    const playerA = normalizeSchedulePlayerName(headerA.name);
+    const playerB = normalizeSchedulePlayerName(headerB.name);
+    const timeA = headerA.time || '-';
+    const timeB = headerB.time || '-';
+
+    const segments = [];
+    rows.forEach(row => {
+      const cells = row?.c || [];
+      const label = String(cells[0]?.v ?? cells[0]?.f ?? '').trim();
+      if(!label) return;
+      const valueA = String(cells[colA]?.v ?? cells[colA]?.f ?? '').trim() || '-';
+      const valueB = String(cells[colB]?.v ?? cells[colB]?.f ?? '').trim() || '-';
+      if(valueA === '-' && valueB === '-' && !cells[colA] && !cells[colB]) return;
+      segments.push({ label, valueA, valueB, betterA: false, betterB: false });
+    });
+
+    const key = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
+    detailsMap.set(key, {
+      playerA,
+      playerB,
+      timeA,
+      timeB,
+      timeABetter: false,
+      timeBBetter: false,
+      segments
+    });
+  }
+
+  return detailsMap;
+}
+
+let pendingMatchDetailsModal = null; // { playerA, playerB, groupLetter }
+
+async function loadExternalMatchDetails(){
+  // 1) Preferir Apps Script (incluye colores rojos = mejor)
+  try{
+    const response = await fetch(MATCH_DETAILS_COLORS_URL, { cache: 'no-store' });
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const payload = await response.json();
+    const map = parseMatchDetailsColorsPayload(payload);
+    if(map && map.size > 0){
+      externalMatchDetails = map;
+      if(pendingMatchDetailsModal){
+        const { playerA, playerB, groupLetter } = pendingMatchDetailsModal;
+        pendingMatchDetailsModal = null;
+        openMatchDetailsModal(playerA, playerB, groupLetter);
+      }
+      return externalMatchDetails;
+    }
+    throw new Error('Payload de colores vacío');
+  }catch(err){
+    console.warn('No se pudieron cargar Match Details con colores (Apps Script). Reintentando gviz…', err);
+  }
+
+  // 2) Fallback gviz
+  try{
+    const response = await fetch(MATCH_DETAILS_SHEET_URL, { cache: 'no-store' });
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const text = await response.text();
+    const jsonText = text.replace(/^\s*\/\*O_o\*\/\s*google\.visualization\.Query\.setResponse\(/, '').replace(/\);\s*$/, '');
+    const table = JSON.parse(jsonText)?.table;
+    externalMatchDetails = parseMatchDetailsTable(table);
+    if(pendingMatchDetailsModal){
+      const { playerA, playerB, groupLetter } = pendingMatchDetailsModal;
+      pendingMatchDetailsModal = null;
+      openMatchDetailsModal(playerA, playerB, groupLetter);
+    }
+    return externalMatchDetails;
+  }catch(err){
+    externalMatchDetails = null;
+    console.warn('No se pudo cargar Match Details desde Google Sheets.', err);
+    if(pendingMatchDetailsModal){
+      const { playerA, playerB, groupLetter } = pendingMatchDetailsModal;
+      pendingMatchDetailsModal = null;
+      openMatchDetailsModal(playerA, playerB, groupLetter);
+    }
+    return null;
+  }
+}
+
+function getMatchDetailsForPlayers(playerA, playerB){
+  if(!externalMatchDetails) return null;
+  const key = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
+  return externalMatchDetails.get(key) || null;
+}
+
+function isMatchDetailsLoading(){
+  return !externalMatchDetails && externalMatchDetailsLoad != null;
+}
+
 function parsePbSeconds(value){
   const text = String(value || '').trim();
   if(!text || text === '-') return null;
@@ -809,7 +1038,10 @@ function renderStatsPanel(){
   const statDefinitions = {
     'basement-pb': { key: 'basementPb', label: 'Basement PB' },
     'train-crash-pb': { key: 'trainCrash', label: 'Train Crash PB' },
-    'tournament-best': { key: 'tournamentBest', label: 'Tournament Best' }
+    'tournament-best': { key: 'tournamentBest', label: 'Tournament Best' },
+    'worst-basement' : { key: 'worstBasement', label: 'Worst Basement' },
+    'worst-train-crash': { key: 'worstTC', label: 'Worst Train Crash' },
+    'worst-tournament-best': { key: 'worstTB', label: 'Worst Complete Run' }
   };
 
   const getStatsFlagMarkup = (stats) => {
@@ -832,13 +1064,21 @@ function renderStatsPanel(){
         value: stats[definition.key] || '-',
         seconds: parsePbSeconds(stats[definition.key])
       }))
-      .sort((a, b) => {
+    if (target === 'worst-train-crash' || target === 'worst-tournament-best' || target === 'worst-basement'){
+      rows.sort((a, b) => {
+        if(a.seconds == null && b.seconds == null) return a.name.localeCompare(b.name);
+        if(a.seconds == null) return 1;
+        if(b.seconds == null) return -1;
+        return b.seconds - a.seconds || a.name.localeCompare(b.name);
+      });
+    } else {
+      rows.sort((a, b) => {
         if(a.seconds == null && b.seconds == null) return a.name.localeCompare(b.name);
         if(a.seconds == null) return 1;
         if(b.seconds == null) return -1;
         return a.seconds - b.seconds || a.name.localeCompare(b.name);
       });
-
+    }
     container.innerHTML = rows.length
       ? `<div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>#</th><th>${t('player')}</th><th>${definition.label}</th></tr></thead><tbody>${rows.map((row, index) => `
           <tr class="${index === 0 ? 'stats-first' : ''} ${index === rows.length - 1 ? 'stats-last' : ''}"><td class="stats-rank">${index + 1}</td><td class="stats-player"><button class="player-profile-button stats-player-button" type="button" data-player-name="${row.name}">${row.flag ? `<span class="flag">${row.flag}</span>` : ''}<span>${row.name}</span></button></td><td class="stats-value${row.seconds == null ? ' stats-missing' : ''}">${row.value}</td></tr>
@@ -1633,24 +1873,27 @@ function renderCalendarFixturePanel(players = []){
         const scheduledTime = resultMatch && (resultMatch.time || resultMatch.horario) ? (resultMatch.time || resultMatch.horario) : match.time;
         const schedule = formatScheduledDateTime(scheduledDate, scheduledTime);
         const liveButton = schedule && isMatchLive(schedule.date)
-          ? `<a class="fixture-live-button" href="${LIVE_STREAM_URL}">${t('live')}</a>`
+          ? `<a class="fixture-live-button" href="${LIVE_STREAM_URL}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${t('live')}</a>`
           : '';
 
+        const escapedPlayerA = String(match.playerA).replace(/"/g, '&quot;');
+        const escapedPlayerB = String(match.playerB).replace(/"/g, '&quot;');
+
         return `
-          <div class="fixture-match">
+          <div class="fixture-match fixture-match-clickable" role="button" tabindex="0" data-player-a="${escapedPlayerA}" data-player-b="${escapedPlayerB}" data-group="${match.group || ''}">
             <div class="fixture-match-group">${t('group')} ${match.group}</div>
             <div class="fixture-teams">
               <div class="fixture-team-row ${playerAWon ? '' : winner ? 'loser' : ''}">
                 <div class="fixture-team">
                   <span class="flag">${playerAFlag || '🏳️'}</span>
-                  <button class="player-profile-button fixture-name" type="button" data-player-name="${match.playerA}">${match.playerA}</button>
+                  <span class="fixture-name">${match.playerA}</span>
                 </div>
                 <span class="fixture-score">${formattedA}</span>
               </div>
               <div class="fixture-team-row ${playerBWon ? '' : winner ? 'loser' : ''}">
                 <div class="fixture-team">
                   <span class="flag">${playerBFlag || '🏳️'}</span>
-                  <button class="player-profile-button fixture-name" type="button" data-player-name="${match.playerB}">${match.playerB}</button>
+                  <span class="fixture-name">${match.playerB}</span>
                 </div>
                 <span class="fixture-score">${formattedB}</span>
               </div>
@@ -1935,6 +2178,9 @@ function buildPlayerDetails(player, pbs, runUrl, datePb){
           <li>Train Crash: ${externalStats.trainCrash || '-'}</li>
           <li>Tournament Best: ${externalStats.tournamentBest || '-'}</li>
           <li>Win - Losses: ${externalStats.winLoss || '-'}</li>
+          <li>Worst Basement: ${externalStats.worstBasement || '-'}</li>
+          <li>Worst TC: ${externalStats.worstTC || '-'}</li>
+          <li>Worst TB: ${externalStats.worstTB || '-'}</li>
         </ul>
       </li>`
     : '';
@@ -2001,6 +2247,7 @@ function openPlayerModal(playerName){
   const modal = document.getElementById('player-modal');
   const content = document.getElementById('player-modal-content');
   if(!modal || !content) return;
+  modal.classList.remove('match-details-open');
 
   const players = lastLeaderboardSnapshot?.players || [];
   const profile = resolvePlayerByName(players, playerName);
@@ -2047,6 +2294,9 @@ function openPlayerModal(playerName){
       <div><span>Train Crash</span><strong>${externalStats.trainCrash || '-'}</strong></div>
       <div><span>Tournament Best</span><strong>${externalStats.tournamentBest || '-'}</strong></div>
       <div><span>Win - Losses</span><strong>${externalStats.winLoss || '-'}</strong></div>
+      <div><span>Worst Basement</span><strong>${externalStats.worstBasement || '-'}</strong></div>
+      <div><span>Worst TC</span><strong>${externalStats.worstTC || '-'}</strong></div>
+      <div><span>Worst TB</span><strong>${externalStats.worstTB || '-'}</strong></div>
     </div>
   </div>` : '';
 
@@ -2080,7 +2330,268 @@ function closePlayerModal(){
   const modal = document.getElementById('player-modal');
   if(!modal) return;
   modal.hidden = true;
+  modal.classList.remove('match-details-open');
   document.body.classList.remove('modal-open');
+  pendingMatchDetailsModal = null;
+}
+
+function openMatchDetailsModal(playerA, playerB, groupLetter){
+  const modal = document.getElementById('player-modal');
+  const content = document.getElementById('player-modal-content');
+  if(!modal || !content) return;
+  modal.classList.add('match-details-open');
+
+  // Si todavía no llegó el sheet de detalles, abrir el modal igual y rellenar después
+  const stillLoading = !externalMatchDetails && externalMatchDetailsLoad != null;
+  if(stillLoading){
+    pendingMatchDetailsModal = { playerA, playerB, groupLetter };
+  }else{
+    pendingMatchDetailsModal = null;
+  }
+
+  const details = getMatchDetailsForPlayers(playerA, playerB);
+  const players = lastLeaderboardSnapshot?.players || [];
+  const profileA = resolvePlayerByName(players, playerA);
+  const profileB = resolvePlayerByName(players, playerB);
+  const pictureA = getPlayerAvatarMarkup(profileA, true);
+  const pictureB = getPlayerAvatarMarkup(profileB, true);
+
+  // Prefer times from details sheet headers; fall back to schedule results
+  let timeA = details?.timeA || '-';
+  let timeB = details?.timeB || '-';
+  if((!details || timeA === '-' || timeB === '-') && getLoadedResults()){
+    const allMatches = getLoadedResults()?.matches || [];
+    const resultMatch = allMatches.find(record => {
+      const recordA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
+      const recordB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
+      return (normalizeManualMatchName(recordA) === normalizeManualMatchName(playerA) && normalizeManualMatchName(recordB) === normalizeManualMatchName(playerB)) ||
+             (normalizeManualMatchName(recordA) === normalizeManualMatchName(playerB) && normalizeManualMatchName(recordB) === normalizeManualMatchName(playerA));
+    });
+    if(resultMatch){
+      const rawA = resultMatch.timeA ?? resultMatch.tiempoA ?? resultMatch.time_a ?? '-';
+      const rawB = resultMatch.timeB ?? resultMatch.tiempoB ?? resultMatch.time_b ?? '-';
+      // Align sides with requested playerA/playerB order
+      if(normalizeManualMatchName(resultMatch.playerA || resultMatch.jugadorA || resultMatch.a) === normalizeManualMatchName(playerA)){
+        if(timeA === '-') timeA = rawA;
+        if(timeB === '-') timeB = rawB;
+      }else{
+        if(timeA === '-') timeA = rawB;
+        if(timeB === '-') timeB = rawA;
+      }
+    }
+  }
+
+  // If details has players in opposite order, swap segment values + better flags
+  let segments = details?.segments || [];
+  let timeABetter = Boolean(details?.timeABetter);
+  let timeBBetter = Boolean(details?.timeBBetter);
+  if(details && normalizeManualMatchName(details.playerA) !== normalizeManualMatchName(playerA)){
+    segments = segments.map(seg => ({
+      label: seg.label,
+      valueA: seg.valueB,
+      valueB: seg.valueA,
+      betterA: Boolean(seg.betterB),
+      betterB: Boolean(seg.betterA)
+    }));
+    if(details.timeA || details.timeB){
+      timeA = details.timeB || timeA;
+      timeB = details.timeA || timeB;
+    }
+    timeABetter = Boolean(details.timeBBetter);
+    timeBBetter = Boolean(details.timeABetter);
+  }
+
+  const formatDisplayTime = (raw) => {
+    const text = String(raw ?? '').trim();
+    if(!text || text === '-') return '-';
+    if(text.toUpperCase() === 'DIED' || text.toUpperCase() === 'DEATH') return 'DIED';
+    return formatManualTime(text);
+  };
+  const formattedA = formatDisplayTime(timeA);
+  const formattedB = formatDisplayTime(timeB);
+
+  const hasResult = (formattedA !== '-' || formattedB !== '-');
+  const statusLabel = hasResult ? t('finishedLabel') : t('upcomingLabel');
+
+  // Colores del sheet (rojo = mejor). Si no hay color, fallback por tiempo (menor es mejor).
+  const segmentRowClass = (seg) => {
+    if(seg.betterA || seg.betterB){
+      return {
+        a: seg.betterA ? 'md-stat-better' : (seg.betterB ? 'md-stat-worse' : ''),
+        b: seg.betterB ? 'md-stat-better' : (seg.betterA ? 'md-stat-worse' : '')
+      };
+    }
+    const valueA = seg.valueA;
+    const valueB = seg.valueB;
+    const secA = parseManualTime(valueA);
+    const secB = parseManualTime(valueB);
+    const deathA = String(valueA || '').toUpperCase() === 'DIED' || String(valueA || '').toUpperCase() === 'DEATH';
+    const deathB = String(valueB || '').toUpperCase() === 'DIED' || String(valueB || '').toUpperCase() === 'DEATH';
+    if(deathA && !deathB) return { a: 'md-stat-worse', b: 'md-stat-better' };
+    if(deathB && !deathA) return { a: 'md-stat-better', b: 'md-stat-worse' };
+    if(secA != null && secB != null){
+      if(secA < secB) return { a: 'md-stat-better', b: 'md-stat-worse' };
+      if(secB < secA) return { a: 'md-stat-worse', b: 'md-stat-better' };
+    }
+    return { a: '', b: '' };
+  };
+
+  const segmentsHtml = segments.length
+    ? segments.map(seg => {
+        const va = seg.valueA || '-';
+        const vb = seg.valueB || '-';
+        const cls = segmentRowClass(seg);
+        return `
+          <div class="md-stat-row">
+            <div class="md-stat-value ${cls.a}"><span>${va}</span></div>
+            <div class="md-stat-label">${seg.label}</div>
+            <div class="md-stat-value ${cls.b}"><span>${vb}</span></div>
+          </div>`;
+      }).join('')
+    : stillLoading
+      ? `<div class="md-empty md-loading">${t('loadingTabla')}</div>`
+      : `<div class="md-empty">${t('matchDetailsNoData')}</div>`;
+
+  content.innerHTML = `
+    <style>
+      /* ~50% más ancho solo en detalle de partido (base CSS: 430px → ~645px) */
+      .player-modal.match-details-open .player-modal-card {
+        width: min(100%, 645px) !important;
+        max-width: min(100%, 645px) !important;
+      }
+      .md-wrap { color: #e8e8e8; font-family: inherit; }
+      .md-topbar {
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 0.78rem; letter-spacing: 0.02em; margin-bottom: 1.1rem;
+        color: #c9a227;
+      }
+      .md-topbar .md-status { color: #9aa0a6; }
+      .md-scoreboard {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.35rem;
+      }
+      .md-team {
+        display: flex; flex-direction: column; align-items: center; gap: 0.45rem;
+        text-align: center; min-width: 0;
+      }
+      .md-team-name {
+        font-size: 0.95rem; font-weight: 600; line-height: 1.2;
+        word-break: break-word;
+      }
+      .md-avatar {
+        width: 42px; height: 42px; border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: #1a1d24; overflow: hidden;
+        box-shadow: 0 0 0 2px rgba(255,255,255,0.08);
+      }
+      .md-avatar img, .md-avatar .flag-image { width: 28px; height: auto; display: block; }
+      .md-avatar-placeholder {
+        font-weight: 700; font-size: 1.1rem; color: #fff;
+        background: linear-gradient(145deg, #3a3f4b, #22262e);
+      }
+      .md-score {
+        display: flex; align-items: center; justify-content: center; gap: 0.55rem;
+        font-size: 1.85rem; font-weight: 700; font-variant-numeric: tabular-nums;
+        letter-spacing: -0.02em; line-height: 1;
+      }
+      .md-score-num { min-width: 3.2ch; text-align: center; }
+      .md-score-num.md-score-better { color: #7c9eff; text-shadow: 0 0 12px rgba(124, 158, 255, 0.35); }
+      .md-score-sep { color: #6b7280; font-weight: 500; font-size: 1.4rem; }
+      .md-subtitle {
+        text-align: center; font-size: 0.8rem; color: #9aa0a6;
+        margin: 0.15rem 0 1.25rem;
+      }
+      .md-stats-title {
+        text-align: center; font-size: 0.72rem; font-weight: 700;
+        letter-spacing: 0.12em; text-transform: uppercase;
+        color: #9aa0a6; margin: 0 0 0.85rem;
+        display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+      }
+      .md-stats-title::before, .md-stats-title::after {
+        content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08);
+        max-width: 72px;
+      }
+      .md-stat-row {
+        display: grid;
+        grid-template-columns: minmax(4.5rem, 1fr) minmax(6rem, 1.4fr) minmax(4.5rem, 1fr);
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.55rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+      .md-stat-row:last-child { border-bottom: none; }
+      .md-stat-label {
+        text-align: center; font-size: 0.82rem; color: #c4c7cc;
+        line-height: 1.25;
+      }
+      .md-stat-value {
+        display: flex; justify-content: center;
+      }
+      .md-stat-value span {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 2.6rem; min-height: 2rem;
+        padding: 0.28rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.78rem; font-weight: 700;
+        background: #2a2f38; color: #f0f0f0;
+        font-variant-numeric: tabular-nums;
+        text-align: center; line-height: 1.15;
+        max-width: 100%;
+        word-break: break-word;
+      }
+      .md-stat-value.md-stat-better span {
+        background: #7c9eff; color: #fff;
+        box-shadow: 0 0 10px rgba(124, 158, 255, 0.35);
+      }
+      .md-stat-value.md-stat-worse span {
+        background: #2a2f38; color: #b0b4ba;
+      }
+      .md-empty {
+        text-align: center; color: #9aa0a6; padding: 1.5rem 0.5rem; font-size: 0.9rem;
+      }
+      @media (max-width: 420px) {
+        .md-score { font-size: 1.35rem; gap: 0.35rem; }
+        .md-stat-row {
+          grid-template-columns: minmax(3.5rem, 1fr) minmax(5rem, 1.3fr) minmax(3.5rem, 1fr);
+        }
+        .md-stat-value span { font-size: 0.7rem; padding: 0.22rem 0.4rem; }
+      }
+    </style>
+    <div class="md-wrap">
+      <div class="md-topbar">
+        <span>${groupLetter ? `${t('group')} ${groupLetter}` : t('groupStage')}${groupLetter ? ` · ${t('groupStage')}` : ''}</span>
+        <span class="md-status">${statusLabel}</span>
+      </div>
+
+      <div class="md-scoreboard">
+        <div class="md-team">
+          ${pictureA}
+          <div class="md-team-name">${playerA}</div>
+        </div>
+        <div class="md-score" aria-label="${t('matchDetailsFinalTime')}">
+          <span class="md-score-num ${timeABetter ? 'md-score-better' : ''}">${formattedA}</span>
+          <span class="md-score-sep">-</span>
+          <span class="md-score-num ${timeBBetter ? 'md-score-better' : ''}">${formattedB}</span>
+        </div>
+        <div class="md-team">
+          ${pictureB}
+          <div class="md-team-name">${playerB}</div>
+        </div>
+      </div>
+
+      <div class="md-subtitle">${t('groupStage')}${groupLetter ? ` · ${t('group')} ${groupLetter}` : ''}</div>
+
+      <div class="md-stats-title">${t('matchDetailsSegment')}</div>
+      <div class="md-stats-list">
+        ${segmentsHtml}
+      </div>
+    </div>
+  `;
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
 }
 
 let fileViewerState = null;
@@ -2227,6 +2738,18 @@ function closeFileModal(){
 }
 
 document.addEventListener('click', (event) => {
+  const matchCard = event.target.closest('.fixture-match-clickable');
+  if(matchCard){
+    // Don't open modal when clicking the live stream link
+    if(event.target.closest('a.fixture-live-button')) return;
+    openMatchDetailsModal(
+      matchCard.dataset.playerA,
+      matchCard.dataset.playerB,
+      matchCard.dataset.group || ''
+    );
+    return;
+  }
+
   const playerButton = event.target.closest('.player-profile-button');
   if(playerButton){
     openPlayerModal(playerButton.dataset.playerName);
@@ -2244,12 +2767,22 @@ document.addEventListener('keydown', (event) => {
     closePlayerModal();
     closeFileModal();
   }
+  // Enter/Space on focused match card
+  if((event.key === 'Enter' || event.key === ' ') && event.target.classList?.contains('fixture-match-clickable')){
+    event.preventDefault();
+    openMatchDetailsModal(
+      event.target.dataset.playerA,
+      event.target.dataset.playerB,
+      event.target.dataset.group || ''
+    );
+  }
 });
 
 async function loadLeaderboard(){
   const statusEl = document.getElementById('status');
   try{
     const json = await fetchLeaderboardData();
+    // Match details (colores/segmentos) se carga en background: no bloquea el arranque
     await Promise.all([externalStatsLoad, externalMatchScheduleLoad]);
     const data = json.data;
     const players = data.players.data;
@@ -2410,6 +2943,7 @@ async function loadLeaderboard(){
 
 externalStatsLoad = loadExternalPlayerStats().then(renderStatsPanel);
 externalMatchScheduleLoad = loadExternalMatchSchedule();
+externalMatchDetailsLoad = loadExternalMatchDetails();
 loadLeaderboard();
 loadVisitCounter();
 
