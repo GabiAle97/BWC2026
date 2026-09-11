@@ -21,6 +21,9 @@ let uploadedResults = null;
 const RESULTS_STORAGE_KEY = 'bc-results-manual';
 const AUTO_RESULTS_PATHS = ['./resultados.json'];
 const VISIT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/bwc-views';
+const RPD_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/rpd';
+const JD_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/diario-de-jill';
+const RPD_RIGHT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/rpd-right';
 const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
 const MATCH_SCHEDULE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
@@ -568,6 +571,36 @@ async function loadVisitCounter(){
   }catch(err){
     counter.hidden = true;
     console.warn('No se pudo cargar el contador de visitas.', err);
+  }
+}
+
+async function loadRpdVisitCounter(){
+  try{
+    const response = await fetch(`${RPD_COUNTER_BASE_URL}/up`, {
+      cache: 'no-store'
+    });
+  }catch(err){
+    console.log(err)
+  }
+}
+
+async function loadJdVisitCounter(){
+  try{
+    const response = await fetch(`${JD_COUNTER_BASE_URL}/up`, {
+      cache: 'no-store'
+    });
+  }catch(err){
+    console.log(err)
+  }
+}
+
+async function loadRpdRightVisitCounter(){
+  try{
+    const response = await fetch(`${RPD_RIGHT_COUNTER_BASE_URL}/up`, {
+      cache: 'no-store'
+    });
+  }catch(err){
+    console.log(err)
   }
 }
 
@@ -2624,6 +2657,7 @@ function loadAudioAsBlob(src, audio){
 }
 
 function initFileViewer(){
+  loadJdVisitCounter();
   const modal = document.getElementById('file-modal');
   if(!modal) return null;
   const pages = Array.from(modal.querySelectorAll('.page'));
@@ -2967,6 +3001,7 @@ function resetAboutSecretInput(){
 
 function checkAboutSecretCode(code){
   if(code === '4312'){
+    loadRpdRightVisitCounter();
     window.location.href = 'https://gabiale97.github.io/pharmacy_practice/';
   }
 }
@@ -2978,6 +3013,7 @@ function setupAboutSecretInput(){
   if(!dot || !legendWrap || !input) return;
 
   dot.addEventListener('click', () => {
+    loadRpdVisitCounter();
     legendWrap.classList.add('visible');
     input.value = '';
     input.focus();
