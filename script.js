@@ -1,7 +1,7 @@
 const LEADERBOARD_URL = "https://www.speedrun.com/api/v1/leaderboards/kdkzvyqd/category/q25r06gk?embed=players,category,game";
 const SCHEDULE_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 const LIVE_STREAM_URL = 'https://www.twitch.tv/basementcup';
-const LIVE_WINDOW_MS = 50 * 60 * 1000;
+const LIVE_WINDOW_MS = 60 * 60 * 1000;
 
 // La API de speedrun.com a veces no manda el header CORS y el navegador
 // bloquea el fetch directo. Si eso pasa, reintentamos vía un proxy CORS público.
@@ -1884,14 +1884,18 @@ function renderCalendarFixturePanel(players = []){
     const dateLabel = bucket.label || firstMatchSchedule?.dateLabel || (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)
       ? dateKey.split('-').reverse().join('/')
       : (matches[0]?.date || 'Fecha por definir'));
-    const matchesHtml = matches.length ? matches.map(match => {
+
+    const matchesHtml = (() => {
+      if (!matches.length) return `<div class="loading">${t('noMatchesLoaded')}</div>`;
+
+      const enrichedMatches = matches.map(match => {
         const playerAProfile = resolvePlayerByName(players, match.playerA);
         const playerBProfile = resolvePlayerByName(players, match.playerB);
         const playerAFlag = playerAProfile ? countryFlag(players, playerAProfile.id) : null;
         const playerBFlag = playerBProfile ? countryFlag(players, playerBProfile.id) : null;
 
         const resultMatch = allMatches.find((record) => {
-          const groupMatch = resolveManualMatchKey(record) || ''; 
+          const groupMatch = resolveManualMatchKey(record) || '';
           const recordA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
           const recordB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
           return groupMatch === match.group &&
@@ -1914,6 +1918,32 @@ function renderCalendarFixturePanel(players = []){
           ? `<a class="fixture-live-button" href="${LIVE_STREAM_URL}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${t('live')}</a>`
           : '';
 
+        const isFinished = Boolean(winner);
+        const sortTime = schedule?.date instanceof Date && !isNaN(schedule.date) ? schedule.date.getTime() : Infinity;
+
+        return {
+          match, playerAFlag, playerBFlag, winner, playerAWon, playerBWon,
+          formattedA, formattedB, scheduledDate, scheduledTime, schedule, liveButton,
+          isFinished, sortTime
+        };
+      });
+
+      // Orden: partidos no finalizados primero (por horario más cercano primero),
+      // partidos ya concluídos al final.
+      enrichedMatches.sort((a, b) => {
+        if (a.isFinished !== b.isFinished) return a.isFinished ? 1 : -1;
+        // Si el scheduledTime de a es 60 minutos menor que la hora actual y no está finalizado, se considera reprogramado
+        const now = Date.now();
+        const aReprogrammed = a.sortTime < now - 60 * 60 * 1000 && !a.isFinished;
+        const bReprogrammed = b.sortTime < now - 60 * 60 * 1000 && !b.isFinished;
+        if (aReprogrammed && !bReprogrammed) return 1;
+        if (!aReprogrammed && bReprogrammed) return -1;
+        if (a.liveButton && !b.liveButton) return -1;
+        if (!a.liveButton && b.liveButton) return 1;
+        return a.sortTime - b.sortTime;
+      });
+
+      return enrichedMatches.map(({ match, playerAFlag, playerBFlag, winner, playerAWon, playerBWon, formattedA, formattedB, scheduledDate, scheduledTime, schedule, liveButton }) => {
         const escapedPlayerA = String(match.playerA).replace(/"/g, '&quot;');
         const escapedPlayerB = String(match.playerB).replace(/"/g, '&quot;');
 
@@ -1943,7 +1973,8 @@ function renderCalendarFixturePanel(players = []){
             </div>
           </div>
         `;
-      }).join('') : `<div class="loading">${t('noMatchesLoaded')}</div>`;
+      }).join('');
+    })();
 
       const isOpen = hasRenderedFixture
         ? dateKey === previousOpenDate
