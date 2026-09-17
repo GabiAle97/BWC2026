@@ -29,7 +29,7 @@ const MATCH_SCHEDULE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ2
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
 // Fallback gviz (sin colores) si el script falla
-const MATCH_DETAILS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1SoDlnUw47lV93_Mu1Gy195i5ukHOVGwta8ab_TAQPNg/gviz/tq?tqx=out:json&gid=0';
+const MATCH_DETAILS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1SoDlnUw47lV93_Mu1Gy195i5ukHOVGwta8ab_TAQPNg/gviz/tq?tqx=out:json';
 let externalMatchDetails = null; // Map: sorted "normA|normB" -> { playerA, playerB, timeA, timeB, timeABetter, timeBBetter, segments: [{label, valueA, valueB, betterA, betterB}] }
 let externalMatchDetailsLoad = null;
 // --- Internacionalización (i18n) ---
@@ -882,59 +882,63 @@ function parseHeaderPlayerAndTime(label){
 // row 2: Time, timeA, timeB, ...
 // row 3+: segmento, valueA, valueB, ...
 function parseMatchDetailsColorsPayload(payload){
-  const rows = payload?.rows || [];
+  const sheets = payload?.sheets || [];
+  const dates = sheets.map(sheet => sheet?.rows || []);
   const detailsMap = new Map();
-  if(rows.length < 3) return detailsMap;
+  for (const rows of dates) {
+    if(rows.length < 3) return detailsMap;
 
-  const playerRow = rows[1] || [];
-  const timeRow = rows[2] || [];
-  const maxCols = Math.max(
-    playerRow.length,
-    timeRow.length,
-    ...rows.map(r => (r || []).length)
-  );
+    const playerRow = rows[1] || [];
+    const timeRow = rows[2] || [];
+    const maxCols = Math.max(
+      playerRow.length,
+      timeRow.length,
+      ...rows.map(r => (r || []).length)
+    );
 
-  for(let colA = 1; colA + 1 < maxCols; colA += 2){
-    const colB = colA + 1;
-    const nameA = cellValue(playerRow[colA]);
-    const nameB = cellValue(playerRow[colB]);
-    if(!nameA || !nameB) continue;
+    for(let colA = 1; colA + 1 < maxCols; colA += 2){
+      const colB = colA + 1;
+      const nameA = cellValue(playerRow[colA]);
+      const nameB = cellValue(playerRow[colB]);
+      if(!nameA || !nameB) continue;
 
-    const playerA = normalizeSchedulePlayerName(nameA);
-    const playerB = normalizeSchedulePlayerName(nameB);
-    const timeARaw = cellValue(timeRow[colA]) || '-';
-    const timeBRaw = cellValue(timeRow[colB]) || '-';
-    const timeABetter = isBetterCellBackground(timeRow[colA]?.background);
-    const timeBBetter = isBetterCellBackground(timeRow[colB]?.background);
+      const playerA = normalizeSchedulePlayerName(nameA);
+      const playerB = normalizeSchedulePlayerName(nameB);
+      const timeARaw = cellValue(timeRow[colA]) || '-';
+      const timeBRaw = cellValue(timeRow[colB]) || '-';
+      const timeABetter = isBetterCellBackground(timeRow[colA]?.background);
+      const timeBBetter = isBetterCellBackground(timeRow[colB]?.background);
 
-    const segments = [];
-    for(let ri = 3; ri < rows.length; ri++){
-      const row = rows[ri] || [];
-      const label = cellValue(row[0]);
-      if(!label) continue;
-      const valueA = cellValue(row[colA]) || '-';
-      const valueB = cellValue(row[colB]) || '-';
-      if(valueA === '-' && valueB === '-' && !cellValue(row[colA]) && !cellValue(row[colB])) continue;
-      segments.push({
-        label,
-        valueA,
-        valueB,
-        betterA: isBetterCellBackground(row[colA]?.background),
-        betterB: isBetterCellBackground(row[colB]?.background)
+      const segments = [];
+      for(let ri = 3; ri < rows.length; ri++){
+        const row = rows[ri] || [];
+        const label = cellValue(row[0]);
+        if(!label) continue;
+        const valueA = cellValue(row[colA]) || '-';
+        const valueB = cellValue(row[colB]) || '-';
+        if(valueA === '-' && valueB === '-' && !cellValue(row[colA]) && !cellValue(row[colB])) continue;
+        segments.push({
+          label,
+          valueA,
+          valueB,
+          betterA: isBetterCellBackground(row[colA]?.background),
+          betterB: isBetterCellBackground(row[colB]?.background)
+        });
+      }
+
+      const key = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
+      detailsMap.set(key, {
+        playerA,
+        playerB,
+        timeA: timeARaw,
+        timeB: timeBRaw,
+        timeABetter,
+        timeBBetter,
+        segments
       });
     }
-
-    const key = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
-    detailsMap.set(key, {
-      playerA,
-      playerB,
-      timeA: timeARaw,
-      timeB: timeBRaw,
-      timeABetter,
-      timeBBetter,
-      segments
-    });
   }
+  
 
   return detailsMap;
 }
@@ -990,6 +994,7 @@ async function loadExternalMatchDetails(){
     const response = await fetch(MATCH_DETAILS_COLORS_URL, { cache: 'no-store' });
     if(!response.ok) throw new Error('HTTP ' + response.status);
     const payload = await response.json();
+    console.log(payload);
     const map = parseMatchDetailsColorsPayload(payload);
     if(map && map.size > 0){
       externalMatchDetails = map;
