@@ -2007,6 +2007,173 @@ function renderCalendarFixturePanel(players = []){
 function renderFixturePanel(players = []){
   renderCalendarFixturePanel(players);
 }
+// --- Clasificación automática a octavos -------------------------------------
+
+function getGroupMatchupsWithStatus(groupLetter){
+  const rawResults = getLoadedResults();
+  const matches = Array.isArray(rawResults?.matches) ? rawResults.matches : [];
+  const byPair = new Map();
+
+  matches.forEach(match => {
+    if(resolveManualMatchKey(match) !== groupLetter) return;
+
+    const playerA = match.playerA || match.jugadorA || match.a || match.teamA || match.player_1;
+    const playerB = match.playerB || match.jugadorB || match.b || match.teamB || match.player_2;
+    if(!playerA || !playerB) return;
+
+    const rawA = match.timeA ?? match.tiempoA ?? match.time_a;
+    const rawB = match.timeB ?? match.tiempoB ?? match.time_b;
+    const timeA = parseManualTime(rawA);
+    const timeB = parseManualTime(rawB);
+
+    // Mismo criterio de "pendiente" que usa computeGroupStandings
+    const isPending = (match.winner == null || String(match.winner).trim() === '') &&
+      (rawA == null || String(rawA).trim() === '' || String(rawA).trim() === '-' || timeA == null) &&
+      (rawB == null || String(rawB).trim() === '' || String(rawB).trim() === '-' || timeB == null);
+
+    const key = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
+    const previous = byPair.get(key);
+    if(previous && !previous.isPending) return; // ya hay una versión jugada de ese cruce
+    byPair.set(key, { playerA, playerB, isPending });
+  });
+
+  return [...byPair.values()];
+}
+
+// Devuelve [1º, 2º] de un escenario concreto, o null si el desempate es incierto.
+// Devuelve [nombreRank1, nombreRank2] para un escenario puntual.
+// Cualquiera de los dos puede venir null si ese puesto específico
+// queda indefinido por un empate con jugadores que aún tienen partidos pendientes.
+function resolveScenarioRanks(entries, pointsByKey, riskyTimeKeys){
+  const byPoints = new Map();
+  entries.forEach(entry => {
+    const points = pointsByKey.get(entry.key) ?? 0;
+    if(!byPoints.has(points)) byPoints.set(points, []);
+    byPoints.get(points).push(entry);
+  });
+
+  const bucketsDesc = [...byPoints.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([, list]) => list);
+
+  const ranks = [];
+
+  for(const bucket of bucketsDesc){
+    if(ranks.length >= 2) break;
+
+    if(bucket.length === 1){
+      ranks.push(bucket[0].name);
+      continue;
+    }
+
+    // Empate en puntos entre varios jugadores.
+    const anyRisky = bucket.some(entry => riskyTimeKeys.has(entry.key));
+    if(anyRisky){
+      const slotsNeeded = Math.min(bucket.length, 2 - ranks.length);
+      for(let i = 0; i < slotsNeeded; i++) ranks.push(null);
+      continue;
+    }
+
+    const sorted = [...bucket].sort((a, b) =>
+      (a.bestTime ?? Number.POSITIVE_INFINITY) - (b.bestTime ?? Number.POSITIVE_INFINITY));
+    const flatTie = sorted.some((entry, index) => index > 0 &&
+      (entry.bestTime ?? Number.POSITIVE_INFINITY) === (sorted[index - 1].bestTime ?? Number.POSITIVE_INFINITY));
+
+    if(flatTie){
+      const slotsNeeded = Math.min(bucket.length, 2 - ranks.length);
+      for(let i = 0; i < slotsNeeded; i++) ranks.push(null);
+      continue;
+    }
+
+    sorted.forEach(entry => { if(ranks.length < 2) ranks.push(entry.name); });
+  }
+
+  while(ranks.length < 2) ranks.push(null);
+  return ranks;
+}
+
+const MAX_PENDING_SCENARIOS_EXPONENT = 8;
+
+function resolveGroupTopTwo(groupLetter){
+  const standings = computeGroupStandings(getLoadedResults() || { matches: [] })[groupLetter];
+  if(!standings) return { first: null, second: null };
+
+  const entries = Object.values(standings).map(entry => ({
+    key: normalizeManualMatchName(entry.name),
+    name: entry.name,
+    points: entry.points,
+    bestTime: entry.bestTime
+  }));
+  if(!entries.length) return { first: null, second: null };
+
+  const pending = getGroupMatchupsWithStatus(groupLetter).filter(match => match.isPending);
+  if(pending.length > MAX_PENDING_SCENARIOS_EXPONENT) return { first: null, second: null };
+
+  const riskyTimeKeys = new Set(pending.flatMap(match => [
+    normalizeManualMatchName(match.playerA),
+    normalizeManualMatchName(match.playerB)
+  ]));
+
+  const scenarios = Math.pow(3, pending.length);
+  let first;   // undefined = sin fijar todavía, null = ambiguo, string = valor
+  let second;
+
+  for(let scenario = 0; scenario < scenarios; scenario++){
+    const pointsByKey = new Map(entries.map(entry => [entry.key, entry.points]));
+    let remainder = scenario;
+
+    pending.forEach(match => {
+      const outcome = remainder % 3;
+      remainder = Math.floor(remainder / 3);
+      const keyA = normalizeManualMatchName(match.playerA);
+      const keyB = normalizeManualMatchName(match.playerB);
+      if(!pointsByKey.has(keyA) || !pointsByKey.has(keyB)) return;
+      if(outcome === 0) pointsByKey.set(keyA, pointsByKey.get(keyA) + 3);
+      else if(outcome === 1) pointsByKey.set(keyB, pointsByKey.get(keyB) + 3);
+      else {
+        pointsByKey.set(keyA, pointsByKey.get(keyA) + 1);
+        pointsByKey.set(keyB, pointsByKey.get(keyB) + 1);
+      }
+    });
+
+    const [rank1, rank2] = resolveScenarioRanks(entries, pointsByKey, riskyTimeKeys);
+
+    if(rank1 === null) first = null;
+    else if(first === undefined) first = rank1;
+    else if(first !== null && first !== rank1) first = null;
+
+    if(rank2 === null) second = null;
+    else if(second === undefined) second = rank2;
+    else if(second !== null && second !== rank2) second = null;
+
+    if(first === null && second === null) break; // ya no puede mejorar, cortamos antes
+  }
+
+  return {
+    first: first && first !== null ? first : null,
+    second: second && second !== null ? second : null
+  };
+}
+
+function buildQualifiedParticipants(players){
+  return Object.keys(FINAL_GROUPS).flatMap(letter => {
+    const resolved = resolveGroupTopTwo(letter);
+
+    return [0, 1].map(slot => {
+      const label = `${slot === 0 ? '1º' : '2º'} ${t('group')} ${letter}`;
+      const name = slot === 0 ? resolved.first : resolved.second;
+      if(!name) return { label, name: t('tbd'), flag: null, details: t('drawPending') };
+
+      const profile = resolvePlayerByName(players, name);
+      return {
+        label,
+        name,
+        flag: profile ? countryFlag(players, profile.id) : null,
+        details: t('qualified')
+      };
+    });
+  });
+}
 
 function buildKnockoutBracket(runs, players){
   const storedResults = getLoadedResults();
@@ -2053,65 +2220,7 @@ function buildKnockoutBracket(runs, players){
     };
   }
 
-  const groupOrder = Object.keys(FINAL_GROUPS);
-
-  if(!finishedGroups){
-    const pendingParticipants = [
-      { label: '1º Grupo A', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '2º Grupo B', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '1º Grupo C', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '2º Grupo D', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '1º Grupo E', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '2º Grupo F', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '1º Grupo G', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '2º Grupo H', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '1º Grupo B', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '2º Grupo A', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '1º Grupo D', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '2º Grupo C', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '1º Grupo F', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '2º Grupo E', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '1º Grupo H', name: t('tbd'), flag: null, details: t('drawPending') },
-      { label: '2º Grupo G', name: t('tbd'), flag: null, details: t('drawPending') }
-    ];
-
-    return {
-      octavos: [
-        [pendingParticipants[0], pendingParticipants[1]],
-        [pendingParticipants[2], pendingParticipants[3]],
-        [pendingParticipants[4], pendingParticipants[5]],
-        [pendingParticipants[6], pendingParticipants[7]],
-        [pendingParticipants[8], pendingParticipants[9]],
-        [pendingParticipants[10], pendingParticipants[11]],
-        [pendingParticipants[12], pendingParticipants[13]],
-        [pendingParticipants[14], pendingParticipants[15]]
-      ],
-      cuartos: [
-        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
-        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
-        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
-        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }]
-      ],
-      semis: [
-        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
-        [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }]
-      ],
-      final: [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
-      champion: { label: t('champion'), name: t('tbd'), flag: null, details: t('pendingSingle') }
-    };
-  }
-
-  const qualifiedParticipants = groupOrder.flatMap((groupLetter) => {
-    return FINAL_GROUPS[groupLetter].slice(0, 2).map((name, index) => {
-      const playerProfile = resolvePlayerByName(players, name);
-      return {
-        label: `${index === 0 ? '1º' : '2º'} ${t('group')} ${groupLetter}`,
-        name,
-        flag: playerProfile ? countryFlag(players, playerProfile.id) : null,
-        details: t('qualified')
-      };
-    });
-  });
+  const qualifiedParticipants = buildQualifiedParticipants(players);
 
   const octavos = [
     [qualifiedParticipants[0], qualifiedParticipants[3]],
@@ -2147,10 +2256,8 @@ function renderEliminatoriasPanel(runs, players){
   const bracket = buildKnockoutBracket(runs, players);
   const hasKnockoutResults = Boolean(getLoadedResults()?.knockout);
   const renderMatch = (match, index, winnerIndex = null, matchClass = '') => {
-    const canShowParticipants = finishedGroups || hasKnockoutResults;
-    const teamA = canShowParticipants ? match[0] || { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') } : { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
-    const teamB = canShowParticipants ? match[1] || { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') } : { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
-
+    const teamA = match[0] || { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
+    const teamB = match[1] || { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
     const isWinnerA = winnerIndex === 0;
     const isWinnerB = winnerIndex === 1;
     const isLoserA = winnerIndex !== null && !isWinnerA;
