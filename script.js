@@ -840,8 +840,10 @@ async function loadExternalMatchSchedule(){
 function isBetterCellBackground(background){
   const bg = String(background || '').trim().toLowerCase();
   if(!bg || bg === '#ffffff' || bg === '#fff' || bg === 'white' || bg === 'transparent') return false;
-  // Rojo puro del sheet (#ff0000) u otros rojos cercanos
-  if(bg === '#7c9eff' || bg === 'rgb(119, 163, 204)' || bg === 'blue') return true;
+  // Amarillo puro del sheet (#ffff00) u otros amarillos cercanos
+  if(bg === '#ffff00' || bg === 'rgb(255, 255, 0)' || bg === 'yellow') return false;
+  // Verde puro del sheet (#00ff00) u otros verdes cercanos
+  if(bg === '#00ff00' || bg === 'rgb(0, 255, 0)' || bg === 'green') return true;
   const hex = bg.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
   if(!hex) return false;
   let r, g, b;
@@ -854,8 +856,8 @@ function isBetterCellBackground(background){
     g = parseInt(hex[1].slice(2, 4), 16);
     b = parseInt(hex[1].slice(4, 6), 16);
   }
-  // Rojo dominante: R alto, G y B bajos
-  return r >= 80 && g <= 80 && b <= 180;
+  // Verde dominante: G alto, R y B bajos
+  return g >= 80 && r <= 80 && b <= 80;
 }
 
 function cellValue(cell){
@@ -994,7 +996,6 @@ async function loadExternalMatchDetails(){
     const response = await fetch(MATCH_DETAILS_COLORS_URL, { cache: 'no-store' });
     if(!response.ok) throw new Error('HTTP ' + response.status);
     const payload = await response.json();
-    console.log(payload);
     const map = parseMatchDetailsColorsPayload(payload);
     if(map && map.size > 0){
       externalMatchDetails = map;
@@ -2597,6 +2598,7 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
         b: seg.betterB ? 'md-stat-better' : (seg.betterA ? 'md-stat-worse' : '')
       };
     }
+    if(seg.valueA === seg.valueB) return { a: 'md-stat-equal', b: 'md-stat-equal' };
     const valueA = seg.valueA;
     const valueB = seg.valueB;
     const secA = parseManualTime(valueA);
@@ -2719,11 +2721,14 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
         word-break: break-word;
       }
       .md-stat-value.md-stat-better span {
-        background: #7c9eff; color: #fff;
+        background: #30a230; color: #fff;
         box-shadow: 0 0 10px rgba(124, 158, 255, 0.35);
       }
       .md-stat-value.md-stat-worse span {
-        background: #2a2f38; color: #b0b4ba;
+        background: #ed5050; color: #b0b4ba;
+      }
+      .md-stat-value.md-stat-equal span {
+        background: #2a2f38; color: #ffffff;
       }
       .md-empty {
         text-align: center; color: #9aa0a6; padding: 1.5rem 0.5rem; font-size: 0.9rem;
