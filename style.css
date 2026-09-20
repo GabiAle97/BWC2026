@@ -1758,3 +1758,295 @@ footer{
 .player-modal-card{
   width:min(100%,645px);
 }
+
+
+/* ========== PREDICCIONES (mismo bracket que eliminatorias + interacción) ========== */
+#predicciones-content .bracket-wrap,
+#predicciones-content .knockout-match{
+  background:transparent;
+}
+
+.predictions-toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:.75rem 1rem;
+  margin-bottom:12px;
+  padding:12px 14px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:rgba(14,15,19,.45);
+}
+
+.predictions-toolbar-text{
+  display:flex;
+  flex-direction:column;
+  gap:.2rem;
+  min-width:0;
+}
+
+.predictions-toolbar-text strong{
+  font-size:.95rem;
+  color:var(--text);
+}
+
+.predictions-toolbar-text span{
+  font-size:.8rem;
+  color:var(--muted);
+}
+
+.predictions-toolbar-actions{
+  display:flex;
+  gap:.5rem;
+  flex-shrink:0;
+  flex-wrap:wrap;
+}
+
+.predictions-btn{
+  appearance:none;
+  border:1px solid var(--border);
+  background:#2a2f38;
+  color:var(--text);
+  font:inherit;
+  font-size:.85rem;
+  font-weight:600;
+  padding:.45rem .9rem;
+  border-radius:8px;
+  cursor:pointer;
+  transition:background .15s,border-color .15s,filter .15s;
+}
+
+.predictions-btn:hover{
+  background:#3a3f4b;
+  border-color:#3b4255;
+}
+
+.predictions-btn:disabled{
+  opacity:.55;
+  cursor:wait;
+}
+
+.predictions-btn.predictions-share{
+  background:linear-gradient(135deg,var(--gold),#a67c00);
+  border-color:transparent;
+  color:#1a1a1a;
+}
+
+.predictions-btn.predictions-share:hover{
+  filter:brightness(1.08);
+}
+
+.prediction-slot.pickable{
+  cursor:pointer;
+}
+
+.prediction-slot.pickable:hover{
+  background:rgba(255,209,102,.12);
+  box-shadow:inset 0 0 0 1px rgba(255,209,102,.35);
+}
+
+.prediction-slot.pickable:focus-visible{
+  outline:2px solid var(--gold);
+  outline-offset:2px;
+}
+
+.prediction-slot.winner{
+  background:rgba(48,162,48,.18);
+  box-shadow:inset 0 0 0 1px rgba(48,162,48,.45);
+}
+
+.prediction-slot.winner .team-name{
+  color:#fff;
+}
+
+.prediction-slot.disabled{
+  opacity:.55;
+  cursor:default;
+}
+
+#predicciones-content .predictions-bracket .team-detail{
+  font-size:.46rem;
+}
+
+/* Mobile: mismo árbol con scroll horizontal que eliminatorias */
+@media (max-width: 900px){
+  #predicciones-content{
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+    scrollbar-color:var(--border) transparent;
+  }
+
+  #predicciones-content .bracket-wrap{
+    width:820px;
+    min-width:820px;
+    height:460px;
+    min-height:460px;
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:0 8px;
+    padding:14px 8px 18px;
+  }
+
+  #predicciones-content .bracket-wrap > .bracket-cluster,
+  #predicciones-content .bracket-wrap > .bracket-center{
+    position:relative;
+    display:block;
+  }
+
+  #predicciones-content .bracket-wrap > .bracket-cluster .round-title,
+  #predicciones-content .bracket-wrap > .bracket-center .round-title,
+  #predicciones-content .bracket-wrap > .bracket-center .third-place-title{
+    position:absolute;
+    left:0;
+    right:0;
+    top:0;
+  }
+
+  #predicciones-content .bracket-wrap > .bracket-cluster .knockout-match,
+  #predicciones-content .bracket-wrap > .bracket-center .knockout-match{
+    position:absolute;
+    left:0;
+    right:0;
+    margin:0;
+    transform:none;
+  }
+
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(2),
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(2){top:12%}
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(3),
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(3){top:35%}
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(4),
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(4){top:58%}
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(1) .knockout-match:nth-of-type(5),
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(7) .knockout-match:nth-of-type(5){top:81%}
+
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(2) .knockout-match:nth-of-type(2),
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(6) .knockout-match:nth-of-type(2){top:24%}
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(2) .knockout-match:nth-of-type(3),
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(6) .knockout-match:nth-of-type(3){top:67%}
+
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(3) .knockout-match,
+  #predicciones-content .bracket-wrap > .bracket-cluster:nth-child(5) .knockout-match{top:45%}
+
+  #predicciones-content .bracket-wrap > .bracket-center .final-match{top:27%}
+  #predicciones-content .bracket-wrap > .bracket-center .third-place-title{top:66%;padding:0}
+  #predicciones-content .bracket-wrap > .bracket-center .third-place-match{top:72%}
+
+  #predicciones-content .bracket-wrap > .bracket-cluster::before,
+  #predicciones-content .bracket-wrap > .bracket-cluster::after,
+  #predicciones-content .bracket-wrap > .bracket-cluster .knockout-match::before,
+  #predicciones-content .bracket-wrap > .bracket-cluster .knockout-match::after{display:none}
+
+  #predicciones-content .round-title,
+  #predicciones-content .third-place-title{
+    font-size:.6rem;
+    padding-bottom:5px;
+  }
+
+  #predicciones-content .knockout-match{
+    min-height:56px;
+    border-radius:6px;
+  }
+
+  #predicciones-content .team-slot{
+    min-height:27px;
+    padding:3px 5px;
+    gap:2px;
+  }
+
+  #predicciones-content .team-label{font-size:.4rem}
+  #predicciones-content .team-name{font-size:.5rem;line-height:1.1}
+  #predicciones-content .team-detail{font-size:.4rem}
+  #predicciones-content .team-flag{font-size:.62rem}
+
+  #predicciones-content .champion-banner{top:9%}
+  #predicciones-content .champion-label{top:-13px;font-size:.48rem}
+  #predicciones-content .champion-trophy{font-size:1.55rem}
+  #predicciones-content .champion-name{font-size:.92rem}
+  #predicciones-content .bracket-center > .round-title{top:24%}
+  #predicciones-content .bracket-center > .final-match{top:34%}
+}
+
+@media (max-width: 520px){
+  #predicciones-content .bracket-wrap{
+    width:1080px;
+    min-width:1080px;
+    height:600px;
+    min-height:600px;
+    gap:0 10px;
+  }
+
+  #predicciones-content .round-title,
+  #predicciones-content .third-place-title{font-size:.88rem}
+  #predicciones-content .knockout-match{min-height:78px}
+  #predicciones-content .team-slot{min-height:38px;padding:5px 8px}
+  #predicciones-content .team-label{font-size:.58rem}
+  #predicciones-content .team-name{font-size:.78rem}
+  #predicciones-content .team-detail{font-size:.54rem}
+  #predicciones-content .team-flag{font-size:1rem}
+  #predicciones-content .champion-trophy{font-size:1.9rem}
+  #predicciones-content .champion-label{font-size:.7rem}
+  #predicciones-content .champion-name{font-size:.9rem}
+  #predicciones-content .champion-name .flag-image{width:25px;height:19px}
+}
+
+@media (max-width: 640px){
+  .predictions-toolbar{
+    padding:10px 12px;
+  }
+  .predictions-toolbar-text span{
+    font-size:.72rem;
+  }
+  .predictions-btn{
+    font-size:.78rem;
+    padding:.4rem .7rem;
+  }
+}
+
+/* Menú de compartir predicción */
+.predictions-share-wrap{
+  position:relative;
+  display:inline-flex;
+}
+
+.predictions-share-menu{
+  position:absolute;
+  top:calc(100% + 6px);
+  right:0;
+  z-index:15;
+  min-width:200px;
+  padding:6px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#171922;
+  box-shadow:0 12px 28px rgba(0,0,0,.45);
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.predictions-share-menu[hidden]{
+  display:none;
+}
+
+.predictions-share-item{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:var(--text);
+  font:inherit;
+  font-size:.82rem;
+  font-weight:600;
+  text-align:left;
+  padding:9px 12px;
+  border-radius:7px;
+  cursor:pointer;
+}
+
+.predictions-share-item:hover,
+.predictions-share-item:focus-visible{
+  background:rgba(124,158,255,.14);
+  outline:none;
+}

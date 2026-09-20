@@ -41,7 +41,7 @@ const TRANSLATIONS = {
     navInicio: 'Inicio', navTabla: 'Clasificatorias', navStats: 'Estadísticas',
     navGrupos: 'Fase de Grupos', navFixture: 'Fixture', navEliminatorias: 'Eliminatorias', navAbout: 'Acerca de mí',
     loadingLive: 'Buscando partida en vivo…', loadingTabla: 'Cargando datos…', loadingStats: 'Cargando estadísticas…',
-    pendingGrupos: 'Fase de Grupos: contenido pendiente.', pendingFixture: 'Fixture: contenido pendiente.', pendingEliminatorias: 'Eliminatorias: contenido pendiente.',
+    pendingGrupos: 'Fase de Grupos: contenido pendiente.', pendingFixture: 'Fixture: contenido pendiente.', pendingEliminatorias: 'Eliminatorias: contenido pendiente.', pendingPredicciones: 'Predicciones: contenido pendiente.',
     aboutClose: 'Cerrar',
     footerSource: '· Fuente: speedrun.com API',
     tbd: 'Por determinar', qualified: 'Clasificado', champion: 'Campeón', drawPending: 'sorteo pendiente', pendingSingle: 'pendiente',
@@ -71,13 +71,21 @@ const TRANSLATIONS = {
     diaryPage2: '<p>Septiembre 4. Madrugada</p><br><p>A penas pude salir con vida.</p><p>Brad... Lo siento tanto. Debi disparar... No pude salvarte.</p><p>Esa maldita cosa es imparable, no importa cuantas balas desperdicie en él.</p><p>Parece una máquina programada con una misión, no es una mutación del virus...</p><p>Tengo que conseguir armamento pesado, si quiero llegar al final del camino en una pieza.</p><br><p>Debo encontrar a ese tipo de la radio. Iré al restaurante cerca de la plaza.</p><p>Si sobrevivió hasta ahora, puede tener ideas para escapar...</p>',
     diaryPage3: '<p>Septiembre 4. Noche</p><br><p>¡Ya estoy harta de esa cosa!</p><p>Carlos y yo tuvimos suerte de escapar más de una vez, pero sé que nos sigue.</p><p>Lo vi caer, una y otra vez, pero siempre se levanta.</p><p>Aunque, es extraño, pareciera que quiere algo más que matarnos.</p><p>Si no, ¿Por qué deja siempre un objeto util cuando cae?</p><br><p>Me pareció ver a alguien entre las sombras, pero desapareció antes de que pudiera acercarme.</p><p>¿Es él? ¿O solo estoy viendo cosas por el cansancio y el miedo?</p>',
     diaryPage4: '<p>Septiembre 6. Noche</p><br><p>Acabo de despertar</p><p>Ese hijo de perra logró infectarme. Creí haber muerto, pero Carlos me salvó.</p><p>Nuestra huída fracasó, el helicoptero se hizo trizas, y ya no nos queda tiempo.</p><p>Pero tengo una última esperanza... Una última escapatoria...</p><p>Si tan solo... Pudiera alcanzarme...</p><p>Sé que suena desquiciado, pero me vi a mi misma pelear con uñas y dientes para alcanzar a otra yo...</p><p>Quizá sea obra del virus, pero no puedo evitar sentir que hay otra versión de mí luchando por sobrevivir en algún lugar.</p><p>No quiero volver al principio... Y tener que vivir esto otra vez.</p><p>Pero por ahora... Debo seguir adelante.</p>',
-    matchDetailsTitle: 'Detalle del partido', matchDetailsNoData: 'Sin detalles de segmento disponibles para este partido.', matchDetailsSegment: 'Estadísticas del partido', matchDetailsFinalTime: 'Tiempo final', navPredicciones: 'Predicciones'
+    matchDetailsTitle: 'Detalle del partido', matchDetailsNoData: 'Sin detalles de segmento disponibles para este partido.', matchDetailsSegment: 'Estadísticas del partido', matchDetailsFinalTime: 'Tiempo final', navPredicciones: 'Predicciones',
+    predictionsTitle: 'Tu predicción', predictionsHint: 'Tocá un jugador para elegirlo como ganador del partido. Los ganadores avanzan automáticamente.',
+    predictionsReset: 'Reiniciar', predictionsShare: 'Compartir', predictionsDownload: 'Descargar imagen',
+    predictionsSharing: 'Generando imagen…', predictionsShareDone: '¡Listo!', predictionsShareError: 'No se pudo generar la imagen.',
+    predictionsPickWinner: 'Elegí un ganador', predictionsChampionPick: 'Campeón predicho',
+    predictionsCopy: 'Copiar imagen', predictionsCopied: '¡Copiada!', predictionsCopyError: 'No se pudo copiar.',
+    predictionsShareMenu: 'Compartir predicción', predictionsShareNative: 'Compartir…', predictionsShareX: 'Compartir en X',
+    predictionsShareWhatsApp: 'WhatsApp', predictionsShareDiscord: 'Discord',
+    predictionsDiscordHint: 'Imagen y mensaje copiados. Pegá en Discord (Ctrl+V / Cmd+V).'
   },
   en: {
     navInicio: 'Home', navTabla: 'Qualifiers', navStats: 'Statistics',
     navGrupos: 'Group Stage', navFixture: 'Fixture', navEliminatorias: 'Playoffs', navAbout: 'About me',
     loadingLive: 'Looking for a live match…', loadingTabla: 'Loading data…', loadingStats: 'Loading statistics…',
-    pendingGrupos: 'Group Stage: content coming soon.', pendingFixture: 'Fixture: content coming soon.', pendingEliminatorias: 'Playoffs: content coming soon.',
+    pendingGrupos: 'Group Stage: content coming soon.', pendingFixture: 'Fixture: content coming soon.', pendingEliminatorias: 'Playoffs: content coming soon.', pendingPredicciones: 'Predictions: content coming soon.',
     aboutClose: 'Close',
     footerSource: '· Source: speedrun.com API',
     tbd: 'TBD', qualified: 'Qualified', champion: 'Champion', drawPending: 'draw pending', pendingSingle: 'pending',
@@ -107,7 +115,15 @@ const TRANSLATIONS = {
     diaryPage2: '<p>September 4. Early morning</p><br><p>I barely made it out alive.</p><p>Brad... I\'m so sorry. I should have shot... I couldn\'t save you.</p><p>That damn thing is unstoppable, no matter how many bullets I waste on it.</p><p>It looks like a machine programmed with a mission, not a mutation of the virus...</p><p>I need to get some heavy weaponry if I want to make it to the end in one piece.</p><br><p>I have to find that guy from the radio. I\'ll head to the restaurant near the plaza.</p><p>If he\'s survived this long, he might have ideas on how to escape...</p>',
     diaryPage3: '<p>September 4. Night</p><br><p>I\'m sick of that thing!</p><p>Carlos and I got lucky escaping more than once, but I know it\'s still following us.</p><p>I\'ve seen it fall, again and again, but it always gets back up.</p><p>Still, it\'s strange, it seems like it wants something more than just killing us.</p><p>Otherwise, why does it always drop something useful when it falls?</p><br><p>I thought I saw someone in the shadows, but he disappeared before I could get closer.</p><p>Is it him? Or am I just seeing things from exhaustion and fear?</p>',
     diaryPage4: '<p>September 6. Night</p><br><p>I just woke up.</p><p>That son of a bitch managed to infect me. I thought I\'d be dead already, but Carlos saved me.</p><p>Our plan failed, the helicopter was smashed to pieces, and we\'re out of time.</p><p>But I have one last hope... My Last Escape...</p><p>If only... I could reach me...</p><p>I know it sounds insane, but I saw myself fighting tooth and nail to reach another me...</p><p>Maybe it\'s the virus talking, but I can\'t help feeling that there\'s another version of me out there fighting to survive.</p><p>I don\'t want to go back to the beginning... And have to live through this again.</p><p>But for now... I have to keep going.</p>',
-    matchDetailsTitle: 'Match details', matchDetailsNoData: 'No segment details available for this match.', matchDetailsSegment: 'Match statistics', matchDetailsFinalTime: 'Final time', navPredicciones: 'Predictions'
+    matchDetailsTitle: 'Match details', matchDetailsNoData: 'No segment details available for this match.', matchDetailsSegment: 'Match statistics', matchDetailsFinalTime: 'Final time', navPredicciones: 'Predictions',
+    predictionsTitle: 'Your prediction', predictionsHint: 'Tap a player to pick them as the match winner. Winners advance automatically.',
+    predictionsReset: 'Reset', predictionsShare: 'Share', predictionsDownload: 'Download image',
+    predictionsSharing: 'Generating image…', predictionsShareDone: 'Done!', predictionsShareError: 'Could not generate the image.',
+    predictionsPickWinner: 'Pick a winner', predictionsChampionPick: 'Predicted champion',
+    predictionsCopy: 'Copy image', predictionsCopied: 'Copied!', predictionsCopyError: 'Could not copy.',
+    predictionsShareMenu: 'Share prediction', predictionsShareNative: 'Share…', predictionsShareX: 'Share on X',
+    predictionsShareWhatsApp: 'WhatsApp', predictionsShareDiscord: 'Discord',
+    predictionsDiscordHint: 'Image and message copied. Paste in Discord (Ctrl+V / Cmd+V).'
   }
 };
 
@@ -1320,6 +1336,8 @@ async function loadAutoResults(){
       if (lastLeaderboardSnapshot) {
         renderGroupsPanel(lastLeaderboardSnapshot.runs, lastLeaderboardSnapshot.players);
         renderFixturePanel(lastLeaderboardSnapshot.players);
+        renderEliminatoriasPanel(lastLeaderboardSnapshot.runs, lastLeaderboardSnapshot.players);
+        renderPrediccionesPanel(lastLeaderboardSnapshot.players);
       }
       return true;
     } catch (err) {
@@ -1341,6 +1359,8 @@ function renderResultsPanelFromFile(file){
       if(lastLeaderboardSnapshot){
         renderGroupsPanel(lastLeaderboardSnapshot.runs, lastLeaderboardSnapshot.players);
         renderFixturePanel(lastLeaderboardSnapshot.players);
+        renderEliminatoriasPanel(lastLeaderboardSnapshot.runs, lastLeaderboardSnapshot.players);
+        renderPrediccionesPanel(lastLeaderboardSnapshot.players);
       }
     }catch(err){
       console.error(err);
@@ -2317,7 +2337,584 @@ function renderEliminatoriasPanel(runs, players){
   `;
 
   const container = document.getElementById('eliminatorias-content');
+  if(container) container.innerHTML = bracketHtml;
+}
+
+// --- Predicciones (bracket interactivo) -------------------------------------
+
+const PREDICTIONS_STORAGE_KEY = 'bc-predictions-v1';
+
+function loadPredictionsState(){
+  try{
+    const raw = localStorage.getItem(PREDICTIONS_STORAGE_KEY);
+    if(!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  }catch(err){
+    return {};
+  }
+}
+
+function savePredictionsState(state){
+  try{
+    localStorage.setItem(PREDICTIONS_STORAGE_KEY, JSON.stringify(state || {}));
+  }catch(err){
+    console.warn('No se pudieron guardar las predicciones.', err);
+  }
+}
+
+function clearPredictionsState(){
+  try{
+    localStorage.removeItem(PREDICTIONS_STORAGE_KEY);
+  }catch(err){}
+}
+
+/**
+ * Build interactive prediction bracket from group stage results + user picks.
+ * State shape: { [matchId]: 0 | 1 }  where 0 = team A wins, 1 = team B wins
+ * Match IDs: o0..o7 (octavos), q0..q3 (cuartos), s0..s1 (semis), f (final), t (third)
+ */
+function buildPredictionBracket(players){
+  const qualified = buildQualifiedParticipants(players);
+  const state = loadPredictionsState();
+
+  const participantFrom = (entry) => {
+    if(!entry || !entry.name || entry.name === t('tbd')){
+      return { label: entry?.label || t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
+    }
+    return {
+      label: entry.label || t('qualified'),
+      name: entry.name,
+      flag: entry.flag || null,
+      details: entry.details || t('qualified')
+    };
+  };
+
+  const tbd = () => ({ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') });
+
+  // Octavos pairings (same order as eliminatorias)
+  const octavosSeeds = [
+    [qualified[0], qualified[3]],
+    [qualified[4], qualified[7]],
+    [qualified[8], qualified[11]],
+    [qualified[12], qualified[15]],
+    [qualified[2], qualified[1]],
+    [qualified[6], qualified[5]],
+    [qualified[10], qualified[9]],
+    [qualified[14], qualified[13]]
+  ];
+
+  const octavos = octavosSeeds.map((pair, i) => {
+    const match = Object.assign(
+      [participantFrom(pair[0]), participantFrom(pair[1])],
+      { matchId: `o${i}`, winnerIndex: state[`o${i}`] ?? null }
+    );
+    return match;
+  });
+
+  const winnerOf = (match) => {
+    if(match.winnerIndex == null) return null;
+    const team = match[match.winnerIndex];
+    if(!team || team.name === t('tbd')) return null;
+    return team;
+  };
+
+  // Cuartos: o0vs o1, o2 vs o3, o4 vs o5, o6 vs o7
+  const cuartos = [0, 1, 2, 3].map(i => {
+    const a = winnerOf(octavos[i * 2]) || tbd();
+    const b = winnerOf(octavos[i * 2 + 1]) || tbd();
+    // If a previously selected winner is no longer valid (upstream changed), clear it
+    let winnerIndex = state[`q${i}`] ?? null;
+    if(winnerIndex != null){
+      const chosen = winnerIndex === 0 ? a : b;
+      if(!chosen || chosen.name === t('tbd')) winnerIndex = null;
+    }
+    return Object.assign([a, b], { matchId: `q${i}`, winnerIndex });
+  });
+
+  // Semis: q0 vs q1, q2 vs q3
+  const semis = [0, 1].map(i => {
+    const a = winnerOf(cuartos[i * 2]) || tbd();
+    const b = winnerOf(cuartos[i * 2 + 1]) || tbd();
+    let winnerIndex = state[`s${i}`] ?? null;
+    if(winnerIndex != null){
+      const chosen = winnerIndex === 0 ? a : b;
+      if(!chosen || chosen.name === t('tbd')) winnerIndex = null;
+    }
+    return Object.assign([a, b], { matchId: `s${i}`, winnerIndex });
+  });
+
+  // Final
+  const finalA = winnerOf(semis[0]) || tbd();
+  const finalB = winnerOf(semis[1]) || tbd();
+  let finalWinner = state.f ?? null;
+  if(finalWinner != null){
+    const chosen = finalWinner === 0 ? finalA : finalB;
+    if(!chosen || chosen.name === t('tbd')) finalWinner = null;
+  }
+  const final = Object.assign([finalA, finalB], { matchId: 'f', winnerIndex: finalWinner });
+
+  // Third place: losers of semis
+  const loserOf = (match) => {
+    if(match.winnerIndex == null) return null;
+    const team = match[match.winnerIndex === 0 ? 1 : 0];
+    if(!team || team.name === t('tbd')) return null;
+    return team;
+  };
+  const thirdA = loserOf(semis[0]) || tbd();
+  const thirdB = loserOf(semis[1]) || tbd();
+  let thirdWinner = state.t ?? null;
+  if(thirdWinner != null){
+    const chosen = thirdWinner === 0 ? thirdA : thirdB;
+    if(!chosen || chosen.name === t('tbd')) thirdWinner = null;
+  }
+  const thirdPlace = Object.assign([thirdA, thirdB], { matchId: 't', winnerIndex: thirdWinner });
+
+  const championTeam = winnerOf(final);
+  const champion = championTeam
+    ? { label: t('champion'), name: championTeam.name, flag: championTeam.flag, details: t('predictionsChampionPick') }
+    : { label: t('champion'), name: t('tbd'), flag: null, details: t('pendingSingle') };
+
+  return { octavos, cuartos, semis, final, thirdPlace, champion, state };
+}
+
+function setPredictionWinner(matchId, winnerIndex){
+  const state = loadPredictionsState();
+  const prev = state[matchId];
+
+  if(prev === winnerIndex){
+    // Toggle off
+    delete state[matchId];
+  }else{
+    state[matchId] = winnerIndex;
+  }
+
+  // Clear dependent downstream picks when an upstream match changes
+  const clearKeys = [];
+  if(matchId.startsWith('o')){
+    const oi = Number(matchId.slice(1));
+    const qi = Math.floor(oi / 2);
+    clearKeys.push(`q${qi}`, `s${Math.floor(qi / 2)}`, 'f', 't');
+  }else if(matchId.startsWith('q')){
+    const qi = Number(matchId.slice(1));
+    clearKeys.push(`s${Math.floor(qi / 2)}`, 'f', 't');
+  }else if(matchId.startsWith('s')){
+    clearKeys.push('f', 't');
+  }else if(matchId === 'f'){
+    // final only affects champion banner
+  }
+
+  // Only clear if the selection actually changed (not toggle-off of same)
+  if(prev !== winnerIndex){
+    clearKeys.forEach(k => { delete state[k]; });
+  }
+
+  savePredictionsState(state);
+  if(lastLeaderboardSnapshot){
+    renderPrediccionesPanel(lastLeaderboardSnapshot.players);
+  }
+}
+
+function renderPrediccionesPanel(players = []){
+  const container = document.getElementById('predicciones-content');
+  if(!container) return;
+
+  const bracket = buildPredictionBracket(players);
+
+  const renderMatch = (match, index, matchClass = '') => {
+    const teamA = match[0] || { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
+    const teamB = match[1] || { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
+    const winnerIndex = match.winnerIndex ?? null;
+    const isWinnerA = winnerIndex === 0;
+    const isWinnerB = winnerIndex === 1;
+    const isLoserA = winnerIndex !== null && !isWinnerA;
+    const isLoserB = winnerIndex !== null && !isWinnerB;
+    const canPickA = teamA.name !== t('tbd');
+    const canPickB = teamB.name !== t('tbd');
+    const matchId = match.matchId || index;
+
+    const teamSlot = (team, sideIndex, isWinner, isLoser, canPick) => {
+      const classes = [
+        'team-slot',
+        'prediction-slot',
+        isWinner ? 'winner' : '',
+        isLoser ? 'loser' : '',
+        canPick ? 'pickable' : 'disabled'
+      ].filter(Boolean).join(' ');
+      return `
+        <div class="${classes}" data-match-id="${matchId}" data-side="${sideIndex}" role="button" tabindex="${canPick ? 0 : -1}" aria-pressed="${isWinner ? 'true' : 'false'}">
+          <span class="team-label">${team.label}</span>
+          <span class="team-name"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</span>
+          <span class="team-detail">${isWinner ? '✓' : (canPick ? t('predictionsPickWinner') : team.details)}</span>
+        </div>`;
+    };
+
+    return `
+      <div class="knockout-match prediction-match ${matchClass}" data-match="${matchId}">
+        ${teamSlot(teamA, 0, isWinnerA, isLoserA, canPickA)}
+        ${teamSlot(teamB, 1, isWinnerB, isLoserB, canPickB)}
+      </div>
+    `;
+  };
+
+  const renderSide = (matches, side, roundTitle) => {
+    const items = matches.map((match, index) => renderMatch(match, `${side}-${index}`));
+    const roundClass = roundTitle.toLowerCase().replace(/[^a-záéíóúüñ]+/g, '-');
+    return `<div class="bracket-cluster ${side} round-${roundClass}"><div class="round-title">${roundTitle}</div>${items.join('')}</div>`;
+  };
+
+  const bracketHtml = `
+    <div class="predictions-toolbar">
+      <div class="predictions-toolbar-text">
+        <strong>${t('predictionsTitle')}</strong>
+        <span>${t('predictionsHint')}</span>
+      </div>
+      <div class="predictions-toolbar-actions">
+        <button type="button" class="predictions-btn predictions-reset" id="predictions-reset-btn">${t('predictionsReset')}</button>
+        <div class="predictions-share-wrap">
+          <button type="button" class="predictions-btn predictions-share" id="predictions-share-btn" aria-haspopup="true" aria-expanded="false">${t('predictionsShare')}</button>
+          <div class="predictions-share-menu" id="predictions-share-menu" hidden role="menu">
+            <button type="button" class="predictions-share-item" data-share-action="native" role="menuitem">${t('predictionsShareNative')}</button>
+            <button type="button" class="predictions-share-item" data-share-action="copy" role="menuitem">${t('predictionsCopy')}</button>
+            <button type="button" class="predictions-share-item" data-share-action="download" role="menuitem">${t('predictionsDownload')}</button>
+            <button type="button" class="predictions-share-item" data-share-action="x" role="menuitem">${t('predictionsShareX')}</button>
+            <button type="button" class="predictions-share-item" data-share-action="whatsapp" role="menuitem">${t('predictionsShareWhatsApp')}</button>
+            <button type="button" class="predictions-share-item" data-share-action="discord" role="menuitem">${t('predictionsShareDiscord')}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bracket-wrap predictions-bracket" id="predictions-bracket-capture">
+      ${renderSide(bracket.octavos.slice(0, 4), 'left', t('roundOf16'))}
+      ${renderSide(bracket.cuartos.slice(0, 2), 'left', t('quarterfinals'))}
+      ${renderSide(bracket.semis.slice(0, 1), 'left', t('semifinals'))}
+      <div class="bracket-center">
+        <div class="round-title">${t('final')}</div>
+        <div class="champion-banner">
+          <span class="champion-trophy" aria-hidden="true">🏆</span>
+          <span class="champion-label">${t('champion')}</span>
+          <span class="champion-name">${bracket.champion.flag || ''} ${bracket.champion.name}</span>
+        </div>
+        ${renderMatch(bracket.final, 'final', 'final-match')}
+        <div class="third-place-title">${t('thirdPlace')}</div>
+        ${renderMatch(bracket.thirdPlace, 'third-place', 'third-place-match')}
+      </div>
+      ${renderSide(bracket.semis.slice(1, 2), 'right', t('semifinals'))}
+      ${renderSide(bracket.cuartos.slice(2, 4), 'right', t('quarterfinals'))}
+      ${renderSide(bracket.octavos.slice(4, 8), 'right', t('roundOf16'))}
+    </div>
+  `;
+
   container.innerHTML = bracketHtml;
+
+  // Click / keyboard handlers for picking winners
+  container.querySelectorAll('.prediction-slot.pickable').forEach(slot => {
+    const activate = () => {
+      const matchId = slot.dataset.matchId;
+      const side = Number(slot.dataset.side);
+      if(matchId == null || Number.isNaN(side)) return;
+      setPredictionWinner(matchId, side);
+    };
+    slot.addEventListener('click', activate);
+    slot.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        activate();
+      }
+    });
+  });
+
+  const resetBtn = document.getElementById('predictions-reset-btn');
+  if(resetBtn){
+    resetBtn.addEventListener('click', () => {
+      clearPredictionsState();
+      renderPrediccionesPanel(players);
+    });
+  }
+
+  setupPredictionsShareMenu();
+}
+
+function setupPredictionsShareMenu(){
+  const shareBtn = document.getElementById('predictions-share-btn');
+  const menu = document.getElementById('predictions-share-menu');
+  if(!shareBtn || !menu) return;
+
+  const closeMenu = () => {
+    menu.hidden = true;
+    shareBtn.setAttribute('aria-expanded', 'false');
+  };
+
+  const openMenu = () => {
+    menu.hidden = false;
+    shareBtn.setAttribute('aria-expanded', 'true');
+  };
+
+  shareBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if(menu.hidden) openMenu();
+    else closeMenu();
+  });
+
+  menu.querySelectorAll('[data-share-action]').forEach(item => {
+    item.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const action = item.dataset.shareAction;
+      closeMenu();
+      await sharePredictionsBracket(shareBtn, action);
+    });
+  });
+
+  // Close on outside click / Escape (once per render is fine; multiple listeners ok with once flag via abort)
+  const onDocClick = (e) => {
+    if(!menu.hidden && !menu.contains(e.target) && e.target !== shareBtn){
+      closeMenu();
+    }
+  };
+  const onKey = (e) => {
+    if(e.key === 'Escape') closeMenu();
+  };
+  document.addEventListener('click', onDocClick);
+  document.addEventListener('keydown', onKey);
+}
+
+async function ensureHtml2Canvas(){
+  if(window.html2canvas) return window.html2canvas;
+  await new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-html2canvas]');
+    if(existing){
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error('html2canvas load failed')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    script.async = true;
+    script.dataset.html2canvas = '1';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('html2canvas load failed'));
+    document.head.appendChild(script);
+  });
+  if(!window.html2canvas) throw new Error('html2canvas unavailable');
+  return window.html2canvas;
+}
+
+function getPredictionShareText(){
+  const championEl = document.querySelector('#predictions-bracket-capture .champion-name');
+  const championName = (championEl?.textContent || '').replace(/\s+/g, ' ').trim();
+  const pageUrl = window.location.href.split('#')[0];
+  const hasChampion = championName && !/tbd|por determinar/i.test(championName);
+
+  if(currentLang === 'en'){
+    if(hasChampion){
+      return `My Basement World Cup 2026 prediction 🏆\nChampion: ${championName}\n${pageUrl}`;
+    }
+    return `My Basement World Cup 2026 prediction 🏆\n${pageUrl}`;
+  }
+
+  if(hasChampion){
+    return `Mi predicción para la Basement World Cup 2026 🏆\nCampeón: ${championName}\n${pageUrl}`;
+  }
+  return `Mi predicción para la Basement World Cup 2026 🏆\n${pageUrl}`;
+}
+
+async function capturePredictionsImage(){
+  const captureEl = document.getElementById('predictions-bracket-capture');
+  if(!captureEl) throw new Error('No capture element');
+
+  const html2canvas = await ensureHtml2Canvas();
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  const canvas = await html2canvas(captureEl, {
+    backgroundColor: '#12151a',
+    scale: Math.min(2, window.devicePixelRatio || 1.5),
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    scrollX: 0,
+    scrollY: -window.scrollY
+  });
+
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  if(!blob) throw new Error('toBlob failed');
+
+  const filename = `bwc-prediccion-${new Date().toISOString().slice(0, 10)}.png`;
+  const file = new File([blob], filename, { type: 'image/png' });
+  return { blob, file, filename, canvas };
+}
+
+async function copyImageBlobToClipboard(blob, text = null){
+  if(navigator.clipboard && window.ClipboardItem){
+    const payload = { [blob.type || 'image/png']: blob };
+    // Algunos navegadores aceptan texto + imagen juntos (útil para Discord)
+    if(text){
+      payload['text/plain'] = new Blob([text], { type: 'text/plain' });
+    }
+    try{
+      await navigator.clipboard.write([new ClipboardItem(payload)]);
+      return true;
+    }catch(err){
+      // Fallback: solo imagen
+      if(text){
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type || 'image/png']: blob })
+        ]);
+        return 'image-only';
+      }
+      throw err;
+    }
+  }
+  if(text && navigator.clipboard?.writeText){
+    await navigator.clipboard.writeText(text);
+    return 'text-only';
+  }
+  return false;
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function openShareTextUrl(platform, text){
+  const encoded = encodeURIComponent(text);
+  const pageUrl = encodeURIComponent(window.location.href.split('#')[0]);
+  let href = '';
+  if(platform === 'x'){
+    href = `https://twitter.com/intent/tweet?text=${encoded}`;
+  }else if(platform === 'whatsapp'){
+    href = `https://wa.me/?text=${encoded}`;
+  }else if(platform === 'discord'){
+    // Discord no tiene intent público de “compartir texto+imagen”.
+    // Abrimos la app web; el mensaje e imagen van por el portapapeles.
+    href = 'https://discord.com/app';
+  }
+  if(href) window.open(href, '_blank', 'noopener,noreferrer');
+}
+
+/**
+ * action: 'native' | 'copy' | 'download' | 'x' | 'whatsapp' | 'discord'
+ */
+async function sharePredictionsBracket(button, action = 'native'){
+  if(!button) return;
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = t('predictionsSharing');
+
+  try{
+    const { blob, file, filename } = await capturePredictionsImage();
+    const shareText = getPredictionShareText();
+
+    if(action === 'native'){
+      if(navigator.canShare && navigator.canShare({ files: [file] })){
+        try{
+          await navigator.share({
+            files: [file],
+            title: t('predictionsTitle'),
+            text: shareText
+          });
+          button.textContent = t('predictionsShareDone');
+          setTimeout(() => { button.textContent = originalLabel; button.disabled = false; }, 1500);
+          return;
+        }catch(shareErr){
+          if(shareErr && shareErr.name === 'AbortError'){
+            button.textContent = originalLabel;
+            button.disabled = false;
+            return;
+          }
+        }
+      }
+      try{
+        const ok = await copyImageBlobToClipboard(blob, shareText);
+        if(ok){
+          button.textContent = t('predictionsCopied');
+          setTimeout(() => { button.textContent = originalLabel; button.disabled = false; }, 1800);
+          return;
+        }
+      }catch(err){}
+      downloadBlob(blob, filename);
+      button.textContent = t('predictionsShareDone');
+      setTimeout(() => { button.textContent = originalLabel; button.disabled = false; }, 1500);
+      return;
+    }
+
+    if(action === 'copy'){
+      try{
+        const ok = await copyImageBlobToClipboard(blob, shareText);
+        if(!ok) throw new Error('clipboard unsupported');
+        button.textContent = t('predictionsCopied');
+      }catch(err){
+        downloadBlob(blob, filename);
+        button.textContent = t('predictionsShareDone');
+      }
+      setTimeout(() => { button.textContent = originalLabel; button.disabled = false; }, 1800);
+      return;
+    }
+
+    if(action === 'download'){
+      downloadBlob(blob, filename);
+      button.textContent = t('predictionsShareDone');
+      setTimeout(() => { button.textContent = originalLabel; button.disabled = false; }, 1500);
+      return;
+    }
+
+    // Discord: copiar mensaje predeterminado + imagen, abrir Discord
+    if(action === 'discord'){
+      let copied = false;
+      try{
+        const result = await copyImageBlobToClipboard(blob, shareText);
+        copied = Boolean(result);
+        // Si solo se copió la imagen, asegurar el texto también
+        if(result === 'image-only' && navigator.clipboard?.writeText){
+          // No pisar la imagen: algunos browsers solo guardan un tipo.
+          // El usuario tendrá la imagen; el mensaje se muestra en el botón/hint.
+        }
+      }catch(err){
+        copied = false;
+      }
+      if(!copied){
+        downloadBlob(blob, filename);
+        try{
+          if(navigator.clipboard?.writeText) await navigator.clipboard.writeText(shareText);
+        }catch(err){}
+      }
+      openShareTextUrl('discord', shareText);
+      button.textContent = copied ? t('predictionsDiscordHint') : t('predictionsShareDone');
+      // Hint is longer; restore after a bit more time
+      setTimeout(() => { button.textContent = originalLabel; button.disabled = false; }, 3200);
+      return;
+    }
+
+    // X / WhatsApp: copiar imagen si se puede + abrir compositor con mensaje
+    if(action === 'x' || action === 'whatsapp'){
+      let copied = false;
+      try{
+        copied = Boolean(await copyImageBlobToClipboard(blob, shareText));
+      }catch(err){
+        copied = false;
+      }
+      if(!copied) downloadBlob(blob, filename);
+      openShareTextUrl(action, shareText);
+      button.textContent = copied ? t('predictionsCopied') : t('predictionsShareDone');
+      setTimeout(() => { button.textContent = originalLabel; button.disabled = false; }, 2000);
+      return;
+    }
+
+    downloadBlob(blob, filename);
+    button.textContent = t('predictionsShareDone');
+    setTimeout(() => { button.textContent = originalLabel; button.disabled = false; }, 1500);
+  }catch(err){
+    console.warn('Share predictions failed', err);
+    button.textContent = t('predictionsShareError');
+    setTimeout(() => { button.textContent = originalLabel; button.disabled = false; }, 2200);
+  }
 }
 
 function buildPlayerDetails(player, pbs, runUrl, datePb){
@@ -2986,6 +3583,7 @@ async function loadLeaderboard(){
     renderGroupsPanel(runs, players);
     renderFixturePanel(players);
     renderEliminatoriasPanel(runs, players);
+    renderPrediccionesPanel(players);
     if(!externalMatchSchedule) await loadAutoResults();
 
     const playerProfileMap = new Map(players.map(player => [player.id, player]));
