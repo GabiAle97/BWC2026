@@ -71,7 +71,7 @@ const TRANSLATIONS = {
     diaryPage2: '<p>Septiembre 4. Madrugada</p><br><p>A penas pude salir con vida.</p><p>Brad... Lo siento tanto. Debi disparar... No pude salvarte.</p><p>Esa maldita cosa es imparable, no importa cuantas balas desperdicie en él.</p><p>Parece una máquina programada con una misión, no es una mutación del virus...</p><p>Tengo que conseguir armamento pesado, si quiero llegar al final del camino en una pieza.</p><br><p>Debo encontrar a ese tipo de la radio. Iré al restaurante cerca de la plaza.</p><p>Si sobrevivió hasta ahora, puede tener ideas para escapar...</p>',
     diaryPage3: '<p>Septiembre 4. Noche</p><br><p>¡Ya estoy harta de esa cosa!</p><p>Carlos y yo tuvimos suerte de escapar más de una vez, pero sé que nos sigue.</p><p>Lo vi caer, una y otra vez, pero siempre se levanta.</p><p>Aunque, es extraño, pareciera que quiere algo más que matarnos.</p><p>Si no, ¿Por qué deja siempre un objeto util cuando cae?</p><br><p>Me pareció ver a alguien entre las sombras, pero desapareció antes de que pudiera acercarme.</p><p>¿Es él? ¿O solo estoy viendo cosas por el cansancio y el miedo?</p>',
     diaryPage4: '<p>Septiembre 6. Noche</p><br><p>Acabo de despertar</p><p>Ese hijo de perra logró infectarme. Creí haber muerto, pero Carlos me salvó.</p><p>Nuestra huída fracasó, el helicoptero se hizo trizas, y ya no nos queda tiempo.</p><p>Pero tengo una última esperanza... Una última escapatoria...</p><p>Si tan solo... Pudiera alcanzarme...</p><p>Sé que suena desquiciado, pero me vi a mi misma pelear con uñas y dientes para alcanzar a otra yo...</p><p>Quizá sea obra del virus, pero no puedo evitar sentir que hay otra versión de mí luchando por sobrevivir en algún lugar.</p><p>No quiero volver al principio... Y tener que vivir esto otra vez.</p><p>Pero por ahora... Debo seguir adelante.</p>',
-    matchDetailsTitle: 'Detalle del partido', matchDetailsNoData: 'Sin detalles de segmento disponibles para este partido.', matchDetailsSegment: 'Estadísticas del partido', matchDetailsFinalTime: 'Tiempo final'
+    matchDetailsTitle: 'Detalle del partido', matchDetailsNoData: 'Sin detalles de segmento disponibles para este partido.', matchDetailsSegment: 'Estadísticas del partido', matchDetailsFinalTime: 'Tiempo final', navPredicciones: 'Predicciones'
   },
   en: {
     navInicio: 'Home', navTabla: 'Qualifiers', navStats: 'Statistics',
@@ -107,7 +107,7 @@ const TRANSLATIONS = {
     diaryPage2: '<p>September 4. Early morning</p><br><p>I barely made it out alive.</p><p>Brad... I\'m so sorry. I should have shot... I couldn\'t save you.</p><p>That damn thing is unstoppable, no matter how many bullets I waste on it.</p><p>It looks like a machine programmed with a mission, not a mutation of the virus...</p><p>I need to get some heavy weaponry if I want to make it to the end in one piece.</p><br><p>I have to find that guy from the radio. I\'ll head to the restaurant near the plaza.</p><p>If he\'s survived this long, he might have ideas on how to escape...</p>',
     diaryPage3: '<p>September 4. Night</p><br><p>I\'m sick of that thing!</p><p>Carlos and I got lucky escaping more than once, but I know it\'s still following us.</p><p>I\'ve seen it fall, again and again, but it always gets back up.</p><p>Still, it\'s strange, it seems like it wants something more than just killing us.</p><p>Otherwise, why does it always drop something useful when it falls?</p><br><p>I thought I saw someone in the shadows, but he disappeared before I could get closer.</p><p>Is it him? Or am I just seeing things from exhaustion and fear?</p>',
     diaryPage4: '<p>September 6. Night</p><br><p>I just woke up.</p><p>That son of a bitch managed to infect me. I thought I\'d be dead already, but Carlos saved me.</p><p>Our plan failed, the helicopter was smashed to pieces, and we\'re out of time.</p><p>But I have one last hope... My Last Escape...</p><p>If only... I could reach me...</p><p>I know it sounds insane, but I saw myself fighting tooth and nail to reach another me...</p><p>Maybe it\'s the virus talking, but I can\'t help feeling that there\'s another version of me out there fighting to survive.</p><p>I don\'t want to go back to the beginning... And have to live through this again.</p><p>But for now... I have to keep going.</p>',
-    matchDetailsTitle: 'Match details', matchDetailsNoData: 'No segment details available for this match.', matchDetailsSegment: 'Match statistics', matchDetailsFinalTime: 'Final time'
+    matchDetailsTitle: 'Match details', matchDetailsNoData: 'No segment details available for this match.', matchDetailsSegment: 'Match statistics', matchDetailsFinalTime: 'Final time', navPredicciones: 'Predictions'
   }
 };
 
@@ -711,7 +711,7 @@ function normalizeScheduleTime(value){
 
 function isScheduleDetailValue(value){
   const text = String(value || '').trim().toUpperCase();
-  return text === 'DEATH' || text === 'DIED' || /^\d{1,2}:\d{2}(?:\.\d+)?$/.test(text);
+  return text === 'DEATH' || text === 'DIED' || text.match(/^DIED.*$/) || /^\d{1,2}:\d{2}(?:\.\d+)?$/.test(text);
 }
 
 function isScheduleClockTime(value){
