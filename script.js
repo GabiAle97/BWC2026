@@ -727,7 +727,8 @@ function normalizeScheduleTime(value){
 
 function isScheduleDetailValue(value){
   const text = String(value || '').trim().toUpperCase();
-  return text === 'DEATH' || text === 'DIED' || text.match(/^DIED.*$/) || /^\d{1,2}:\d{2}(?:\.\d+)?$/.test(text);
+  const isDiedPattern = /^DIED.*$/.test(text) ? true : false;
+  return text === '' || text === 'DEATH' || text === 'DIED' || isDiedPattern || /^\d{1,2}:\d{2}(?:\.\d+)?$/.test(text);
 }
 
 function isScheduleClockTime(value){
@@ -781,10 +782,27 @@ function parseMatchScheduleTable(table){
       if(!playerA || !playerB || playerA === 'TBD' || playerB === 'TBD') return;
       if(isScheduleDetailValue(playerA) || isScheduleDetailValue(playerB)) return;
 
-      const detailRowIndex = [rowIndex + 1, rowIndex + 2, rowIndex + 3].find(candidateIndex => {
-        const groupValue = getSheetCell(rows[candidateIndex], schedule);
-        return /GROUP\s+([A-H])/i.test(groupValue);
-      });
+      let detailRowIndex = null;
+      for(let candidateIndex = rowIndex + 1; candidateIndex <= rowIndex + 3; candidateIndex++){
+        const candidateRow = rows[candidateIndex];
+        if(!candidateRow) break;
+
+        const groupValue = getSheetCell(candidateRow, schedule);
+        if(/GROUP\s+([A-H])/i.test(groupValue)){
+          detailRowIndex = candidateIndex;
+          break;
+        }
+
+        // Si esta fila ya es la fila de jugadores de OTRO partido, nuestra
+        // propia fila de detalle (probablemente un W.O. sin "GROUP X") no
+        // está más adelante: dejamos de buscar en vez de robar la ajena.
+        const candidateA = getSheetCell(candidateRow, start);
+        const candidateB = getSheetCell(candidateRow, start + 3);
+        const looksLikeAnotherMatchRow = candidateA && candidateB &&
+          candidateA !== 'TBD' && candidateB !== 'TBD' &&
+          !isScheduleDetailValue(candidateA) && !isScheduleDetailValue(candidateB);
+        if(looksLikeAnotherMatchRow) break;
+      }
       const detailRow = rows[detailRowIndex] || nextRow || { c: [] };
       const groupValue = getSheetCell(detailRow, schedule);
       const groupMatch = groupValue.match(/GROUP\s+([A-H])/i);
@@ -1845,18 +1863,16 @@ function renderCalendarFixturePanel(players = []){
         label: date.label || `${t('dateLabel')} ${number} ${t('of')} ${storedResults.dates.length}`,
         matches: []
       });
-
       (date.matches || []).forEach(record => {
         const group = resolveManualMatchKey(record);
         const playerA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
         const playerB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
         if(!group || !playerA || !playerB) return;
         calendarBuckets.get(key).matches.push({
-          group,
-          playerA,
-          playerB,
+          group, playerA, playerB,
           date: record.date || record.fecha || record.day || 'Fecha por definir',
-          time: record.time || record.horario || 'Horario: por definir'
+          time: record.time || record.horario || 'Horario: por definir',
+          dateNumber: number   // 👈 nuevo
         });
       });
     });
@@ -1919,9 +1935,11 @@ function renderCalendarFixturePanel(players = []){
           const groupMatch = resolveManualMatchKey(record) || '';
           const recordA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
           const recordB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
-          return groupMatch === match.group &&
+          const sameDate = record.fixtureDateNumber == null || match.dateNumber == null
+            || record.fixtureDateNumber === match.dateNumber;
+          return groupMatch === match.group && sameDate &&
             ((normalizeManualMatchName(recordA) === normalizeManualMatchName(match.playerA) && normalizeManualMatchName(recordB) === normalizeManualMatchName(match.playerB)) ||
-             (normalizeManualMatchName(recordA) === normalizeManualMatchName(match.playerB) && normalizeManualMatchName(recordB) === normalizeManualMatchName(match.playerA)));
+            (normalizeManualMatchName(recordA) === normalizeManualMatchName(match.playerB) && normalizeManualMatchName(recordB) === normalizeManualMatchName(match.playerA)));
         });
 
         const winner = resultMatch ? getMatchWinnerName(resultMatch, resultMatch.playerA || resultMatch.jugadorA || resultMatch.a || resultMatch.teamA || resultMatch.player_1, resultMatch.playerB || resultMatch.jugadorB || resultMatch.b || resultMatch.teamB || resultMatch.player_2) : null;
