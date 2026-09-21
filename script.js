@@ -25,7 +25,8 @@ const RPD_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/rpd';
 const JD_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/diario-de-jill';
 const RPD_RIGHT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/rpd-right';
 const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
-const MATCH_SCHEDULE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Groups)';
+const MATCH_SCHEDULE_GROUPS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Groups)';
+const MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Round%20of%2016)';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
 // Fallback gviz (sin colores) si el script falla
@@ -759,7 +760,12 @@ function inferScheduleGroup(playerA, playerB){
   })?.[0] || null;
 }
 
-function parseMatchScheduleTable(table){
+function parseMatchScheduleTable(table, options = {}){
+  const {
+    stage = 'groups', // 'groups' | 'r16'
+    defaultGroup = null,
+    dateLabelPrefix = null
+  } = options;
   const rows = table?.rows || [];
   const rounds = [
     { start: 1, schedule: 6, dateDay: 0, date: 1 },
@@ -768,6 +774,7 @@ function parseMatchScheduleTable(table){
   ];
   const matchesByRound = rounds.map(() => []);
   const currentDates = rounds.map(() => null);
+  const fallbackGroup = defaultGroup || (stage === 'r16' ? 'R16' : t('noGroup'));
 
   for(let rowIndex = 0; rowIndex < rows.length; rowIndex++){
     const row = rows[rowIndex];
@@ -788,7 +795,7 @@ function parseMatchScheduleTable(table){
         if(!candidateRow) break;
 
         const groupValue = getSheetCell(candidateRow, schedule);
-        if(/GROUP\s+([A-H])/i.test(groupValue)){
+        if(/GROUP\s+([A-H])/i.test(groupValue) || /R\s*16|ROUND\s*OF\s*16|OCTAVOS/i.test(groupValue)){
           detailRowIndex = candidateIndex;
           break;
         }
@@ -806,7 +813,10 @@ function parseMatchScheduleTable(table){
       const detailRow = rows[detailRowIndex] || nextRow || { c: [] };
       const groupValue = getSheetCell(detailRow, schedule);
       const groupMatch = groupValue.match(/GROUP\s+([A-H])/i);
-      const group = inferScheduleGroup(playerA, playerB) || t('noGroup');
+      const group = groupMatch?.[1]?.toUpperCase()
+        || inferScheduleGroup(playerA, playerB)
+        || (/R\s*16|ROUND\s*OF\s*16|OCTAVOS/i.test(groupValue) ? 'R16' : null)
+        || fallbackGroup;
 
       const scoreA = getSheetCell(row, start + 1);
       const scoreB = getSheetCell(row, start + 2);
@@ -830,6 +840,7 @@ function parseMatchScheduleTable(table){
 
       matchesByRound[roundIndex].push({
         group,
+        stage,
         playerA: normalizeSchedulePlayerName(playerA),
         playerB: normalizeSchedulePlayerName(playerB),
         timeA: timeA || '-',
@@ -841,28 +852,89 @@ function parseMatchScheduleTable(table){
     });
   }
 
-  const dates = matchesByRound.map((matches, index) => ({
-    number: index + 1,
-    label: `${t('dateLabel')} ${index + 1} ${t('of')} ${rounds.length}`,
-    groups: [...Object.keys(FINAL_GROUPS), ...new Set(matches.map(match => match.group).filter(group => !FINAL_GROUPS[group]))].map(group => ({
-      name: group,
-      matches: removeRescheduledDuplicates(matches)
-        .filter(match => match.group === group)
-        .map(({ group, ...match }) => match)
-    }))
-  }));
+  // Grupos: siempre las 3 fechas (aunque alguna esté vacía).
+  // Octavos: solo fechas con partidos cargados.
+  const roundsForLabels = stage === 'r16'
+    ? matchesByRound
+        .map((matches, index) => ({ matches, index }))
+        .filter(({ matches }) => matches.length > 0)
+    : matchesByRound.map((matches, index) => ({ matches, index }));
+  const totalDates = roundsForLabels.length || 1;
+
+  const dates = roundsForLabels.map(({ matches }, labelIndex) => {
+    const number = labelIndex + 1;
+    const baseLabel = `${t('dateLabel')} ${number} ${t('of')} ${totalDates}`;
+    const label = dateLabelPrefix ? `${dateLabelPrefix} · ${baseLabel}` : baseLabel;
+    const groupNames = stage === 'r16'
+      ? [...new Set(matches.map(match => match.group).filter(Boolean))]
+      : [...Object.keys(FINAL_GROUPS), ...new Set(matches.map(match => match.group).filter(group => !FINAL_GROUPS[group]))];
+    return {
+      number,
+      label,
+      stage,
+      groups: groupNames.map(group => ({
+        name: group,
+        matches: removeRescheduledDuplicates(matches)
+          .filter(match => match.group === group)
+          .map(({ group: _g, ...match }) => ({ ...match, stage: match.stage || stage }))
+      }))
+    };
+  });
 
   return normalizeResultsData({ dates });
 }
 
+async function fetchGvizSheetTable(url){
+  const response = await fetch(url, { cache: 'no-store' });
+  if(!response.ok) throw new Error('HTTP ' + response.status);
+  const text = await response.text();
+  const jsonText = text.replace(/^\s*\/\*O_o\*\/\s*google\.visualization\.Query\.setResponse\(/, '').replace(/\);\s*$/, '');
+  return JSON.parse(jsonText)?.table;
+}
+
+function mergeMatchSchedules(groupsSchedule, r16Schedule){
+  if(!groupsSchedule && !r16Schedule) return null;
+  if(!r16Schedule?.dates?.length) return groupsSchedule || null;
+  if(!groupsSchedule?.dates?.length) return r16Schedule || null;
+
+  const groupsDates = groupsSchedule.dates || [];
+  const r16Dates = (r16Schedule.dates || []).map((date, index) => ({
+    ...date,
+    number: groupsDates.length + index + 1,
+    label: date.label || `${t('roundOf16')} · ${t('dateLabel')} ${index + 1} ${t('of')} ${(r16Schedule.dates || []).length}`,
+    stage: 'r16'
+  }));
+
+  return normalizeResultsData({
+    dates: [...groupsDates, ...r16Dates]
+  });
+}
+
 async function loadExternalMatchSchedule(){
   try{
-    const response = await fetch(MATCH_SCHEDULE_SHEET_URL, { cache: 'no-store' });
-    if(!response.ok) throw new Error('HTTP ' + response.status);
-    const text = await response.text();
-    const jsonText = text.replace(/^\s*\/\*O_o\*\/\s*google\.visualization\.Query\.setResponse\(/, '').replace(/\);\s*$/, '');
-    const table = JSON.parse(jsonText)?.table;
-    externalMatchSchedule = parseMatchScheduleTable(table);
+    const [groupsTable, r16Table] = await Promise.all([
+      fetchGvizSheetTable(MATCH_SCHEDULE_GROUPS_SHEET_URL).catch(err => {
+        console.warn('No se pudo cargar Match Schedule (Groups).', err);
+        return null;
+      }),
+      fetchGvizSheetTable(MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL).catch(err => {
+        console.warn('No se pudo cargar Match Schedule (Round of 16).', err);
+        return null;
+      })
+    ]);
+
+    const groupsSchedule = groupsTable
+      ? parseMatchScheduleTable(groupsTable, { stage: 'groups' })
+      : null;
+    const r16Schedule = r16Table
+      ? parseMatchScheduleTable(r16Table, {
+          stage: 'r16',
+          defaultGroup: 'R16',
+          dateLabelPrefix: t('roundOf16')
+        })
+      : null;
+
+    externalMatchSchedule = mergeMatchSchedules(groupsSchedule, r16Schedule);
     return externalMatchSchedule;
   }catch(err){
     externalMatchSchedule = null;
@@ -1177,17 +1249,27 @@ function normalizeResultsData(rawResults){
   if(rawResults && Array.isArray(rawResults.dates)){
     const dates = rawResults.dates.map((date, index) => {
       const number = Number(date.number || date.numero || index + 1);
+      const stage = date.stage || null;
       const directMatches = Array.isArray(date.matches) ? date.matches : [];
       const groupMatches = Array.isArray(date.groups)
         ? date.groups.flatMap(group => (Array.isArray(group.matches) ? group.matches : [])
-          .map(match => ({ ...match, group: match.group || match.grupo || group.name || group.group })))
+          .map(match => ({
+            ...match,
+            group: match.group || match.grupo || group.name || group.group,
+            stage: match.stage || stage
+          })))
         : [];
-      const matches = [...directMatches, ...groupMatches];
+      const matches = [...directMatches, ...groupMatches].map(match => ({
+        ...match,
+        stage: match.stage || stage,
+        fixtureDateNumber: number
+      }));
       return {
         ...date,
         number,
+        stage,
         label: date.label || `${t('dateLabel')} ${number} ${t('of')} ${rawResults.dates.length}`,
-        matches: matches.map(match => ({ ...match, fixtureDateNumber: number }))
+        matches
       };
     });
 
@@ -1864,29 +1946,39 @@ function renderCalendarFixturePanel(players = []){
         matches: []
       });
       (date.matches || []).forEach(record => {
-        const group = resolveManualMatchKey(record);
+        const group = resolveManualMatchKey(record) || (date.stage === 'r16' ? 'R16' : null);
         const playerA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
         const playerB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
-        if(!group || !playerA || !playerB) return;
+        if(!playerA || !playerB) return;
+        if(!group && date.stage !== 'r16') return;
         calendarBuckets.get(key).matches.push({
-          group, playerA, playerB,
+          group: group || 'R16',
+          stage: date.stage || record.stage || null,
+          playerA, playerB,
           date: record.date || record.fecha || record.day || 'Fecha por definir',
           time: record.time || record.horario || 'Horario: por definir',
-          dateNumber: number   // 👈 nuevo
+          dateNumber: number
         });
       });
     });
   }else if(allMatches.length){
     allMatches.forEach((record) => {
-      const group = resolveManualMatchKey(record);
+      const group = resolveManualMatchKey(record) || (record.stage === 'r16' ? 'R16' : null);
       const playerA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
       const playerB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
-      if(!group || !playerA || !playerB) return;
+      if(!playerA || !playerB) return;
+      if(!group) return;
 
       const rawDate = record.date || record.fecha || record.day || 'Fecha por definir';
       const dateKey = normalizeDateKey(rawDate) || 'sin-fecha';
       if(!calendarBuckets.has(dateKey)) calendarBuckets.set(dateKey, { label: rawDate, matches: [] });
-      calendarBuckets.get(dateKey).matches.push({ group, playerA, playerB, date: rawDate, time: record.time || record.horario || 'Horario: por definir' });
+      calendarBuckets.get(dateKey).matches.push({
+        group,
+        stage: record.stage || null,
+        playerA, playerB,
+        date: rawDate,
+        time: record.time || record.horario || 'Horario: por definir'
+      });
     });
   }else{
     buildGroupFixture(null).forEach((group) => {
@@ -1897,7 +1989,35 @@ function renderCalendarFixturePanel(players = []){
       });
     });
   }
+  // Eliminar partidos duplicados del Fixture
+  for (const bucket of calendarBuckets.values()) {
+    const uniqueMatches = new Map();
 
+    bucket.matches.forEach(match => {
+      const playerA = normalizeManualMatchName(
+        match.playerA || ''
+      );
+
+      const playerB = normalizeManualMatchName(
+        match.playerB || ''
+      );
+
+      const pair = [playerA, playerB].sort().join('|');
+
+      const key = [
+        match.group || '',
+        match.stage || '',
+        match.dateNumber || '',
+        pair
+      ].join('|');
+
+      if (!uniqueMatches.has(key)) {
+        uniqueMatches.set(key, match);
+      }
+    });
+
+    bucket.matches = [...uniqueMatches.values()];
+  }
   const orderedDates = Array.from(calendarBuckets.entries()).sort(([aKey], [bKey]) => {
     if(aKey.startsWith('fixture-') && bKey.startsWith('fixture-')) return Number(aKey.slice(8)) - Number(bKey.slice(8));
     if(aKey.startsWith('fixture-')) return -1;
@@ -1986,9 +2106,15 @@ function renderCalendarFixturePanel(players = []){
         const escapedPlayerA = String(match.playerA).replace(/"/g, '&quot;');
         const escapedPlayerB = String(match.playerB).replace(/"/g, '&quot;');
 
+        const stageLabel = match.stage === 'r16' || match.group === 'R16'
+          ? t('roundOf16')
+          : FINAL_GROUPS[match.group]
+            ? `${t('group')} ${match.group}`
+            : (match.group ? `${t('group')} ${match.group}` : t('roundOf16'));
+
         return `
           <div class="fixture-match fixture-match-clickable" role="button" tabindex="0" data-player-a="${escapedPlayerA}" data-player-b="${escapedPlayerB}" data-group="${match.group || ''}">
-            <div class="fixture-match-group">${t('group')} ${match.group}</div>
+            <div class="fixture-match-group">${stageLabel}</div>
             <div class="fixture-teams">
               <div class="fixture-team-row ${playerAWon ? '' : winner ? 'loser' : ''}">
                 <div class="fixture-team">
