@@ -25,7 +25,7 @@ const RPD_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/rpd';
 const JD_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/diario-de-jill';
 const RPD_RIGHT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/rpd-right';
 const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
-const MATCH_SCHEDULE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule';
+const MATCH_SCHEDULE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Groups)';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
 // Fallback gviz (sin colores) si el script falla
