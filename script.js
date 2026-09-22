@@ -50,7 +50,7 @@ const TRANSLATIONS = {
     tbd: 'Por determinar', qualified: 'Clasificado', champion: 'Campeón', drawPending: 'sorteo pendiente', pendingSingle: 'pendiente',
     leader: 'Cabecera', position2: '2ª posición', position3: '3ª posición', position4: '4ª posición', position: 'Posición',
     player: 'Jugador', category: 'Categoría', game: 'Juego', noGroup: 'Sin grupo', group: 'Grupo', time: 'Tiempo',
-    live: 'EN VIVO', watchStream: 'Ver transmisión', groupStageInProgress: 'Fase de grupos en curso',
+    live: 'EN VIVO', watchStream: 'Ver transmisión',
     players: 'jugadores', date: 'Fecha', schedule: 'Horario',
     matchSingular: 'partido', matchPlural: 'partidos',
     noLiveMatch: 'Aún no empezó ninguna partida', noLiveMatchSub: 'Cuando comience un enfrentamiento, aparecerá aquí.',
@@ -88,7 +88,7 @@ const TRANSLATIONS = {
     statsMatch: 'Partido', statsComingSoon: 'Estadísticas de esta fase próximamente.',
     statsBasement: 'Basement', statsTrainCrash: 'Train Crash', statsTime: 'Tiempo',
     statsOverallPb: 'Overall PB', statsTablaFinal: 'Tabla Final', statsQualifiersPb: 'Qualifiers PB', statsWinRate: 'Win Rate',
-    statsFinalBestTime: 'TB', statsFinalWorstTime: 'Peor tiempo', statsFinalDiffPb: 'Diff. PB',
+    statsFinalBestTime: 'Mejor tiempo', statsFinalWorstTime: 'Peor tiempo', statsFinalDiffPb: 'Diff. PB',
     statsFinalTotalRuns: 'Runs totales', statsFinalFinishedRuns: 'Runs terminadas', statsFinalWinPct: '% wins',
     statsBasementPb: 'Basement PB', statsTrainCrashPb: 'Train Crash PB',
     statsTournamentBest: 'Tournament Best', statsWorstBasement: 'Worst Basement',
@@ -104,7 +104,7 @@ const TRANSLATIONS = {
     tbd: 'TBD', qualified: 'Qualified', champion: 'Champion', drawPending: 'draw pending', pendingSingle: 'pending',
     leader: 'Leader', position2: '2nd place', position3: '3rd place', position4: '4th place', position: 'Position',
     player: 'Player', category: 'Category', game: 'Game', noGroup: 'No group', group: 'Group', time: 'Time',
-    live: 'LIVE', watchStream: 'Watch stream', groupStageInProgress: 'Group stage in progress',
+    live: 'LIVE', watchStream: 'Watch stream',
     players: 'players', date: 'Date', schedule: 'Time',
     matchSingular: 'match', matchPlural: 'matches',
     noLiveMatch: 'No match has started yet', noLiveMatchSub: 'When a match starts, it will appear here.',
@@ -142,7 +142,7 @@ const TRANSLATIONS = {
     statsMatch: 'Match', statsComingSoon: 'Statistics for this stage coming soon.',
     statsBasement: 'Basement', statsTrainCrash: 'Train Crash', statsTime: 'Time',
     statsOverallPb: 'Overall PB', statsTablaFinal: 'Final Table', statsQualifiersPb: 'Qualifiers PB', statsWinRate: 'Win Rate',
-    statsFinalBestTime: 'TB', statsFinalWorstTime: 'Worst time', statsFinalDiffPb: 'Diff. PB',
+    statsFinalBestTime: 'Best time', statsFinalWorstTime: 'Worst time', statsFinalDiffPb: 'Diff. PB',
     statsFinalTotalRuns: 'Total runs', statsFinalFinishedRuns: 'Finished runs', statsFinalWinPct: '% wins',
     statsBasementPb: 'Basement PB', statsTrainCrashPb: 'Train Crash PB',
     statsTournamentBest: 'Tournament Best', statsWorstBasement: 'Worst Basement',
@@ -2257,7 +2257,8 @@ function renderGroupsPanel(runs, players){
         return `<tr class="group-player placeholder"><td colspan="8">${[t('leader'), t('position2'), t('position3'), t('position4')][index]}: ${t('tbd')}</td></tr>`;
       }
 
-      return `<tr class="group-player">
+      const qualifiedClass = index < 2 ? ' group-qualified' : '';
+      return `<tr class="group-player${qualifiedClass}">
         <td class="group-player-position">${index + 1}</td>
         <td class="group-player-name"><button class="player-profile-button" type="button" data-player-name="${player.name}">${player.flag ? `<span class="flag">${player.flag}</span>` : ''} ${player.name}</button></td>
         <td class="group-stat">${player.matches}</td>
@@ -2275,7 +2276,6 @@ function renderGroupsPanel(runs, players){
           <span>${t('group')} ${group.letter}</span>
           <span class="group-badge">${group.players.length} ${t('players')}</span>
         </div>
-        <div class="group-status">${t('groupStageInProgress')}</div>
         <table class="group-table" aria-label="Tabla del ${t('group')} ${group.letter}">
           <colgroup><col class="group-col-position"><col class="group-col-player"><col span="4" class="group-col-stat"><col class="group-col-time"><col class="group-col-points"></colgroup>
           <thead><tr><th>#</th><th>${t('player')}</th><th title="${t('colMatches')}">P</th><th title="${t('colWins')}">W</th><th title="${t('colDraws')}">D</th><th title="${t('colLosses')}">L</th><th title="${t('colBestTime')}">TB</th><th title="${t('colPoints')}">PTS</th></tr></thead>

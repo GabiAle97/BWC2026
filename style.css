@@ -923,6 +923,16 @@ footer{
   font-style:italic;
 }
 
+.group-table tr.group-qualified td{
+  background:rgba(72, 187, 120, .22);
+}
+.group-table tr.group-qualified .group-player-position{
+  color:#6ee7a0;
+}
+.group-table tr.group-qualified .group-points{
+  color:#8ef0b0;
+}
+
 .group-table{
   width:100%;
   min-width:0;
