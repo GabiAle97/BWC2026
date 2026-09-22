@@ -592,6 +592,9 @@ footer{
   background:transparent;
 }
 
+.stats-stage-tabs,
+.stats-subtabs,
+.stats-match-tabs,
 .stats-tabs{
   display:flex;
   gap:8px;
@@ -599,7 +602,9 @@ footer{
   flex-wrap:wrap;
 }
 
-.stats-tab-button{
+.stats-stage-button,
+.stats-tab-button,
+.stats-match-button{
   background:transparent;
   border:1px solid var(--border);
   color:var(--text);
@@ -608,10 +613,18 @@ footer{
   cursor:pointer;
   font-size:.82rem;
 }
-.stats-tab-button.active{
+.stats-stage-button.active,
+.stats-tab-button.active,
+.stats-match-button.active{
   background:linear-gradient(180deg,#2a3150,#1e2538);
   border-color:#333a56;
 }
+.stats-stage-button:hover,
+.stats-tab-button:hover,
+.stats-match-button:hover{filter:brightness(1.05)}
+.stats-match-tabs[hidden]{display:none}
+.stats-stage-tabs{margin-bottom:10px}
+.stats-subtabs{margin-bottom:10px}
 .stats-table-wrap{overflow-x:auto;border-radius:10px}
 .stats-table{min-width:420px}
 .stats-rank{width:52px;color:var(--muted);font-weight:700}

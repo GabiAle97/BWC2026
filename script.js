@@ -25,6 +25,7 @@ const RPD_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/rpd';
 const JD_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/diario-de-jill';
 const RPD_RIGHT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/rpd-right';
 const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
+const STATS_RO16_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=999352150';
 const MATCH_SCHEDULE_GROUPS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Groups)';
 const MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Round%20of%2016)';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
@@ -80,7 +81,15 @@ const TRANSLATIONS = {
     predictionsCopy: 'Copiar imagen', predictionsCopied: '¡Copiada!', predictionsCopyError: 'No se pudo copiar.',
     predictionsShareMenu: 'Compartir predicción', predictionsShareNative: 'Compartir…', predictionsShareX: 'Compartir en X',
     predictionsShareWhatsApp: 'WhatsApp', predictionsShareDiscord: 'Discord',
-    predictionsDiscordHint: 'Imagen y mensaje copiados. Pegá en Discord (Ctrl+V / Cmd+V).'
+    predictionsDiscordHint: 'Imagen y mensaje copiados. Pegá en Discord (Ctrl+V / Cmd+V).',
+    statsStageGroups: 'Fase de Grupos', statsStageRo16: 'Octavos', statsStageQf: 'Cuartos',
+    statsStageSf: 'Semifinales', statsStageFinal: 'Final',
+    statsMatch: 'Partido', statsComingSoon: 'Estadísticas de esta fase próximamente.',
+    statsBasement: 'Basement', statsTrainCrash: 'Train Crash', statsTime: 'Tiempo',
+    statsOverallPb: 'Overall PB', statsQualifiersPb: 'Qualifiers PB', statsWinRate: 'Win Rate',
+    statsBasementPb: 'Basement PB', statsTrainCrashPb: 'Train Crash PB',
+    statsTournamentBest: 'Tournament Best', statsWorstBasement: 'Worst Basement',
+    statsWorstTrainCrash: 'Worst Train Crash', statsWorstCompleteRun: 'Worst Complete Run'
   },
   en: {
     navInicio: 'Home', navTabla: 'Qualifiers', navStats: 'Statistics',
@@ -124,7 +133,15 @@ const TRANSLATIONS = {
     predictionsCopy: 'Copy image', predictionsCopied: 'Copied!', predictionsCopyError: 'Could not copy.',
     predictionsShareMenu: 'Share prediction', predictionsShareNative: 'Share…', predictionsShareX: 'Share on X',
     predictionsShareWhatsApp: 'WhatsApp', predictionsShareDiscord: 'Discord',
-    predictionsDiscordHint: 'Image and message copied. Paste in Discord (Ctrl+V / Cmd+V).'
+    predictionsDiscordHint: 'Image and message copied. Paste in Discord (Ctrl+V / Cmd+V).',
+    statsStageGroups: 'Group Stage', statsStageRo16: 'Round of 16', statsStageQf: 'Quarterfinals',
+    statsStageSf: 'Semifinals', statsStageFinal: 'Final',
+    statsMatch: 'Match', statsComingSoon: 'Statistics for this stage coming soon.',
+    statsBasement: 'Basement', statsTrainCrash: 'Train Crash', statsTime: 'Time',
+    statsOverallPb: 'Overall PB', statsQualifiersPb: 'Qualifiers PB', statsWinRate: 'Win Rate',
+    statsBasementPb: 'Basement PB', statsTrainCrashPb: 'Train Crash PB',
+    statsTournamentBest: 'Tournament Best', statsWorstBasement: 'Worst Basement',
+    statsWorstTrainCrash: 'Worst Train Crash', statsWorstCompleteRun: 'Worst Complete Run'
   }
 };
 
@@ -181,9 +198,21 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let externalPlayerStats = new Map();
+let externalKnockoutStats = {
+  ro16: new Map(),
+  qf: new Map(),
+  sf: new Map(),
+  final: new Map()
+};
 let externalStatsLoad = null;
 let externalMatchSchedule = null;
 let externalMatchScheduleLoad = null;
+let statsUiState = {
+  stage: 'overall',
+  groupMetric: 'basement-pb',
+  knockoutMatch: 1,
+  knockoutMetric: 'basement'
+};
 
 const QUALIFYING_PARTICIPANTS = [
   "LanceLM",
@@ -621,19 +650,32 @@ async function loadRpdRightVisitCounter(){
   }
 }
 
+function parseGvizTable(rawText){
+  const jsonText = String(rawText || '')
+    .replace(/^\s*\/\*O_o\*\/\s*google\.visualization\.Query\.setResponse\(/, '')
+    .replace(/\);\s*$/, '');
+  return JSON.parse(jsonText)?.table || null;
+}
+
+function sheetCellValue(row, index){
+  const cell = row?.c?.[index];
+  if(cell == null) return '';
+  const value = cell.v;
+  if(value == null || value === '') return '';
+  return String(value).trim();
+}
+
 async function loadExternalPlayerStats(){
   try{
     const response = await fetch(STATS_SHEET_URL, { cache: 'no-store' });
     if(!response.ok) throw new Error('HTTP ' + response.status);
-    const text = await response.text();
-    const jsonText = text.replace(/^\s*\/\*O_o\*\/\s*google\.visualization\.Query\.setResponse\(/, '').replace(/\);\s*$/, '');
-    const table = JSON.parse(jsonText)?.table;
+    const table = parseGvizTable(await response.text());
     const normalizeSheetHeader = value => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
     const columns = (table?.cols || []).map(column => normalizeSheetHeader(column.label));
     const rows = table?.rows || [];
     const valueAt = (row, label) => {
       const index = columns.indexOf(label);
-      return index >= 0 ? String(row.c?.[index]?.v ?? '').trim() : '';
+      return index >= 0 ? sheetCellValue(row, index) : '';
     };
 
     externalPlayerStats = new Map();
@@ -658,6 +700,52 @@ async function loadExternalPlayerStats(){
     externalPlayerStats = new Map();
     console.warn('No se pudieron cargar las estadísticas de Google Sheets.', err);
   }
+}
+
+/** Parse knockout-style sheet: Rank, Flag, Runner, W-L, Overall PB, Qualifiers PB, then per-match triples (Basement, Train Crash, Time). */
+async function loadKnockoutStageStats(url, stageKey, matchCount){
+  try{
+    const response = await fetch(url, { cache: 'no-store' });
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const table = parseGvizTable(await response.text());
+    const rows = table?.rows || [];
+    const map = new Map();
+
+    rows.forEach(row => {
+      const name = sheetCellValue(row, 2);
+      if(!name) return;
+      const matches = {};
+      for(let m = 1; m <= matchCount; m++){
+        const base = 6 + (m - 1) * 3;
+        matches[m] = {
+          basement: sheetCellValue(row, base),
+          trainCrash: sheetCellValue(row, base + 1),
+          time: sheetCellValue(row, base + 2)
+        };
+      }
+      map.set(normalizeParticipantName(name), {
+        name,
+        flag: sheetCellValue(row, 1),
+        winLoss: sheetCellValue(row, 3),
+        overallPb: sheetCellValue(row, 4),
+        qualifiersPb: sheetCellValue(row, 5),
+        matches
+      });
+    });
+
+    externalKnockoutStats[stageKey] = map;
+  }catch(err){
+    externalKnockoutStats[stageKey] = new Map();
+    console.warn(`No se pudieron cargar las estadísticas de ${stageKey}.`, err);
+  }
+}
+
+async function loadAllExternalStats(){
+  await Promise.all([
+    loadExternalPlayerStats(),
+    loadKnockoutStageStats(STATS_RO16_SHEET_URL, 'ro16', 3)
+    // Cuartos / Semis / Final: agregar URLs cuando existan las hojas
+  ]);
 }
 
 function getSheetCell(row, index){
@@ -1176,71 +1264,330 @@ function parsePbSeconds(value){
   return minutesOrHours * 60 + seconds;
 }
 
+function getStatsFlagMarkup(stats){
+  const sheetFlag = String(stats?.flag || '').trim();
+  if(sheetFlag){
+    const flagMarkup = countryCodeToFlagMarkup(sheetFlag);
+    if(flagMarkup) return flagMarkup;
+  }
+  const profile = resolvePlayerByName(lastLeaderboardSnapshot?.players || [], stats?.name);
+  return profile ? countryFlag(lastLeaderboardSnapshot.players, profile.id) || '' : '';
+}
+
+function isDeathStatValue(value){
+  const text = String(value || '').trim().toUpperCase();
+  return text === 'DEATH' || text === 'DIED' || /^DIED\b/.test(text);
+}
+
+/** Orden provisional de muertes: más temprano en la ruta = peor (menor índice).
+ *  Se irán agregando entradas a medida que ocurran nuevas muertes. */
+const DEATH_LOCATION_ORDER = [
+  'nemy ct',
+  '1st floor',
+  'carlos',
+  'hunter factory',
+  'nemy acid',
+  'neme acid',
+  'nemy final'
+];
+
+function getDeathLocationRank(value){
+  const text = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if(!isDeathStatValue(value)) return null;
+
+  let best = Number.MAX_SAFE_INTEGER;
+  DEATH_LOCATION_ORDER.forEach((keyword, index) => {
+    if(text.includes(keyword) && index < best) best = index;
+  });
+  // Muertes sin keyword conocido: después de las conocidas, antes de tiempos completados
+  return best === Number.MAX_SAFE_INTEGER ? DEATH_LOCATION_ORDER.length : best;
+}
+
+function sortStatsRows(rows, worstFirst){
+  rows.sort((a, b) => {
+    const aDeath = Boolean(a.isDeath);
+    const bDeath = Boolean(b.isDeath);
+    if(worstFirst){
+      // DIED es peor que cualquier tiempo completado → va primero en "worst"
+      if(aDeath && !bDeath) return -1;
+      if(bDeath && !aDeath) return 1;
+      if(aDeath && bDeath){
+        const rankA = a.deathRank ?? getDeathLocationRank(a.value);
+        const rankB = b.deathRank ?? getDeathLocationRank(b.value);
+        if(rankA !== rankB) return rankA - rankB; // más temprano = peor
+        return a.name.localeCompare(b.name);
+      }
+      if(a.seconds == null && b.seconds == null) return a.name.localeCompare(b.name);
+      if(a.seconds == null) return 1;
+      if(b.seconds == null) return -1;
+      return b.seconds - a.seconds || a.name.localeCompare(b.name);
+    }
+    // Mejor primero: DIED al final; entre muertes, la más tardía es "mejor"
+    if(aDeath && !bDeath) return 1;
+    if(bDeath && !aDeath) return -1;
+    if(aDeath && bDeath){
+      const rankA = a.deathRank ?? getDeathLocationRank(a.value);
+      const rankB = b.deathRank ?? getDeathLocationRank(b.value);
+      if(rankA !== rankB) return rankB - rankA;
+      return a.name.localeCompare(b.name);
+    }
+    if(a.seconds == null && b.seconds == null) return a.name.localeCompare(b.name);
+    if(a.seconds == null) return 1;
+    if(b.seconds == null) return -1;
+    return a.seconds - b.seconds || a.name.localeCompare(b.name);
+  });
+  return rows;
+}
+
+function renderStatsRankingTable(container, rows, valueLabel){
+  if(!rows.length){
+    container.innerHTML = `<div class="loading">${t('noDataYet')}</div>`;
+    return;
+  }
+  container.innerHTML = `<div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>#</th><th>${t('player')}</th><th>${valueLabel}</th></tr></thead><tbody>${rows.map((row, index) => `
+    <tr class="${index === 0 ? 'stats-first' : ''} ${index === rows.length - 1 ? 'stats-last' : ''}"><td class="stats-rank">${index + 1}</td><td class="stats-player"><button class="player-profile-button stats-player-button" type="button" data-player-name="${row.name}">${row.flag ? `<span class="flag">${row.flag}</span>` : ''}<span>${row.name}</span></button></td><td class="stats-value${row.seconds == null ? ' stats-missing' : ''}">${row.value || '-'}</td></tr>
+  `).join('')}</tbody></table></div>`;
+}
+
+function parseWinLoss(value){
+  const match = String(value || '').trim().match(/(\d+)\s*[-–—]\s*(\d+)/);
+  if(!match) return null;
+  return { wins: Number(match[1]), losses: Number(match[2]) };
+}
+
+function sortWinRateRows(rows){
+  rows.sort((a, b) => {
+    if(a.wins == null && b.wins == null) return a.name.localeCompare(b.name);
+    if(a.wins == null) return 1;
+    if(b.wins == null) return -1;
+    if(b.wins !== a.wins) return b.wins - a.wins;
+    if(a.losses !== b.losses) return a.losses - b.losses;
+    // Empate en W-L: decide Tournament Best (menor tiempo gana)
+    if(a.tournamentBestSeconds == null && b.tournamentBestSeconds == null) return a.name.localeCompare(b.name);
+    if(a.tournamentBestSeconds == null) return 1;
+    if(b.tournamentBestSeconds == null) return -1;
+    if(a.tournamentBestSeconds !== b.tournamentBestSeconds){
+      return a.tournamentBestSeconds - b.tournamentBestSeconds;
+    }
+    return a.name.localeCompare(b.name);
+  });
+  return rows;
+}
+
+function renderTournamentWideStats(container, metric){
+  if(!externalPlayerStats.size){
+    container.innerHTML = `<div class="loading">${t('statsLoadError')}</div>`;
+    return;
+  }
+
+  if(metric === 'win-rate'){
+    const rows = sortWinRateRows([...externalPlayerStats.values()].map(stats => {
+      const parsed = parseWinLoss(stats.winLoss);
+      return {
+        name: stats.name,
+        flag: getStatsFlagMarkup(stats),
+        value: stats.winLoss || '-',
+        wins: parsed ? parsed.wins : null,
+        losses: parsed ? parsed.losses : null,
+        tournamentBestSeconds: parsePbSeconds(stats.tournamentBest),
+        seconds: null
+      };
+    }).filter(row => row.value && row.value !== '-'));
+    renderStatsRankingTable(container, rows, t('statsWinRate'));
+    return;
+  }
+
+  const key = 'overallPb';
+  const labelKey = 'statsOverallPb';
+  const rows = sortStatsRows([...externalPlayerStats.values()].map(stats => {
+    const raw = stats[key] || '-';
+    return {
+      name: stats.name,
+      flag: getStatsFlagMarkup(stats),
+      value: raw,
+      seconds: parsePbSeconds(raw),
+      isDeath: isDeathStatValue(raw)
+    };
+  }), false);
+  renderStatsRankingTable(container, rows, t(labelKey));
+}
+
+function renderGroupStageStats(container){
+  const statDefinitions = {
+    'basement-pb': { key: 'basementPb', labelKey: 'statsBasementPb', worst: false },
+    'train-crash-pb': { key: 'trainCrash', labelKey: 'statsTrainCrashPb', worst: false },
+    'tournament-best': { key: 'tournamentBest', labelKey: 'statsTournamentBest', worst: false },
+    'worst-basement': { key: 'worstBasement', labelKey: 'statsWorstBasement', worst: true },
+    'worst-train-crash': { key: 'worstTC', labelKey: 'statsWorstTrainCrash', worst: true },
+    'worst-tournament-best': { key: 'worstTB', labelKey: 'statsWorstCompleteRun', worst: true }
+  };
+  const definition = statDefinitions[statsUiState.groupMetric] || statDefinitions['basement-pb'];
+  if(!externalPlayerStats.size){
+    container.innerHTML = `<div class="loading">${t('statsLoadError')}</div>`;
+    return;
+  }
+  const rows = sortStatsRows([...externalPlayerStats.values()].map(stats => {
+    const raw = stats[definition.key] || '-';
+    const death = isDeathStatValue(raw);
+    return {
+      name: stats.name,
+      flag: getStatsFlagMarkup(stats),
+      value: raw,
+      seconds: parsePbSeconds(raw),
+      isDeath: death,
+      deathRank: death ? getDeathLocationRank(raw) : null
+    };
+  }), definition.worst);
+  renderStatsRankingTable(container, rows, t(definition.labelKey));
+}
+
+function renderKnockoutStageStats(container, stageKey){
+  const stageMap = externalKnockoutStats[stageKey] || new Map();
+  if(!stageMap.size){
+    container.innerHTML = `<div class="loading">${t('statsComingSoon')}</div>`;
+    return;
+  }
+  const matchNum = statsUiState.knockoutMatch;
+  const metric = statsUiState.knockoutMetric;
+  const metricKey = metric === 'train-crash' ? 'trainCrash' : metric;
+  const labelKey = metric === 'basement' ? 'statsBasement'
+    : metric === 'train-crash' ? 'statsTrainCrash'
+    : 'statsTime';
+
+  const rows = sortStatsRows([...stageMap.values()].map(stats => {
+    const matchData = stats.matches?.[matchNum] || {};
+    const value = matchData[metricKey] || '';
+    return {
+      name: stats.name,
+      flag: getStatsFlagMarkup(stats),
+      value: value || '-',
+      seconds: parsePbSeconds(value),
+      isDeath: isDeathStatValue(value)
+    };
+  }).filter(row => row.value && row.value !== '-'), false);
+
+  if(!rows.length){
+    container.innerHTML = `<div class="loading">${t('noDataYet')}</div>`;
+    return;
+  }
+  renderStatsRankingTable(container, rows, t(labelKey));
+}
+
+function buildStatsSubtabs(){
+  const subtabs = document.getElementById('stats-subtabs');
+  const matchTabs = document.getElementById('stats-match-tabs');
+  if(!subtabs || !matchTabs) return;
+
+  const stage = statsUiState.stage;
+
+  // Tournament-wide categories: no subtabs / match tabs
+  if(stage === 'overall' || stage === 'win-rate'){
+    matchTabs.hidden = true;
+    matchTabs.innerHTML = '';
+    subtabs.innerHTML = '';
+    return;
+  }
+
+  if(stage === 'groups'){
+    matchTabs.hidden = true;
+    matchTabs.innerHTML = '';
+    const groupMetrics = [
+      { id: 'basement-pb', labelKey: 'statsBasementPb' },
+      { id: 'train-crash-pb', labelKey: 'statsTrainCrashPb' },
+      { id: 'tournament-best', labelKey: 'statsTournamentBest' },
+      { id: 'worst-basement', labelKey: 'statsWorstBasement' },
+      { id: 'worst-train-crash', labelKey: 'statsWorstTrainCrash' },
+      { id: 'worst-tournament-best', labelKey: 'statsWorstCompleteRun' }
+    ];
+    if(!groupMetrics.some(m => m.id === statsUiState.groupMetric)){
+      statsUiState.groupMetric = 'basement-pb';
+    }
+    subtabs.innerHTML = groupMetrics.map(m =>
+      `<button class="stats-tab-button${m.id === statsUiState.groupMetric ? ' active' : ''}" type="button" data-stats-target="${m.id}">${t(m.labelKey)}</button>`
+    ).join('');
+    subtabs.querySelectorAll('.stats-tab-button').forEach(button => {
+      button.addEventListener('click', () => {
+        statsUiState.groupMetric = button.dataset.statsTarget;
+        renderStatsPanel();
+      });
+    });
+    return;
+  }
+
+  const matchCount = stage === 'final' ? 5 : 3;
+  if(statsUiState.knockoutMatch < 1 || statsUiState.knockoutMatch > matchCount){
+    statsUiState.knockoutMatch = 1;
+  }
+
+  matchTabs.hidden = false;
+  matchTabs.innerHTML = Array.from({ length: matchCount }, (_, i) => {
+    const n = i + 1;
+    return `<button class="stats-match-button${n === statsUiState.knockoutMatch ? ' active' : ''}" type="button" data-stats-match="${n}">${t('statsMatch')} ${n}</button>`;
+  }).join('');
+  matchTabs.querySelectorAll('.stats-match-button').forEach(button => {
+    button.addEventListener('click', () => {
+      statsUiState.knockoutMatch = Number(button.dataset.statsMatch);
+      renderStatsPanel();
+    });
+  });
+
+  const knockoutMetrics = [
+    { id: 'basement', labelKey: 'statsBasement' },
+    { id: 'train-crash', labelKey: 'statsTrainCrash' },
+    { id: 'time', labelKey: 'statsTime' }
+  ];
+  if(!knockoutMetrics.some(m => m.id === statsUiState.knockoutMetric)){
+    statsUiState.knockoutMetric = 'basement';
+  }
+  subtabs.innerHTML = knockoutMetrics.map(m =>
+    `<button class="stats-tab-button${m.id === statsUiState.knockoutMetric ? ' active' : ''}" type="button" data-stats-target="${m.id}">${t(m.labelKey)}</button>`
+  ).join('');
+  subtabs.querySelectorAll('.stats-tab-button').forEach(button => {
+    button.addEventListener('click', () => {
+      statsUiState.knockoutMetric = button.dataset.statsTarget;
+      renderStatsPanel();
+    });
+  });
+}
+
 function renderStatsPanel(){
   const container = document.getElementById('stats-content');
   if(!container) return;
 
-  const statDefinitions = {
-    'basement-pb': { key: 'basementPb', label: 'Basement PB' },
-    'train-crash-pb': { key: 'trainCrash', label: 'Train Crash PB' },
-    'tournament-best': { key: 'tournamentBest', label: 'Tournament Best' },
-    'worst-basement' : { key: 'worstBasement', label: 'Worst Basement' },
-    'worst-train-crash': { key: 'worstTC', label: 'Worst Train Crash' },
-    'worst-tournament-best': { key: 'worstTB', label: 'Worst Complete Run' }
-  };
-
-  const getStatsFlagMarkup = (stats) => {
-    const sheetFlag = String(stats.flag || '').trim();
-    if(sheetFlag){
-      const flagMarkup = countryCodeToFlagMarkup(sheetFlag);
-      if(flagMarkup) return flagMarkup;
-    }
-
-    const profile = resolvePlayerByName(lastLeaderboardSnapshot?.players || [], stats.name);
-    return profile ? countryFlag(lastLeaderboardSnapshot.players, profile.id) || '' : '';
-  };
-
-  const renderTable = target => {
-    const definition = statDefinitions[target] || statDefinitions['basement-pb'];
-    const rows = [...externalPlayerStats.entries()]
-      .map(([normalizedName, stats]) => ({
-        name: stats.name || normalizedName,
-        flag: getStatsFlagMarkup(stats),
-        value: stats[definition.key] || '-',
-        seconds: parsePbSeconds(stats[definition.key])
-      }))
-    if (target === 'worst-train-crash' || target === 'worst-tournament-best' || target === 'worst-basement'){
-      rows.sort((a, b) => {
-        if(a.seconds == null && b.seconds == null) return a.name.localeCompare(b.name);
-        if(a.seconds == null) return 1;
-        if(b.seconds == null) return -1;
-        return b.seconds - a.seconds || a.name.localeCompare(b.name);
-      });
-    } else {
-      rows.sort((a, b) => {
-        if(a.seconds == null && b.seconds == null) return a.name.localeCompare(b.name);
-        if(a.seconds == null) return 1;
-        if(b.seconds == null) return -1;
-        return a.seconds - b.seconds || a.name.localeCompare(b.name);
-      });
-    }
-    container.innerHTML = rows.length
-      ? `<div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>#</th><th>${t('player')}</th><th>${definition.label}</th></tr></thead><tbody>${rows.map((row, index) => `
-          <tr class="${index === 0 ? 'stats-first' : ''} ${index === rows.length - 1 ? 'stats-last' : ''}"><td class="stats-rank">${index + 1}</td><td class="stats-player"><button class="player-profile-button stats-player-button" type="button" data-player-name="${row.name}">${row.flag ? `<span class="flag">${row.flag}</span>` : ''}<span>${row.name}</span></button></td><td class="stats-value${row.seconds == null ? ' stats-missing' : ''}">${row.value}</td></tr>
-        `).join('')}</tbody></table></div>`
-      : `<div class="loading">${t('statsLoadError')}</div>`;
-  };
-
-  document.querySelectorAll('.stats-tab-button').forEach(button => {
+  document.querySelectorAll('.stats-stage-button').forEach(button => {
     if(button.dataset.bound) return;
     button.addEventListener('click', () => {
-      document.querySelectorAll('.stats-tab-button').forEach(tab => tab.classList.toggle('active', tab === button));
-      renderTable(button.dataset.statsTarget);
+      statsUiState.stage = button.dataset.statsStage;
+      if(statsUiState.stage === 'groups'){
+        statsUiState.groupMetric = 'basement-pb';
+      }else if(statsUiState.stage === 'ro16' || statsUiState.stage === 'qf' || statsUiState.stage === 'sf' || statsUiState.stage === 'final'){
+        statsUiState.knockoutMatch = 1;
+        statsUiState.knockoutMetric = 'basement';
+      }
+      renderStatsPanel();
     });
     button.dataset.bound = 'true';
   });
 
-  renderTable('basement-pb');
+  document.querySelectorAll('.stats-stage-button').forEach(button => {
+    button.classList.toggle('active', button.dataset.statsStage === statsUiState.stage);
+  });
+
+  buildStatsSubtabs();
+
+  const stage = statsUiState.stage;
+  if(stage === 'overall' || stage === 'win-rate'){
+    renderTournamentWideStats(container, stage);
+  }else if(stage === 'groups'){
+    renderGroupStageStats(container);
+  }else if(stage === 'ro16' || stage === 'qf' || stage === 'sf' || stage === 'final'){
+    renderKnockoutStageStats(container, stage);
+  }else{
+    container.innerHTML = `<div class="loading">${t('statsComingSoon')}</div>`;
+  }
 }
 
 function normalizeResultsData(rawResults){
@@ -1933,7 +2280,6 @@ function renderCalendarFixturePanel(players = []){
   const storedResults = getLoadedResults();
   const container = document.getElementById('fixture-content');
   const previousOpenDate = container?.querySelector('.fixture-date[open]')?.dataset.fixtureDateKey || null;
-  const hasRenderedFixture = Boolean(container?.querySelector('.fixture-date'));
   const allMatches = storedResults && Array.isArray(storedResults.matches) ? storedResults.matches : [];
   const calendarBuckets = new Map();
 
@@ -2027,13 +2373,7 @@ function renderCalendarFixturePanel(players = []){
     return aKey.localeCompare(bKey);
   });
 
-  const activeDateNumber = storedResults && Array.isArray(storedResults.dates)
-    ? storedResults.dates.find(date => (date.matches || []).some(match => {
-      const timeA = match.timeA ?? match.tiempoA ?? match.time_a;
-      const timeB = match.timeB ?? match.tiempoB ?? match.time_b;
-      return !match.winner && (timeA === '-' || timeB === '-' || timeA == null || timeB == null);
-    }))?.number || storedResults.dates.find(date => (date.matches || []).length || (date.groups || []).some(group => (group.matches || []).length))?.number
-    : null;
+
 
   const calendarHtml = orderedDates.map(([dateKey, bucket]) => {
     const matches = bucket.matches;
@@ -2141,11 +2481,33 @@ function renderCalendarFixturePanel(players = []){
       }).join('');
     })();
 
-      const isOpen = hasRenderedFixture
-        ? dateKey === previousOpenDate
-        : dateKey === `fixture-${activeDateNumber}`;
+      const hasPendingMatch = matches.some(match => {
+        const resultMatch = allMatches.find((record) => {
+          const groupMatch = resolveManualMatchKey(record) || '';
+          const recordA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
+          const recordB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
+          const sameDate = record.fixtureDateNumber == null || match.dateNumber == null
+            || record.fixtureDateNumber === match.dateNumber;
+          return groupMatch === match.group && sameDate &&
+            ((normalizeManualMatchName(recordA) === normalizeManualMatchName(match.playerA) && normalizeManualMatchName(recordB) === normalizeManualMatchName(match.playerB)) ||
+            (normalizeManualMatchName(recordA) === normalizeManualMatchName(match.playerB) && normalizeManualMatchName(recordB) === normalizeManualMatchName(match.playerA)));
+        });
+        if(!resultMatch) return true; // sin resultado cargado → pendiente
+        const winner = getMatchWinnerName(
+          resultMatch,
+          resultMatch.playerA || resultMatch.jugadorA || resultMatch.a || resultMatch.teamA || resultMatch.player_1,
+          resultMatch.playerB || resultMatch.jugadorB || resultMatch.b || resultMatch.teamB || resultMatch.player_2
+        );
+        if(winner) return false;
+        const timeA = resultMatch.timeA ?? resultMatch.tiempoA ?? resultMatch.time_a;
+        const timeB = resultMatch.timeB ?? resultMatch.tiempoB ?? resultMatch.time_b;
+        const hasTimeA = timeA != null && String(timeA).trim() !== '' && String(timeA).trim() !== '-';
+        const hasTimeB = timeB != null && String(timeB).trim() !== '' && String(timeB).trim() !== '-';
+        return !hasTimeA && !hasTimeB;
+      });
+
       return `
-        <details class="fixture-round fixture-date" data-fixture-date-key="${dateKey}"${isOpen ? ' open' : ''}>
+        <details class="fixture-round fixture-date" data-fixture-date-key="${dateKey}" data-has-pending="${hasPendingMatch ? '1' : '0'}">
           <summary class="fixture-round-summary">
             <span class="fixture-label">${dateLabel}</span>
             <span class="fixture-badge">${matches.length} ${matches.length === 1 ? t('matchSingular') : t('matchPlural')}</span>
@@ -2159,10 +2521,21 @@ function renderCalendarFixturePanel(players = []){
     ? `<div class="fixture-dates">${calendarHtml}</div>`
     : `<div class="loading">${t('noDataYet')}</div>`;
 
-  container.querySelectorAll('.fixture-date').forEach(dateDetails => {
+  const dateDetailsList = [...container.querySelectorAll('.fixture-date')];
+  const pendingDates = dateDetailsList.filter(el => el.dataset.hasPending === '1');
+  // Solo abrir el que tenga partidos pendientes; si hay varios, preferir el que el usuario tenía abierto
+  let openTarget = null;
+  if(pendingDates.length){
+    openTarget = pendingDates.find(el => el.dataset.fixtureDateKey === previousOpenDate) || pendingDates[0];
+  }
+  dateDetailsList.forEach(el => {
+    el.open = openTarget != null && el === openTarget;
+  });
+
+  dateDetailsList.forEach(dateDetails => {
     dateDetails.addEventListener('toggle', () => {
       if(!dateDetails.open) return;
-      container.querySelectorAll('.fixture-date').forEach(otherDate => {
+      dateDetailsList.forEach(otherDate => {
         if(otherDate !== dateDetails) otherDate.open = false;
       });
     });
@@ -3865,7 +4238,7 @@ async function loadLeaderboard(){
   }
 }
 
-externalStatsLoad = loadExternalPlayerStats().then(renderStatsPanel);
+externalStatsLoad = loadAllExternalStats().then(renderStatsPanel);
 externalMatchScheduleLoad = loadExternalMatchSchedule();
 externalMatchDetailsLoad = loadExternalMatchDetails();
 loadLeaderboard();

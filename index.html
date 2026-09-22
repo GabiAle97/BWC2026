@@ -38,14 +38,17 @@
     </section>
 
     <section id="stats" class="tab-panel">
-      <div class="stats-tabs" role="tablist" aria-label="Categorías de estadísticas">
-        <button class="stats-tab-button active" type="button" data-stats-target="basement-pb">Basement PB</button>
-        <button class="stats-tab-button" type="button" data-stats-target="train-crash-pb">Train Crash PB</button>
-        <button class="stats-tab-button" type="button" data-stats-target="tournament-best">Tournament Best</button>
-        <button class="stats-tab-button" type="button" data-stats-target="worst-basement">Worst Basement</button>
-        <button class="stats-tab-button" type="button" data-stats-target="worst-train-crash">Worst Train Crash</button>
-        <button class="stats-tab-button" type="button" data-stats-target="worst-tournament-best">Worst Complete Run</button>
+      <div class="stats-stage-tabs" role="tablist" aria-label="Categorías de estadísticas">
+        <button class="stats-stage-button active" type="button" data-stats-stage="overall" data-i18n="statsOverallPb">Overall PB</button>
+        <button class="stats-stage-button" type="button" data-stats-stage="win-rate" data-i18n="statsWinRate">Win Rate</button>
+        <button class="stats-stage-button" type="button" data-stats-stage="groups" data-i18n="statsStageGroups">Fase de Grupos</button>
+        <button class="stats-stage-button" type="button" data-stats-stage="ro16" data-i18n="statsStageRo16">Octavos</button>
+        <button class="stats-stage-button" type="button" data-stats-stage="qf" data-i18n="statsStageQf">Cuartos</button>
+        <button class="stats-stage-button" type="button" data-stats-stage="sf" data-i18n="statsStageSf">Semifinales</button>
+        <button class="stats-stage-button" type="button" data-stats-stage="final" data-i18n="statsStageFinal">Final</button>
       </div>
+      <div class="stats-match-tabs" id="stats-match-tabs" role="tablist" aria-label="Partidos" hidden></div>
+      <div class="stats-subtabs" id="stats-subtabs" role="tablist" aria-label="Categorías de estadísticas"></div>
       <div id="stats-content"><div class="loading" data-i18n="loadingStats">Cargando estadísticas…</div></div>
     </section>
 
