@@ -26,6 +26,7 @@ const JD_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/diario-de-jil
 const RPD_RIGHT_COUNTER_BASE_URL = 'https://api.counterapi.dev/v2/visitas/rpd-right';
 const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=1434864776';
 const STATS_RO16_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=999352150';
+const STATS_FINAL_TABLE_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=582531798';
 const MATCH_SCHEDULE_GROUPS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Groups)';
 const MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Round%20of%2016)';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
@@ -86,7 +87,9 @@ const TRANSLATIONS = {
     statsStageSf: 'Semifinales', statsStageFinal: 'Final',
     statsMatch: 'Partido', statsComingSoon: 'Estadísticas de esta fase próximamente.',
     statsBasement: 'Basement', statsTrainCrash: 'Train Crash', statsTime: 'Tiempo',
-    statsOverallPb: 'Overall PB', statsQualifiersPb: 'Qualifiers PB', statsWinRate: 'Win Rate',
+    statsOverallPb: 'Overall PB', statsTablaFinal: 'Tabla Final', statsQualifiersPb: 'Qualifiers PB', statsWinRate: 'Win Rate',
+    statsFinalBestTime: 'TB', statsFinalWorstTime: 'Peor tiempo', statsFinalDiffPb: 'Diff. PB',
+    statsFinalTotalRuns: 'Runs totales', statsFinalFinishedRuns: 'Runs terminadas', statsFinalWinPct: '% wins',
     statsBasementPb: 'Basement PB', statsTrainCrashPb: 'Train Crash PB',
     statsTournamentBest: 'Tournament Best', statsWorstBasement: 'Worst Basement',
     statsWorstTrainCrash: 'Worst Train Crash', statsWorstCompleteRun: 'Worst Complete Run'
@@ -138,7 +141,9 @@ const TRANSLATIONS = {
     statsStageSf: 'Semifinals', statsStageFinal: 'Final',
     statsMatch: 'Match', statsComingSoon: 'Statistics for this stage coming soon.',
     statsBasement: 'Basement', statsTrainCrash: 'Train Crash', statsTime: 'Time',
-    statsOverallPb: 'Overall PB', statsQualifiersPb: 'Qualifiers PB', statsWinRate: 'Win Rate',
+    statsOverallPb: 'Overall PB', statsTablaFinal: 'Final Table', statsQualifiersPb: 'Qualifiers PB', statsWinRate: 'Win Rate',
+    statsFinalBestTime: 'TB', statsFinalWorstTime: 'Worst time', statsFinalDiffPb: 'Diff. PB',
+    statsFinalTotalRuns: 'Total runs', statsFinalFinishedRuns: 'Finished runs', statsFinalWinPct: '% wins',
     statsBasementPb: 'Basement PB', statsTrainCrashPb: 'Train Crash PB',
     statsTournamentBest: 'Tournament Best', statsWorstBasement: 'Worst Basement',
     statsWorstTrainCrash: 'Worst Train Crash', statsWorstCompleteRun: 'Worst Complete Run'
@@ -198,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let externalPlayerStats = new Map();
+let externalFinalTable = [];
 let externalKnockoutStats = {
   ro16: new Map(),
   qf: new Map(),
@@ -740,10 +746,63 @@ async function loadKnockoutStageStats(url, stageKey, matchCount){
   }
 }
 
+async function loadFinalTableStats(){
+  try{
+    const response = await fetch(STATS_FINAL_TABLE_URL, { cache: 'no-store' });
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const table = parseGvizTable(await response.text());
+    const rows = table?.rows || [];
+    const parsed = [];
+
+    rows.forEach((row, index) => {
+      const flag = sheetCellValue(row, 0);
+      const runnerRaw = sheetCellValue(row, 1);
+      const ranking = sheetCellValue(row, 2);
+      const bestTime = sheetCellValue(row, 3);
+      const worstTime = sheetCellValue(row, 4);
+      const diffPb = sheetCellValue(row, 5);
+      const totalRuns = sheetCellValue(row, 6);
+      const finishedRuns = sheetCellValue(row, 7);
+      const wins = sheetCellValue(row, 8);
+      const losses = sheetCellValue(row, 9);
+      const winPct = sheetCellValue(row, 10);
+
+      // Primera fila = encabezados embebidos en la hoja
+      if(index === 0 && /runner/i.test(runnerRaw) && /ranking/i.test(ranking)) return;
+      if(!ranking && !runnerRaw) return;
+
+      const displayName = runnerRaw
+        ? (normalizeSchedulePlayerName(runnerRaw) || runnerRaw)
+        : '';
+
+      parsed.push({
+        flag,
+        name: displayName,
+        ranking,
+        bestTime,
+        worstTime,
+        diffPb,
+        totalRuns,
+        finishedRuns,
+        wins,
+        losses,
+        winPct,
+        isPlaceholder: !displayName
+      });
+    });
+
+    externalFinalTable = parsed;
+  }catch(err){
+    externalFinalTable = [];
+    console.warn('No se pudo cargar la Tabla Final.', err);
+  }
+}
+
 async function loadAllExternalStats(){
   await Promise.all([
     loadExternalPlayerStats(),
-    loadKnockoutStageStats(STATS_RO16_SHEET_URL, 'ro16', 3)
+    loadKnockoutStageStats(STATS_RO16_SHEET_URL, 'ro16', 3),
+    loadFinalTableStats()
     // Cuartos / Semis / Final: agregar URLs cuando existan las hojas
   ]);
 }
@@ -1377,6 +1436,66 @@ function sortWinRateRows(rows){
   return rows;
 }
 
+function getFinalRankingTierClass(ranking){
+  const text = String(ranking || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if(!text) return '';
+  if(/^top\s*1$/.test(text) || text === '1') return 'tier-top1';
+  if(/^top\s*2$/.test(text) || text === '2') return 'tier-top2';
+  if(/^top\s*3$/.test(text) || text === '3') return 'tier-top3';
+  if(/^top\s*4$/.test(text) || text === '4') return 'tier-top4';
+  if(/5\s*[-–—]\s*8/.test(text) || text === 'top 5-8') return 'tier-top5-8';
+  if(/9\s*[-–—]\s*16/.test(text) || text === 'top 9-16') return 'tier-top9-16';
+  if(/17\s*[-–—]\s*24/.test(text) || text === 'top 17-24') return 'tier-top17-24';
+  if(/25\s*[-–—]\s*32/.test(text) || text === 'top 25-32') return 'tier-top25-32';
+  return '';
+}
+
+function renderFinalTableStats(container){
+  if(!externalFinalTable.length){
+    container.innerHTML = `<div class="loading">${t('statsLoadError')}</div>`;
+    return;
+  }
+
+  const header = `
+    <tr>
+      <th>${t('position')}</th>
+      <th>${t('player')}</th>
+      <th>${t('statsFinalBestTime')}</th>
+      <th>${t('statsFinalWorstTime')}</th>
+      <th>${t('statsFinalDiffPb')}</th>
+      <th>${t('statsFinalTotalRuns')}</th>
+      <th>${t('statsFinalFinishedRuns')}</th>
+      <th>${t('colWins')}</th>
+      <th>${t('colLosses')}</th>
+      <th>${t('statsFinalWinPct')}</th>
+    </tr>`;
+
+  const body = externalFinalTable.map(row => {
+    const flag = row.flag
+      ? (countryCodeToFlagMarkup(row.flag) || '')
+      : (row.name ? getStatsFlagMarkup({ name: row.name, flag: row.flag }) : '');
+    const playerCell = row.isPlaceholder
+      ? `<span class="pending-player">—</span>`
+      : `<button class="player-profile-button stats-player-button" type="button" data-player-name="${row.name}">${flag ? `<span class="flag">${flag}</span>` : ''}<span>${row.name}</span></button>`;
+    const tierClass = getFinalRankingTierClass(row.ranking);
+    const rowClass = [tierClass, row.isPlaceholder ? 'stats-final-placeholder' : ''].filter(Boolean).join(' ');
+    return `<tr class="${rowClass}">
+      <td class="stats-final-rank">${row.ranking || '—'}</td>
+      <td class="stats-player">${playerCell}</td>
+      <td class="stats-value">${row.bestTime || '—'}</td>
+      <td class="stats-value">${row.worstTime || '—'}</td>
+      <td class="stats-final-diff">${row.diffPb || '—'}</td>
+      <td>${row.totalRuns || '—'}</td>
+      <td>${row.finishedRuns || '—'}</td>
+      <td>${row.wins || '—'}</td>
+      <td>${row.losses || '—'}</td>
+      <td>${row.winPct || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `<div class="stats-table-wrap"><table class="stats-table stats-final-table"><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
+}
+
 function renderTournamentWideStats(container, metric){
   if(!externalPlayerStats.size){
     container.innerHTML = `<div class="loading">${t('statsLoadError')}</div>`;
@@ -1484,7 +1603,7 @@ function buildStatsSubtabs(){
   const stage = statsUiState.stage;
 
   // Tournament-wide categories: no subtabs / match tabs
-  if(stage === 'overall' || stage === 'win-rate'){
+  if(stage === 'overall' || stage === 'tabla-final' || stage === 'win-rate'){
     matchTabs.hidden = true;
     matchTabs.innerHTML = '';
     subtabs.innerHTML = '';
@@ -1581,6 +1700,8 @@ function renderStatsPanel(){
   const stage = statsUiState.stage;
   if(stage === 'overall' || stage === 'win-rate'){
     renderTournamentWideStats(container, stage);
+  }else if(stage === 'tabla-final'){
+    renderFinalTableStats(container);
   }else if(stage === 'groups'){
     renderGroupStageStats(container);
   }else if(stage === 'ro16' || stage === 'qf' || stage === 'sf' || stage === 'final'){

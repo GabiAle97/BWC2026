@@ -2063,3 +2063,75 @@ footer{
   background:rgba(124,158,255,.14);
   outline:none;
 }
+
+/* Tabla Final (torneo) */
+.stats-final-table{
+  width:max-content;
+  max-width:100%;
+  min-width:0;
+  table-layout:auto;
+  font-size:.78rem;
+  border-collapse:collapse;
+}
+.stats-final-table th,
+.stats-final-table td{
+  white-space:nowrap;
+  padding:4px 8px;
+  line-height:1.25;
+  width:1%;
+}
+.stats-final-table th{
+  padding:5px 8px;
+  font-size:.68rem;
+}
+.stats-final-table .stats-final-rank{font-weight:700}
+.stats-final-table .stats-final-diff{opacity:.9}
+.stats-final-table tr.stats-final-placeholder{opacity:.7}
+.stats-final-table tr.stats-final-placeholder td{color:inherit}
+
+/* Tiers por ranking final */
+.stats-final-table tr.tier-top1 td{
+  background:rgba(255, 209, 102, .28);
+  color:#ffe9a8;
+}
+.stats-final-table tr.tier-top1 .stats-final-rank{color:#ffd166}
+.stats-final-table tr.tier-top2 td{
+  background:rgba(192, 198, 214, .26);
+  color:#e4e8f2;
+}
+.stats-final-table tr.tier-top2 .stats-final-rank{color:#c9ccd6}
+.stats-final-table tr.tier-top3 td{
+  background:rgba(205, 139, 92, .28);
+  color:#f0c9a8;
+}
+.stats-final-table tr.tier-top3 .stats-final-rank{color:#cd8b5c}
+.stats-final-table tr.tier-top4 td{
+  background:rgba(72, 187, 120, .22);
+  color:#b8f0cc;
+}
+.stats-final-table tr.tier-top4 .stats-final-rank{color:#6ee7a0}
+.stats-final-table tr.tier-top5-8 td{
+  background:rgba(167, 139, 250, .24);
+  color:#ddd6fe;
+}
+.stats-final-table tr.tier-top5-8 .stats-final-rank{color:#c4b5fd}
+.stats-final-table tr.tier-top9-16 td{
+  background:rgba(96, 165, 250, .22);
+  color:#bfdbfe;
+}
+.stats-final-table tr.tier-top9-16 .stats-final-rank{color:#93c5fd}
+.stats-final-table tr.tier-top17-24 td{
+  background:rgba(148, 163, 184, .12);
+}
+.stats-final-table tr.tier-top25-32 td{
+  background:rgba(239, 68, 68, .22);
+  color:#fecaca;
+}
+.stats-final-table tr.tier-top25-32 .stats-final-rank{color:#f87171}
+
+@media (max-width:640px){
+  .stats-final-table{font-size:.7rem}
+  .stats-final-table th,
+  .stats-final-table td{padding:3px 6px}
+  .stats-final-table th{font-size:.62rem}
+}
