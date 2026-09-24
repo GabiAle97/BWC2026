@@ -51,7 +51,7 @@ const TRANSLATIONS = {
     tbd: 'Por determinar', qualified: 'Clasificado', champion: 'Campeón', drawPending: 'sorteo pendiente', pendingSingle: 'pendiente',
     leader: 'Cabecera', position2: '2ª posición', position3: '3ª posición', position4: '4ª posición', position: 'Posición',
     player: 'Jugador', category: 'Categoría', game: 'Juego', noGroup: 'Sin grupo', group: 'Grupo', time: 'Tiempo',
-    live: 'EN VIVO', watchStream: 'Ver transmisión',
+    live: 'EN VIVO', watchStream: 'Ver transmisión', groupStageInProgress: 'Fase de grupos en curso',
     players: 'jugadores', date: 'Fecha', schedule: 'Horario',
     matchSingular: 'partido', matchPlural: 'partidos',
     noLiveMatch: 'Aún no empezó ninguna partida', noLiveMatchSub: 'Cuando comience un enfrentamiento, aparecerá aquí.',
@@ -105,7 +105,7 @@ const TRANSLATIONS = {
     tbd: 'TBD', qualified: 'Qualified', champion: 'Champion', drawPending: 'draw pending', pendingSingle: 'pending',
     leader: 'Leader', position2: '2nd place', position3: '3rd place', position4: '4th place', position: 'Position',
     player: 'Player', category: 'Category', game: 'Game', noGroup: 'No group', group: 'Group', time: 'Time',
-    live: 'LIVE', watchStream: 'Watch stream',
+    live: 'LIVE', watchStream: 'Watch stream', groupStageInProgress: 'Group stage in progress',
     players: 'players', date: 'Date', schedule: 'Time',
     matchSingular: 'match', matchPlural: 'matches',
     noLiveMatch: 'No match has started yet', noLiveMatchSub: 'When a match starts, it will appear here.',
@@ -876,8 +876,61 @@ function normalizeScheduleTime(value){
 
 function isScheduleDetailValue(value){
   const text = String(value || '').trim().toUpperCase();
-  const isDiedPattern = /^DIED.*$/.test(text) ? true : false;
-  return text === '' || text === 'DEATH' || text === 'DIED' || isDiedPattern || /^\d{1,2}:\d{2}(?:\.\d+)?$/.test(text);
+  const isDiedPattern = /^(DIED|DEAD)\b/.test(text);
+  return text === '' || text === 'DEATH' || text === 'DIED' || text === 'DEAD' || isDiedPattern || /^\d{1,2}:\d{2}(?:\.\d+)?$/.test(text);
+}
+
+function resolveScheduleSeriesWinner(scoreA, scoreB, playerA, playerB){
+  const a = Number(String(scoreA ?? '').trim());
+  const b = Number(String(scoreB ?? '').trim());
+  if(Number.isFinite(a) && Number.isFinite(b) && String(scoreA).trim() !== '' && String(scoreB).trim() !== '' && a !== b){
+    return a > b
+      ? normalizeSchedulePlayerName(playerA)
+      : normalizeSchedulePlayerName(playerB);
+  }
+  if(String(scoreA).trim() === '1' && String(scoreB).trim() === '0'){
+    return normalizeSchedulePlayerName(playerA);
+  }
+  if(String(scoreA).trim() === '0' && String(scoreB).trim() === '1'){
+    return normalizeSchedulePlayerName(playerB);
+  }
+  return '';
+}
+
+function collectScheduleGames(rows, rowIndex, start, scheduleCol){
+  const games = [];
+  for(let candidateIndex = rowIndex + 1; candidateIndex <= rowIndex + 5; candidateIndex++){
+    const candidateRow = rows[candidateIndex];
+    if(!candidateRow) break;
+
+    const valueA = getSheetCell(candidateRow, start);
+    const valueB = getSheetCell(candidateRow, start + 3);
+    const groupValue = getSheetCell(candidateRow, scheduleCol);
+
+    // Fila de otro partido (dos nombres de jugadores)
+    const looksLikeAnotherMatchRow = valueA && valueB &&
+      valueA !== 'TBD' && valueB !== 'TBD' &&
+      !isScheduleDetailValue(valueA) && !isScheduleDetailValue(valueB) &&
+      !/GROUP\s+[A-H]/i.test(groupValue) &&
+      !/R\s*16|ROUND\s*OF\s*16|OCTAVOS|BO\s*3/i.test(groupValue);
+    if(looksLikeAnotherMatchRow) break;
+
+    // Encabezado de día
+    if(/^DAY\s+\d+/i.test(valueA) || /^DAY\s+\d+/i.test(getSheetCell(candidateRow, 0))) break;
+
+    const hasGameTime = isScheduleDetailValue(valueA) || isScheduleDetailValue(valueB);
+    if(!hasGameTime){
+      // fila GROUP / vacía: seguir buscando juegos
+      if(/GROUP\s+[A-H]/i.test(groupValue) || (!valueA && !valueB)) continue;
+      break;
+    }
+
+    const timeA = valueA || '-';
+    const timeB = valueB || '-';
+    if(timeA === '-' && timeB === '-') continue;
+    games.push({ timeA, timeB });
+  }
+  return games;
 }
 
 function isScheduleClockTime(value){
@@ -968,23 +1021,22 @@ function parseMatchScheduleTable(table, options = {}){
 
       const scoreA = getSheetCell(row, start + 1);
       const scoreB = getSheetCell(row, start + 2);
-      const timeA = getSheetCell(detailRow, start);
-      const timeB = getSheetCell(detailRow, start + 3);
+      const games = collectScheduleGames(rows, rowIndex, start, schedule);
+      const timeA = games[0]?.timeA || getSheetCell(detailRow, start) || '-';
+      const timeB = games[0]?.timeB || getSheetCell(detailRow, start + 3) || '-';
       const scheduleValue = getSheetCell(row, schedule);
       const normalizedScheduleTime = normalizeScheduleTime(scheduleValue);
       const hasScheduledTime = isScheduleClockTime(normalizedScheduleTime);
+      const hasSeriesScore = /^\d+$/.test(String(scoreA).trim()) && /^\d+$/.test(String(scoreB).trim());
       const hasResult = Boolean(
         (scoreA && scoreA !== '-') ||
         (scoreB && scoreB !== '-') ||
         (timeA && timeA !== '-') ||
-        (timeB && timeB !== '-')
+        (timeB && timeB !== '-') ||
+        games.length
       );
       if(!hasScheduledTime && !hasResult) return;
-      const winner = scoreA === '1' && scoreB === '0'
-        ? normalizeSchedulePlayerName(playerA)
-        : scoreA === '0' && scoreB === '1'
-          ? normalizeSchedulePlayerName(playerB)
-          : '';
+      const winner = resolveScheduleSeriesWinner(scoreA, scoreB, playerA, playerB);
 
       matchesByRound[roundIndex].push({
         group,
@@ -993,6 +1045,9 @@ function parseMatchScheduleTable(table, options = {}){
         playerB: normalizeSchedulePlayerName(playerB),
         timeA: timeA || '-',
         timeB: timeB || '-',
+        seriesScoreA: hasSeriesScore ? String(scoreA).trim() : null,
+        seriesScoreB: hasSeriesScore ? String(scoreB).trim() : null,
+        games,
         winner,
         date: currentDates[roundIndex] || '',
         time: normalizedScheduleTime
@@ -1142,21 +1197,52 @@ function parseHeaderPlayerAndTime(label){
 }
 
 // Parseo del endpoint Apps Script: rows[i][j] = { value, background }
-// Estructura típica:
-// row 0: Match 1, '', Match 2, ...
-// row 1: Jugador, playerA, playerB, ...
-// row 2: Time, timeA, timeB, ...
-// row 3+: segmento, valueA, valueB, ...
+// Formato BO3/BO5 (varios mapas del mismo cruce en columnas consecutivas):
+// row 0: Match 49, '', Match 50, '', Match 51, ...
+// row 1: Jugador, playerA, playerB, playerA, playerB, ...
+// row 2: Time, timeA, timeB, timeA, timeB, ...
+// row 3+: segmento, valueA, valueB, valueA, valueB, ...
+// Verde de fondo = mejor estadística de esa fila.
 function parseMatchDetailsColorsPayload(payload){
   const sheets = payload?.sheets || [];
   const dates = sheets.map(sheet => sheet?.rows || []);
   const detailsMap = new Map();
-  for (const rows of dates) {
-    if(rows.length < 3) return detailsMap;
 
+  const pushGame = (map, playerA, playerB, game) => {
+    const key = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
+    let entry = map.get(key);
+    if(!entry){
+      entry = {
+        playerA,
+        playerB,
+        timeA: game.timeA,
+        timeB: game.timeB,
+        timeABetter: game.timeABetter,
+        timeBBetter: game.timeBBetter,
+        segments: game.segments,
+        games: []
+      };
+      map.set(key, entry);
+    }
+    entry.games.push(game);
+    // Compat: primer juego como resumen si aún no había
+    if(entry.games.length === 1){
+      entry.timeA = game.timeA;
+      entry.timeB = game.timeB;
+      entry.timeABetter = game.timeABetter;
+      entry.timeBBetter = game.timeBBetter;
+      entry.segments = game.segments;
+    }
+  };
+
+  for(const rows of dates){
+    if(!rows || rows.length < 3) continue;
+
+    const headerRow = rows[0] || [];
     const playerRow = rows[1] || [];
     const timeRow = rows[2] || [];
     const maxCols = Math.max(
+      headerRow.length,
       playerRow.length,
       timeRow.length,
       ...rows.map(r => (r || []).length)
@@ -1175,11 +1261,27 @@ function parseMatchDetailsColorsPayload(payload){
       const timeABetter = isBetterCellBackground(timeRow[colA]?.background);
       const timeBBetter = isBetterCellBackground(timeRow[colB]?.background);
 
+      // Label "Match 49" suele estar en colA; si está vacío, mirar colA-1 o el texto de la fila 0
+      let matchLabel = cellValue(headerRow[colA]) || cellValue(headerRow[colA - 1]) || cellValue(headerRow[colB]) || '';
+      if(!matchLabel && headerRow[colA]?.value) matchLabel = String(headerRow[colA].value).trim();
+      if(!/^match\s*\d+/i.test(matchLabel)){
+        // Si el header de esta columna no es Match N, buscar en el bloque
+        for(let c = colA; c >= Math.max(1, colA - 1); c--){
+          const candidate = cellValue(headerRow[c]);
+          if(/^match\s*\d+/i.test(candidate)){
+            matchLabel = candidate;
+            break;
+          }
+        }
+      }
+
       const segments = [];
       for(let ri = 3; ri < rows.length; ri++){
         const row = rows[ri] || [];
         const label = cellValue(row[0]);
         if(!label) continue;
+        // Saltar filas de encabezado repetidas
+        if(/^jugador$/i.test(label) || /^time$/i.test(label)) continue;
         const valueA = cellValue(row[colA]) || '-';
         const valueB = cellValue(row[colB]) || '-';
         if(valueA === '-' && valueB === '-' && !cellValue(row[colA]) && !cellValue(row[colB])) continue;
@@ -1192,10 +1294,8 @@ function parseMatchDetailsColorsPayload(payload){
         });
       }
 
-      const key = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
-      detailsMap.set(key, {
-        playerA,
-        playerB,
+      pushGame(detailsMap, playerA, playerB, {
+        matchLabel: matchLabel || null,
         timeA: timeARaw,
         timeB: timeBRaw,
         timeABetter,
@@ -1204,17 +1304,90 @@ function parseMatchDetailsColorsPayload(payload){
       });
     }
   }
-  
 
   return detailsMap;
 }
 
 // Fallback gviz (sin colores de celda)
+// Soporta el mismo layout horizontal: pares de columnas por mapa (Match 49/50/51...)
 function parseMatchDetailsTable(table){
   const cols = table?.cols || [];
   const rows = table?.rows || [];
   const detailsMap = new Map();
 
+  const pushGame = (playerA, playerB, game) => {
+    const key = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
+    let entry = detailsMap.get(key);
+    if(!entry){
+      entry = {
+        playerA,
+        playerB,
+        timeA: game.timeA,
+        timeB: game.timeB,
+        timeABetter: false,
+        timeBBetter: false,
+        segments: game.segments,
+        games: []
+      };
+      detailsMap.set(key, entry);
+    }
+    entry.games.push(game);
+    if(entry.games.length === 1){
+      entry.timeA = game.timeA;
+      entry.timeB = game.timeB;
+      entry.segments = game.segments;
+    }
+  };
+
+  // Preferir filas Jugador/Time si existen (mismo formato que Apps Script)
+  const labelOf = (row) => String(row?.c?.[0]?.v ?? row?.c?.[0]?.f ?? '').trim();
+  let playerRowIndex = rows.findIndex(row => /^jugador$/i.test(labelOf(row)));
+  let timeRowIndex = rows.findIndex(row => /^time$/i.test(labelOf(row)));
+
+  if(playerRowIndex >= 0 && timeRowIndex >= 0){
+    const playerRow = rows[playerRowIndex]?.c || [];
+    const timeRow = rows[timeRowIndex]?.c || [];
+    const maxCols = Math.max(playerRow.length, timeRow.length, cols.length);
+    const headerRow = playerRowIndex > 0 ? (rows[playerRowIndex - 1]?.c || []) : [];
+
+    for(let colA = 1; colA + 1 < maxCols; colA += 2){
+      const colB = colA + 1;
+      const nameA = String(playerRow[colA]?.v ?? playerRow[colA]?.f ?? '').trim();
+      const nameB = String(playerRow[colB]?.v ?? playerRow[colB]?.f ?? '').trim();
+      if(!nameA || !nameB) continue;
+
+      const playerA = normalizeSchedulePlayerName(nameA);
+      const playerB = normalizeSchedulePlayerName(nameB);
+      const timeA = String(timeRow[colA]?.v ?? timeRow[colA]?.f ?? '').trim() || '-';
+      const timeB = String(timeRow[colB]?.v ?? timeRow[colB]?.f ?? '').trim() || '-';
+      let matchLabel = String(headerRow[colA]?.v ?? headerRow[colA]?.f ?? '').trim()
+        || String(headerRow[colB]?.v ?? headerRow[colB]?.f ?? '').trim();
+
+      const segments = [];
+      rows.forEach((row, ri) => {
+        if(ri === playerRowIndex || ri === timeRowIndex) return;
+        const cells = row?.c || [];
+        const label = String(cells[0]?.v ?? cells[0]?.f ?? '').trim();
+        if(!label || /^jugador$/i.test(label) || /^time$/i.test(label)) return;
+        const valueA = String(cells[colA]?.v ?? cells[colA]?.f ?? '').trim() || '-';
+        const valueB = String(cells[colB]?.v ?? cells[colB]?.f ?? '').trim() || '-';
+        if(valueA === '-' && valueB === '-' && !cells[colA] && !cells[colB]) return;
+        segments.push({ label, valueA, valueB, betterA: false, betterB: false });
+      });
+
+      pushGame(playerA, playerB, {
+        matchLabel: matchLabel || null,
+        timeA,
+        timeB,
+        timeABetter: false,
+        timeBBetter: false,
+        segments
+      });
+    }
+    return detailsMap;
+  }
+
+  // Fallback antiguo: nombres en headers de columna
   for(let colA = 1; colA + 1 < cols.length; colA += 2){
     const colB = colA + 1;
     const headerA = parseHeaderPlayerAndTime(cols[colA]?.label);
@@ -1237,10 +1410,8 @@ function parseMatchDetailsTable(table){
       segments.push({ label, valueA, valueB, betterA: false, betterB: false });
     });
 
-    const key = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
-    detailsMap.set(key, {
-      playerA,
-      playerB,
+    pushGame(playerA, playerB, {
+      matchLabel: null,
       timeA,
       timeB,
       timeABetter: false,
@@ -1782,12 +1953,23 @@ function getMatchWinnerName(match, playerA, playerB){
 
   if(winnerValue === 'draw' || winnerValue === 'empate' || winnerValue === 'tie') return null;
 
+  // Serie BO3/BO5 tiene prioridad sobre un solo tiempo de mapa
+  if(match.seriesScoreA != null && match.seriesScoreB != null){
+    const sA = Number(match.seriesScoreA);
+    const sB = Number(match.seriesScoreB);
+    if(Number.isFinite(sA) && Number.isFinite(sB) && sA !== sB){
+      const sameOrder = normalizeManualMatchName(match.playerA || match.jugadorA || match.a) === normalizeManualMatchName(playerA);
+      if(sameOrder) return sA > sB ? playerA : playerB;
+      return sA > sB ? playerB : playerA;
+    }
+  }
+
   const rawTimeA = match.timeA ?? match.tiempoA ?? match.time_a ?? match.times?.[playerA] ?? match.result?.timeA ?? match.result?.[playerA];
   const rawTimeB = match.timeB ?? match.tiempoB ?? match.time_b ?? match.times?.[playerB] ?? match.result?.timeB ?? match.result?.[playerB];
   const timeA = parseManualTime(rawTimeA);
   const timeB = parseManualTime(rawTimeB);
-  const isDeathA = String(rawTimeA ?? '').trim().toUpperCase() === 'DEATH';
-  const isDeathB = String(rawTimeB ?? '').trim().toUpperCase() === 'DEATH';
+  const isDeathA = /^(DEAD|DEATH|DIED)\b/i.test(String(rawTimeA ?? '').trim());
+  const isDeathB = /^(DEAD|DEATH|DIED)\b/i.test(String(rawTimeB ?? '').trim());
 
   // Un tiempo registrado siempre supera a DEATH, aunque winner venga informado.
   if(isDeathA && !isDeathB && timeB != null) return playerB;
@@ -2290,6 +2472,7 @@ function renderGroupsPanel(runs, players){
           <span>${t('group')} ${group.letter}</span>
           <span class="group-badge">${group.players.length} ${t('players')}</span>
         </div>
+        <div class="group-status">${t('groupStageInProgress')}</div>
         <table class="group-table" aria-label="Tabla del ${t('group')} ${group.letter}">
           <colgroup><col class="group-col-position"><col class="group-col-player"><col span="4" class="group-col-stat"><col class="group-col-time"><col class="group-col-points"></colgroup>
           <thead><tr><th>#</th><th>${t('player')}</th><th title="${t('colMatches')}">P</th><th title="${t('colWins')}">W</th><th title="${t('colDraws')}">D</th><th title="${t('colLosses')}">L</th><th title="${t('colBestTime')}">TB</th><th title="${t('colPoints')}">PTS</th></tr></thead>
@@ -2540,11 +2723,27 @@ function renderCalendarFixturePanel(players = []){
         const winner = resultMatch ? getMatchWinnerName(resultMatch, resultMatch.playerA || resultMatch.jugadorA || resultMatch.a || resultMatch.teamA || resultMatch.player_1, resultMatch.playerB || resultMatch.jugadorB || resultMatch.b || resultMatch.teamB || resultMatch.player_2) : null;
         const playerAWon = winner && normalizeManualMatchName(winner) === normalizeManualMatchName(match.playerA);
         const playerBWon = winner && normalizeManualMatchName(winner) === normalizeManualMatchName(match.playerB);
-        const scoreA = resultMatch ? (resultMatch.timeA ?? resultMatch.tiempoA ?? resultMatch.time_a ?? resultMatch.times?.[match.playerA] ?? resultMatch.result?.timeA ?? resultMatch.result?.[match.playerA] ?? '-') : '-';
-        const scoreB = resultMatch ? (resultMatch.timeB ?? resultMatch.tiempoB ?? resultMatch.time_b ?? resultMatch.times?.[match.playerB] ?? resultMatch.result?.timeB ?? resultMatch.result?.[match.playerB] ?? '-') : '-';
-
-        const formattedA = scoreA === '-' ? '-' : formatManualTime(scoreA);
-        const formattedB = scoreB === '-' ? '-' : formatManualTime(scoreB);
+        const seriesA = resultMatch?.seriesScoreA;
+        const seriesB = resultMatch?.seriesScoreB;
+        const hasSeries = seriesA != null && seriesB != null && String(seriesA).trim() !== '' && String(seriesB).trim() !== '';
+        let scoreA = resultMatch ? (resultMatch.timeA ?? resultMatch.tiempoA ?? resultMatch.time_a ?? resultMatch.times?.[match.playerA] ?? resultMatch.result?.timeA ?? resultMatch.result?.[match.playerA] ?? '-') : '-';
+        let scoreB = resultMatch ? (resultMatch.timeB ?? resultMatch.tiempoB ?? resultMatch.time_b ?? resultMatch.times?.[match.playerB] ?? resultMatch.result?.timeB ?? resultMatch.result?.[match.playerB] ?? '-') : '-';
+        // Si el resultado está del otro lado, alinear series/tiempos
+        if(resultMatch && normalizeManualMatchName(resultMatch.playerA || resultMatch.jugadorA || resultMatch.a) === normalizeManualMatchName(match.playerB)){
+          if(hasSeries){
+            // series se alinean más abajo
+          } else {
+            const tmp = scoreA; scoreA = scoreB; scoreB = tmp;
+          }
+        }
+        const displaySeriesA = hasSeries
+          ? (normalizeManualMatchName(resultMatch.playerA || '') === normalizeManualMatchName(match.playerA) ? seriesA : seriesB)
+          : null;
+        const displaySeriesB = hasSeries
+          ? (normalizeManualMatchName(resultMatch.playerA || '') === normalizeManualMatchName(match.playerA) ? seriesB : seriesA)
+          : null;
+        const formattedA = displaySeriesA != null ? String(displaySeriesA) : (scoreA === '-' ? '-' : formatManualTime(scoreA));
+        const formattedB = displaySeriesB != null ? String(displaySeriesB) : (scoreB === '-' ? '-' : formatManualTime(scoreB));
         const scheduledDate = resultMatch && (resultMatch.date || resultMatch.fecha) ? (resultMatch.date || resultMatch.fecha) : match.date;
         const scheduledTime = resultMatch && (resultMatch.time || resultMatch.horario) ? (resultMatch.time || resultMatch.horario) : match.time;
         const schedule = formatScheduledDateTime(scheduledDate, scheduledTime);
@@ -2895,6 +3094,91 @@ function buildKnockoutBracket(runs, players){
 
   const qualifiedParticipants = buildQualifiedParticipants(players);
 
+  const tbdSlot = () => ({ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') });
+
+  const participantFromName = (name, label = t('qualified')) => {
+    if(!name || name === t('tbd')) return tbdSlot();
+    const profile = resolvePlayerByName(players, name);
+    return {
+      label,
+      name,
+      flag: profile ? countryFlag(players, profile.id) : null,
+      details: t('qualified')
+    };
+  };
+
+  const findKnockoutMatch = (playerA, playerB, stageFilter = null) => {
+    const matches = getLoadedResults()?.matches || [];
+    const keyA = normalizeManualMatchName(playerA);
+    const keyB = normalizeManualMatchName(playerB);
+    if(!keyA || !keyB) return null;
+    return matches.find(record => {
+      const recordA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
+      const recordB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
+      const rA = normalizeManualMatchName(recordA);
+      const rB = normalizeManualMatchName(recordB);
+      const namesMatch = (rA === keyA && rB === keyB) || (rA === keyB && rB === keyA);
+      if(!namesMatch) return false;
+
+      if(!stageFilter) return true;
+
+      const stage = String(record.stage || '').toLowerCase();
+      const group = String(record.group || '');
+      if(stageFilter === 'r16'){
+        // Octavos: stage r16, grupo R16, o cualquier cruce que no sea fase de grupos A-H
+        if(stage === 'r16' || group === 'R16' || /octavos|round\s*of\s*16/i.test(stage + group)) return true;
+        if(FINAL_GROUPS[group]) return false;
+        // Si no es un grupo A-H, aceptar (sheet de octavos)
+        return true;
+      }
+      if(stageFilter === 'qf'){
+        return stage === 'qf' || /cuartos|quarter/i.test(stage + group);
+      }
+      if(stageFilter === 'sf'){
+        return stage === 'sf' || /semi/i.test(stage + group);
+      }
+      if(stageFilter === 'final'){
+        return stage === 'final' || (/final/i.test(stage + group) && !/semi/i.test(stage + group));
+      }
+      return stage.includes(stageFilter) || group.toLowerCase() === stageFilter;
+    }) || null;
+  };
+
+  const resolveWinnerSlot = (slotA, slotB, stageFilter) => {
+    if(!slotA || !slotB || slotA.name === t('tbd') || slotB.name === t('tbd')){
+      return { winnerIndex: null, winner: null };
+    }
+    const match = findKnockoutMatch(slotA.name, slotB.name, stageFilter);
+    if(!match) return { winnerIndex: null, winner: null };
+
+    // Preferir marcador de serie BO3/BO5
+    let winnerName = null;
+    if(match.seriesScoreA != null && match.seriesScoreB != null){
+      const sA = Number(match.seriesScoreA);
+      const sB = Number(match.seriesScoreB);
+      if(Number.isFinite(sA) && Number.isFinite(sB) && sA !== sB){
+        const sameOrder = normalizeManualMatchName(match.playerA) === normalizeManualMatchName(slotA.name);
+        if(sameOrder) winnerName = sA > sB ? slotA.name : slotB.name;
+        else winnerName = sA > sB ? slotB.name : slotA.name;
+      }
+    }
+    if(!winnerName){
+      winnerName = getMatchWinnerName(match, slotA.name, slotB.name);
+    }
+    if(!winnerName) return { winnerIndex: null, winner: null };
+
+    const winnerIndex = normalizeManualMatchName(winnerName) === normalizeManualMatchName(slotA.name)
+      ? 0
+      : normalizeManualMatchName(winnerName) === normalizeManualMatchName(slotB.name)
+        ? 1
+        : null;
+    if(winnerIndex == null) return { winnerIndex: null, winner: null };
+    return {
+      winnerIndex,
+      winner: winnerIndex === 0 ? slotA : slotB
+    };
+  };
+
   const octavos = [
     [qualifiedParticipants[0], qualifiedParticipants[3]],
     [qualifiedParticipants[4], qualifiedParticipants[7]],
@@ -2904,23 +3188,44 @@ function buildKnockoutBracket(runs, players){
     [qualifiedParticipants[6], qualifiedParticipants[5]],
     [qualifiedParticipants[10], qualifiedParticipants[9]],
     [qualifiedParticipants[14], qualifiedParticipants[13]]
-  ];
+  ].map(pair => {
+    const result = resolveWinnerSlot(pair[0], pair[1], 'r16');
+    return Object.assign([pair[0], pair[1]], { winnerIndex: result.winnerIndex, winner: result.winner });
+  });
 
-  const cuartos = [
-    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
-    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
-    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
-    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }]
-  ];
+  // Avance a cuartos: ganadores de octavos 0+1, 2+3, 4+5, 6+7
+  const cuartos = [0, 1, 2, 3].map(i => {
+    const left = octavos[i * 2]?.winner || tbdSlot();
+    const right = octavos[i * 2 + 1]?.winner || tbdSlot();
+    const slotA = left.name === t('tbd') ? tbdSlot() : participantFromName(left.name, left.label || t('qualified'));
+    const slotB = right.name === t('tbd') ? tbdSlot() : participantFromName(right.name, right.label || t('qualified'));
+    const result = resolveWinnerSlot(slotA, slotB, 'qf');
+    return Object.assign([slotA, slotB], { winnerIndex: result.winnerIndex, winner: result.winner });
+  });
 
-  const semis = [
-    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }],
-    [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }]
-  ];
+  const semis = [0, 1].map(i => {
+    const left = cuartos[i * 2]?.winner || tbdSlot();
+    const right = cuartos[i * 2 + 1]?.winner || tbdSlot();
+    const slotA = left.name === t('tbd') ? tbdSlot() : participantFromName(left.name, left.label || t('qualified'));
+    const slotB = right.name === t('tbd') ? tbdSlot() : participantFromName(right.name, right.label || t('qualified'));
+    const result = resolveWinnerSlot(slotA, slotB, 'sf');
+    return Object.assign([slotA, slotB], { winnerIndex: result.winnerIndex, winner: result.winner });
+  });
 
-  const final = [{ label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }, { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') }];
+  const finalLeft = semis[0]?.winner || tbdSlot();
+  const finalRight = semis[1]?.winner || tbdSlot();
+  const finalA = finalLeft.name === t('tbd') ? tbdSlot() : participantFromName(finalLeft.name, finalLeft.label || t('qualified'));
+  const finalB = finalRight.name === t('tbd') ? tbdSlot() : participantFromName(finalRight.name, finalRight.label || t('qualified'));
+  const finalResult = resolveWinnerSlot(finalA, finalB, 'final');
+  const final = Object.assign([finalA, finalB], {
+    winnerIndex: finalResult.winnerIndex,
+    winner: finalResult.winner
+  });
 
-  const champion = { label: t('champion'), name: t('tbd'), flag: null, details: t('pendingSingle') };
+  const championSource = final.winner;
+  const champion = championSource && championSource.name !== t('tbd')
+    ? { ...participantFromName(championSource.name, t('champion')), label: t('champion'), details: '' }
+    : { label: t('champion'), name: t('tbd'), flag: null, details: t('pendingSingle') };
 
   return { octavos, cuartos, semis, final, champion };
 }
@@ -3761,13 +4066,19 @@ function closePlayerModal(){
   pendingMatchDetailsModal = null;
 }
 
+function getMatchSeriesPageCount(stage, groupLetter){
+  const key = String(stage || groupLetter || '').toLowerCase();
+  if(key === 'final' || key.includes('final')) return 5;
+  if(key === 'r16' || key === 'qf' || key === 'sf' || key.includes('octavos') || key.includes('cuartos') || key.includes('semi') || key.includes('round of 16')) return 3;
+  return 1;
+}
+
 function openMatchDetailsModal(playerA, playerB, groupLetter){
   const modal = document.getElementById('player-modal');
   const content = document.getElementById('player-modal-content');
   if(!modal || !content) return;
   modal.classList.add('match-details-open');
 
-  // Si todavía no llegó el sheet de detalles, abrir el modal igual y rellenar después
   const stillLoading = !externalMatchDetails && externalMatchDetailsLoad != null;
   if(stillLoading){
     pendingMatchDetailsModal = { playerA, playerB, groupLetter };
@@ -3782,10 +4093,14 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
   const pictureA = getPlayerAvatarMarkup(profileA, true);
   const pictureB = getPlayerAvatarMarkup(profileB, true);
 
-  // Prefer times from details sheet headers; fall back to schedule results
   let timeA = details?.timeA || '-';
   let timeB = details?.timeB || '-';
-  if((!details || timeA === '-' || timeB === '-') && getLoadedResults()){
+  let seriesScoreA = null;
+  let seriesScoreB = null;
+  let scheduleGames = [];
+  let resultMatchStage = null;
+
+  if(getLoadedResults()){
     const allMatches = getLoadedResults()?.matches || [];
     const resultMatch = allMatches.find(record => {
       const recordA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
@@ -3794,52 +4109,163 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
              (normalizeManualMatchName(recordA) === normalizeManualMatchName(playerB) && normalizeManualMatchName(recordB) === normalizeManualMatchName(playerA));
     });
     if(resultMatch){
+      resultMatchStage = resultMatch.stage || null;
+      const sameOrder = normalizeManualMatchName(resultMatch.playerA || resultMatch.jugadorA || resultMatch.a) === normalizeManualMatchName(playerA);
+      if(resultMatch.seriesScoreA != null && resultMatch.seriesScoreB != null){
+        seriesScoreA = sameOrder ? resultMatch.seriesScoreA : resultMatch.seriesScoreB;
+        seriesScoreB = sameOrder ? resultMatch.seriesScoreB : resultMatch.seriesScoreA;
+      }
       const rawA = resultMatch.timeA ?? resultMatch.tiempoA ?? resultMatch.time_a ?? '-';
       const rawB = resultMatch.timeB ?? resultMatch.tiempoB ?? resultMatch.time_b ?? '-';
-      // Align sides with requested playerA/playerB order
-      if(normalizeManualMatchName(resultMatch.playerA || resultMatch.jugadorA || resultMatch.a) === normalizeManualMatchName(playerA)){
-        if(timeA === '-') timeA = rawA;
-        if(timeB === '-') timeB = rawB;
-      }else{
-        if(timeA === '-') timeA = rawB;
-        if(timeB === '-') timeB = rawA;
+      if((!details || timeA === '-' || timeB === '-')){
+        if(sameOrder){
+          if(timeA === '-') timeA = rawA;
+          if(timeB === '-') timeB = rawB;
+        }else{
+          if(timeA === '-') timeA = rawB;
+          if(timeB === '-') timeB = rawA;
+        }
       }
+      const games = Array.isArray(resultMatch.games) ? resultMatch.games : [];
+      scheduleGames = games.map(game => sameOrder
+        ? { timeA: game.timeA, timeB: game.timeB }
+        : { timeA: game.timeB, timeB: game.timeA }
+      );
     }
   }
 
-  // If details has players in opposite order, swap segment values + better flags
-  let segments = details?.segments || [];
-  let timeABetter = Boolean(details?.timeABetter);
-  let timeBBetter = Boolean(details?.timeBBetter);
-  if(details && normalizeManualMatchName(details.playerA) !== normalizeManualMatchName(playerA)){
-    segments = segments.map(seg => ({
-      label: seg.label,
-      valueA: seg.valueB,
-      valueB: seg.valueA,
-      betterA: Boolean(seg.betterB),
-      betterB: Boolean(seg.betterA)
-    }));
-    if(details.timeA || details.timeB){
-      timeA = details.timeB || timeA;
-      timeB = details.timeA || timeB;
-    }
-    timeABetter = Boolean(details.timeBBetter);
-    timeBBetter = Boolean(details.timeABetter);
+  if(seriesScoreA != null && seriesScoreB != null){
+    timeA = String(seriesScoreA);
+    timeB = String(seriesScoreB);
   }
 
-  const formatDisplayTime = (raw) => {
+  // Detalles del sheet: puede traer varios mapas (Match 49/50/51...) del mismo cruce
+  const detailsSameOrder = !details || normalizeManualMatchName(details.playerA) === normalizeManualMatchName(playerA);
+  const mapDetailGame = (game) => {
+    if(!game) return null;
+    if(detailsSameOrder){
+      return {
+        matchLabel: game.matchLabel || null,
+        timeA: game.timeA || '-',
+        timeB: game.timeB || '-',
+        timeABetter: Boolean(game.timeABetter),
+        timeBBetter: Boolean(game.timeBBetter),
+        segments: Array.isArray(game.segments) ? game.segments : []
+      };
+    }
+    return {
+      matchLabel: game.matchLabel || null,
+      timeA: game.timeB || '-',
+      timeB: game.timeA || '-',
+      timeABetter: Boolean(game.timeBBetter),
+      timeBBetter: Boolean(game.timeABetter),
+      segments: (Array.isArray(game.segments) ? game.segments : []).map(seg => ({
+        label: seg.label,
+        valueA: seg.valueB,
+        valueB: seg.valueA,
+        betterA: Boolean(seg.betterB),
+        betterB: Boolean(seg.betterA)
+      }))
+    };
+  };
+
+  let detailGames = [];
+  if(details){
+    if(Array.isArray(details.games) && details.games.length){
+      detailGames = details.games.map(mapDetailGame).filter(Boolean);
+    }else if(details.segments || details.timeA || details.timeB){
+      detailGames = [mapDetailGame({
+        matchLabel: null,
+        timeA: details.timeA,
+        timeB: details.timeB,
+        timeABetter: details.timeABetter,
+        timeBBetter: details.timeBBetter,
+        segments: details.segments || []
+      })].filter(Boolean);
+    }
+  }
+
+  let segments = detailGames[0]?.segments || details?.segments || [];
+  let timeABetter = Boolean(detailGames[0]?.timeABetter ?? details?.timeABetter);
+  let timeBBetter = Boolean(detailGames[0]?.timeBBetter ?? details?.timeBBetter);
+
+  if(seriesScoreA != null && seriesScoreB != null){
+    timeA = String(seriesScoreA);
+    timeB = String(seriesScoreB);
+    const nA = Number(seriesScoreA);
+    const nB = Number(seriesScoreB);
+    timeABetter = Number.isFinite(nA) && Number.isFinite(nB) && nA > nB;
+    timeBBetter = Number.isFinite(nA) && Number.isFinite(nB) && nB > nA;
+  }
+
+  const isKnockoutMatch = String(groupLetter || '').toUpperCase() === 'R16'
+    || resultMatchStage === 'r16'
+    || /r16|qf|sf|final|octavos|cuartos|semi|round\s*of\s*16/i.test(String(groupLetter || ''))
+    || /r16|qf|sf|final/i.test(String(resultMatchStage || ''));
+
+  const expectedPages = isKnockoutMatch
+    ? getMatchSeriesPageCount(resultMatchStage || groupLetter, groupLetter)
+    : 1;
+
+  // Páginas = mapas del BO3/BO5. Prioridad: sheet de detalles (Match 49/50/51) > schedule > placeholders
+  const gamePages = [];
+  const pageCount = Math.max(
+    expectedPages,
+    detailGames.length,
+    scheduleGames.length || (isKnockoutMatch ? 0 : 1),
+    isKnockoutMatch ? expectedPages : 1
+  );
+
+  for(let i = 0; i < pageCount; i++){
+    const detailGame = detailGames[i] || null;
+    const scheduleGame = scheduleGames[i] || null;
+    const pageSegments = detailGame?.segments || (pageCount === 1 ? segments : []);
+    gamePages.push({
+      index: i,
+      matchLabel: detailGame?.matchLabel || null,
+      timeA: detailGame?.timeA || scheduleGame?.timeA || (pageCount === 1 && !isKnockoutMatch ? timeA : '-'),
+      timeB: detailGame?.timeB || scheduleGame?.timeB || (pageCount === 1 && !isKnockoutMatch ? timeB : '-'),
+      timeABetter: Boolean(detailGame?.timeABetter),
+      timeBBetter: Boolean(detailGame?.timeBBetter),
+      segments: pageSegments
+    });
+  }
+
+  // Grupos BO1 sin schedule multi-game: una página con segmentos del sheet
+  if(!isKnockoutMatch && !scheduleGames.length && detailGames.length <= 1){
+    gamePages.length = 0;
+    const g = detailGames[0];
+    gamePages.push({
+      index: 0,
+      matchLabel: g?.matchLabel || null,
+      timeA: g?.timeA || timeA,
+      timeB: g?.timeB || timeB,
+      timeABetter: Boolean(g?.timeABetter),
+      timeBBetter: Boolean(g?.timeBBetter),
+      segments: g?.segments || segments
+    });
+  }
+
+  const stageTitle = isKnockoutMatch
+    ? (String(resultMatchStage || groupLetter || '').toLowerCase().includes('final') && !String(resultMatchStage || '').includes('r16')
+      ? t('final')
+      : t('roundOf16'))
+    : (groupLetter && FINAL_GROUPS[groupLetter]
+      ? `${t('group')} ${groupLetter}`
+      : (groupLetter ? `${t('group')} ${groupLetter}` : t('groupStage')));
+
+  const seriesLabel = seriesScoreA != null && seriesScoreB != null
+    ? `${seriesScoreA} - ${seriesScoreB}`
+    : null;
+
+  const formatDisplayTime = (raw, { allowPlainNumber = false } = {}) => {
     const text = String(raw ?? '').trim();
     if(!text || text === '-') return '-';
-    if(text.toUpperCase() === 'DIED' || text.toUpperCase() === 'DEATH') return 'DIED';
+    if(/^(DEAD|DEATH|DIED)\b/i.test(text)) return text.toUpperCase().startsWith('DEAD') ? 'DEAD' : 'DIED';
+    if(allowPlainNumber && /^\d+$/.test(text)) return text;
     return formatManualTime(text);
   };
-  const formattedA = formatDisplayTime(timeA);
-  const formattedB = formatDisplayTime(timeB);
 
-  const hasResult = (formattedA !== '-' || formattedB !== '-');
-  const statusLabel = hasResult ? t('finishedLabel') : t('upcomingLabel');
-
-  // Colores del sheet (rojo = mejor). Si no hay color, fallback por tiempo (menor es mejor).
   const segmentRowClass = (seg) => {
     if(seg.betterA || seg.betterB){
       return {
@@ -3852,8 +4278,8 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
     const valueB = seg.valueB;
     const secA = parseManualTime(valueA);
     const secB = parseManualTime(valueB);
-    const deathA = String(valueA || '').toUpperCase() === 'DIED' || String(valueA || '').toUpperCase() === 'DEATH';
-    const deathB = String(valueB || '').toUpperCase() === 'DIED' || String(valueB || '').toUpperCase() === 'DEATH';
+    const deathA = /^(DEAD|DEATH|DIED)\b/i.test(String(valueA || ''));
+    const deathB = /^(DEAD|DEATH|DIED)\b/i.test(String(valueB || ''));
     if(deathA && !deathB) return { a: 'md-stat-worse', b: 'md-stat-better' };
     if(deathB && !deathA) return { a: 'md-stat-better', b: 'md-stat-worse' };
     if(secA != null && secB != null){
@@ -3863,25 +4289,70 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
     return { a: '', b: '' };
   };
 
-  const segmentsHtml = segments.length
-    ? segments.map(seg => {
-        const va = seg.valueA || '-';
-        const vb = seg.valueB || '-';
-        const cls = segmentRowClass(seg);
-        return `
-          <div class="md-stat-row">
-            <div class="md-stat-value ${cls.a}"><span>${va}</span></div>
-            <div class="md-stat-label">${seg.label}</div>
-            <div class="md-stat-value ${cls.b}"><span>${vb}</span></div>
-          </div>`;
-      }).join('')
-    : stillLoading
-      ? `<div class="md-empty md-loading">${t('loadingTabla')}</div>`
-      : `<div class="md-empty">${t('matchDetailsNoData')}</div>`;
+  const gameTimeBetter = (valueA, valueB) => {
+    const deathA = /^(DEAD|DEATH|DIED)\b/i.test(String(valueA || ''));
+    const deathB = /^(DEAD|DEATH|DIED)\b/i.test(String(valueB || ''));
+    if(deathA && !deathB) return { a: false, b: true };
+    if(deathB && !deathA) return { a: true, b: false };
+    const secA = parseManualTime(valueA);
+    const secB = parseManualTime(valueB);
+    if(secA != null && secB != null){
+      if(secA < secB) return { a: true, b: false };
+      if(secB < secA) return { a: false, b: true };
+    }
+    return { a: false, b: false };
+  };
 
-  content.innerHTML = `
+  let currentPage = 0;
+
+  const renderPage = () => {
+    const page = gamePages[currentPage] || gamePages[0];
+    const totalPages = gamePages.length;
+    const pageTimeA = page?.timeA ?? '-';
+    const pageTimeB = page?.timeB ?? '-';
+    const inferredBetter = gameTimeBetter(pageTimeA, pageTimeB);
+    const better = {
+      a: page?.timeABetter || inferredBetter.a,
+      b: page?.timeBBetter || inferredBetter.b
+    };
+    const formattedA = formatDisplayTime(pageTimeA);
+    const formattedB = formatDisplayTime(pageTimeB);
+    const hasResult = formattedA !== '-' || formattedB !== '-';
+    const statusLabel = hasResult ? t('finishedLabel') : t('upcomingLabel');
+    const matchLabel = page?.matchLabel || null;
+
+    const pageSegments = page?.segments || [];
+    const segmentsHtml = pageSegments.length
+      ? pageSegments.map(seg => {
+          const va = seg.valueA || '-';
+          const vb = seg.valueB || '-';
+          const cls = segmentRowClass(seg);
+          return `
+            <div class="md-stat-row">
+              <div class="md-stat-value ${cls.a}"><span>${va}</span></div>
+              <div class="md-stat-label">${seg.label}</div>
+              <div class="md-stat-value ${cls.b}"><span>${vb}</span></div>
+            </div>`;
+        }).join('')
+      : stillLoading
+        ? `<div class="md-empty md-loading">${t('loadingTabla')}</div>`
+        : (totalPages > 1
+          ? `<div class="md-empty">${hasResult ? '' : t('matchDetailsNoData')}</div>`
+          : `<div class="md-empty">${t('matchDetailsNoData')}</div>`);
+
+    const pagerHtml = totalPages > 1 ? `
+      <div class="md-pager">
+        <button type="button" class="md-pager-btn md-pager-prev" ${currentPage === 0 ? 'disabled' : ''} aria-label="Anterior">&#9664;</button>
+        <span class="md-pager-indicator">${matchLabel || ((t('matchSingular') ? (t('matchSingular').charAt(0).toUpperCase() + t('matchSingular').slice(1)) : 'Match') + ' ' + (currentPage + 1))} · ${currentPage + 1}/${totalPages}</span>
+        <button type="button" class="md-pager-btn md-pager-next" ${currentPage >= totalPages - 1 ? 'disabled' : ''} aria-label="Siguiente">&#9654;</button>
+      </div>` : '';
+
+    const seriesHtml = seriesLabel
+      ? `<div class="md-series-score">${seriesLabel}${isKnockoutMatch ? ' · BO' + totalPages : ''}</div>`
+      : '';
+
+    content.innerHTML = `
     <style>
-      /* ~50% más ancho solo en detalle de partido (base CSS: 430px → ~645px) */
       .player-modal.match-details-open .player-modal-card {
         width: min(100%, 645px) !important;
         max-width: min(100%, 645px) !important;
@@ -3889,10 +4360,15 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
       .md-wrap { color: #e8e8e8; font-family: inherit; }
       .md-topbar {
         display: flex; justify-content: space-between; align-items: center;
-        font-size: 0.78rem; letter-spacing: 0.02em; margin-bottom: 1.1rem;
+        font-size: 0.78rem; letter-spacing: 0.02em; margin-bottom: 0.75rem;
         color: #c9a227;
       }
       .md-topbar .md-status { color: #9aa0a6; }
+      .md-series-score {
+        text-align: center; font-size: 0.85rem; font-weight: 700;
+        color: var(--gold, #ffd166); margin-bottom: 0.65rem;
+        letter-spacing: 0.04em;
+      }
       .md-scoreboard {
         display: grid;
         grid-template-columns: 1fr auto 1fr;
@@ -3915,10 +4391,6 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
         box-shadow: 0 0 0 2px rgba(255,255,255,0.08);
       }
       .md-avatar img, .md-avatar .flag-image { width: 28px; height: auto; display: block; }
-      .md-avatar-placeholder {
-        font-weight: 700; font-size: 1.1rem; color: #fff;
-        background: linear-gradient(145deg, #3a3f4b, #22262e);
-      }
       .md-score {
         display: flex; align-items: center; justify-content: center; gap: 0.55rem;
         font-size: 1.85rem; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -3929,7 +4401,23 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
       .md-score-sep { color: #6b7280; font-weight: 500; font-size: 1.4rem; }
       .md-subtitle {
         text-align: center; font-size: 0.8rem; color: #9aa0a6;
-        margin: 0.15rem 0 1.25rem;
+        margin: 0.15rem 0 0.85rem;
+      }
+      .md-pager {
+        display: flex; align-items: center; justify-content: center; gap: 1rem;
+        margin: 0.35rem 0 1rem;
+      }
+      .md-pager-btn {
+        appearance: none; border: 1px solid rgba(255,255,255,0.15);
+        background: #2a2f38; color: #e8e8e8; width: 2.2rem; height: 2.2rem;
+        border-radius: 8px; cursor: pointer; font-size: 0.85rem;
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+      .md-pager-btn:hover:not(:disabled){ background: #3a3f4b; }
+      .md-pager-btn:disabled{ opacity: 0.35; cursor: default; }
+      .md-pager-indicator {
+        font-size: 0.82rem; font-weight: 700; letter-spacing: 0.06em;
+        text-transform: uppercase; color: #c4c7cc; min-width: 7rem; text-align: center;
       }
       .md-stats-title {
         text-align: center; font-size: 0.72rem; font-weight: 700;
@@ -3954,9 +4442,7 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
         text-align: center; font-size: 0.82rem; color: #c4c7cc;
         line-height: 1.25;
       }
-      .md-stat-value {
-        display: flex; justify-content: center;
-      }
+      .md-stat-value { display: flex; justify-content: center; }
       .md-stat-value span {
         display: inline-flex; align-items: center; justify-content: center;
         min-width: 2.6rem; min-height: 2rem;
@@ -3966,8 +4452,7 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
         background: #2a2f38; color: #f0f0f0;
         font-variant-numeric: tabular-nums;
         text-align: center; line-height: 1.15;
-        max-width: 100%;
-        word-break: break-word;
+        max-width: 100%; word-break: break-word;
       }
       .md-stat-value.md-stat-better span {
         background: #30a230; color: #fff;
@@ -3980,7 +4465,8 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
         background: #2a2f38; color: #ffffff;
       }
       .md-empty {
-        text-align: center; color: #9aa0a6; padding: 1.5rem 0.5rem; font-size: 0.9rem;
+        text-align: center; color: #9aa0a6; padding: 1rem 0.5rem; font-size: 0.9rem;
+        min-height: 1.2rem;
       }
       @media (max-width: 420px) {
         .md-score { font-size: 1.35rem; gap: 0.35rem; }
@@ -3992,9 +4478,11 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
     </style>
     <div class="md-wrap">
       <div class="md-topbar">
-        <span>${groupLetter ? `${t('group')} ${groupLetter}` : t('groupStage')}${groupLetter ? ` · ${t('groupStage')}` : ''}</span>
+        <span>${stageTitle}</span>
         <span class="md-status">${statusLabel}</span>
       </div>
+      ${seriesHtml}
+      ${pagerHtml}
 
       <div class="md-scoreboard">
         <div class="md-team">
@@ -4002,9 +4490,9 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
           <div class="md-team-name">${playerA}</div>
         </div>
         <div class="md-score" aria-label="${t('matchDetailsFinalTime')}">
-          <span class="md-score-num ${timeABetter ? 'md-score-better' : ''}">${formattedA}</span>
+          <span class="md-score-num ${better.a ? 'md-score-better' : ''}">${formattedA}</span>
           <span class="md-score-sep">-</span>
-          <span class="md-score-num ${timeBBetter ? 'md-score-better' : ''}">${formattedB}</span>
+          <span class="md-score-num ${better.b ? 'md-score-better' : ''}">${formattedB}</span>
         </div>
         <div class="md-team">
           ${pictureB}
@@ -4012,7 +4500,10 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
         </div>
       </div>
 
-      <div class="md-subtitle">${t('groupStage')}${groupLetter ? ` · ${t('group')} ${groupLetter}` : ''}</div>
+      <div class="md-subtitle">${totalPages > 1
+        ? (matchLabel || `${t('matchSingular') ? t('matchSingular').charAt(0).toUpperCase() + t('matchSingular').slice(1) : 'Match'} ${currentPage + 1}`)
+        : (isKnockoutMatch ? t('roundOf16') : `${t('groupStage')}${groupLetter ? ` · ${t('group')} ${groupLetter}` : ''}`)
+      }</div>
 
       <div class="md-stats-title">${t('matchDetailsSegment')}</div>
       <div class="md-stats-list">
@@ -4020,9 +4511,26 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
       </div>
     </div>
   `;
+
+    content.querySelector('.md-pager-prev')?.addEventListener('click', () => {
+      if(currentPage > 0){
+        currentPage -= 1;
+        renderPage();
+      }
+    });
+    content.querySelector('.md-pager-next')?.addEventListener('click', () => {
+      if(currentPage < totalPages - 1){
+        currentPage += 1;
+        renderPage();
+      }
+    });
+  };
+
+  renderPage();
   modal.hidden = false;
   document.body.classList.add('modal-open');
 }
+
 
 let fileViewerState = null;
 
