@@ -29,6 +29,7 @@ const STATS_RO16_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TR
 const STATS_FINAL_TABLE_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=582531798';
 const MATCH_SCHEDULE_GROUPS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Groups)';
 const MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Round%20of%2016)';
+const MATCH_SCHEDULE_ROUND_OF_16_FALLBACK_URL = 'https://docs.google.com/spreadsheets/d/17RvnKg48Yhv-5p-Ze_9ArQEy1rySyidDc0e1yDgkgPE/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Round%20of%2016)';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
 // Fallback gviz (sin colores) si el script falla
@@ -1059,7 +1060,9 @@ function mergeMatchSchedules(groupsSchedule, r16Schedule){
 
 async function loadExternalMatchSchedule(){
   try{
-    const [groupsTable, r16Table] = await Promise.all([
+    // r16table tiene que ser variable para poder reasignarle la URL de respaldo si es necesario
+    let r16Table;
+    const [groupsTable, initialR16Table] = await Promise.all([
       fetchGvizSheetTable(MATCH_SCHEDULE_GROUPS_SHEET_URL).catch(err => {
         console.warn('No se pudo cargar Match Schedule (Groups).', err);
         return null;
@@ -1069,7 +1072,16 @@ async function loadExternalMatchSchedule(){
         return null;
       })
     ]);
-
+    r16Table = initialR16Table;
+    console.log(cellValue(r16Table?.rows?.[3]?.c?.[1]));
+    //corroborar si r16table tiene datos de matchs (Celda B4 no está vacía)
+    if(r16Table && !cellValue(r16Table?.rows?.[3]?.c?.[1])){
+      console.warn('No se encontraron datos de matchs en Round of 16. Intentando URL de respaldo...');
+      r16Table = await fetchGvizSheetTable(MATCH_SCHEDULE_ROUND_OF_16_FALLBACK_URL).catch(err => {
+        console.warn('No se pudo cargar Match Schedule (Round of 16) desde la URL de respaldo.', err);
+        return null;
+      });
+    }
     const groupsSchedule = groupsTable
       ? parseMatchScheduleTable(groupsTable, { stage: 'groups' })
       : null;
