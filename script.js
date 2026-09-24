@@ -1,7 +1,7 @@
 const LEADERBOARD_URL = "https://www.speedrun.com/api/v1/leaderboards/kdkzvyqd/category/q25r06gk?embed=players,category,game";
 const SCHEDULE_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 const LIVE_STREAM_URL = 'https://www.twitch.tv/basementcup';
-const LIVE_WINDOW_MS = 60 * 60 * 1000;
+const LIVE_WINDOW_MS = 180 * 60 * 1000;
 
 // La API de speedrun.com a veces no manda el header CORS y el navegador
 // bloquea el fetch directo. Si eso pasa, reintentamos vía un proxy CORS público.
