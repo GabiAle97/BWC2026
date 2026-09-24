@@ -1070,15 +1070,7 @@ async function loadExternalMatchSchedule(){
         return null;
       })
     ]);
-    console.log(cellValue(r16Table?.rows?.[3]?.c?.[1]));
-    //corroborar si r16table tiene datos de matchs (Celda B4 no está vacía)
-    if(r16Table && !cellValue(r16Table?.rows?.[3]?.c?.[1])){
-      console.warn('No se encontraron datos de matchs en Round of 16. Intentando URL de respaldo...');
-      r16Table = await fetchGvizSheetTable(MATCH_SCHEDULE_ROUND_OF_16_FALLBACK_URL).catch(err => {
-        console.warn('No se pudo cargar Match Schedule (Round of 16) desde la URL de respaldo.', err);
-        return null;
-      });
-    }
+
     const groupsSchedule = groupsTable
       ? parseMatchScheduleTable(groupsTable, { stage: 'groups' })
       : null;
