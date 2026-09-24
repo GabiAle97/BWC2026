@@ -1060,9 +1060,7 @@ function mergeMatchSchedules(groupsSchedule, r16Schedule){
 
 async function loadExternalMatchSchedule(){
   try{
-    // r16table tiene que ser variable para poder reasignarle la URL de respaldo si es necesario
-    let r16Table;
-    const [groupsTable, initialR16Table] = await Promise.all([
+    const [groupsTable, r16Table] = await Promise.all([
       fetchGvizSheetTable(MATCH_SCHEDULE_GROUPS_SHEET_URL).catch(err => {
         console.warn('No se pudo cargar Match Schedule (Groups).', err);
         return null;
@@ -1072,7 +1070,6 @@ async function loadExternalMatchSchedule(){
         return null;
       })
     ]);
-    r16Table = initialR16Table;
     console.log(cellValue(r16Table?.rows?.[3]?.c?.[1]));
     //corroborar si r16table tiene datos de matchs (Celda B4 no está vacía)
     if(r16Table && !cellValue(r16Table?.rows?.[3]?.c?.[1])){
