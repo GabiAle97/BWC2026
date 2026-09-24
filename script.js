@@ -560,26 +560,102 @@ function renderHomePanel(players = []){
   const flagA = playerA ? countryFlag(players, playerA.id) : '🏳️';
   const flagB = playerB ? countryFlag(players, playerB.id) : '🏳️';
 
+  const stage = String(match.stage || '').toLowerCase();
+  const group = String(match.group || '');
+  const isR16 = stage === 'r16' || group === 'R16' || /octavos|round\s*of\s*16/i.test(stage + group);
+  const isQf = stage === 'qf' || /cuartos|quarter/i.test(stage + group);
+  const isSf = stage === 'sf' || /semi/i.test(stage + group);
+  const isFinal = stage === 'final' || (/final/i.test(stage + group) && !/semi/i.test(stage + group));
+  const isKnockout = isR16 || isQf || isSf || isFinal;
+
+  const stageLabel = isFinal
+    ? t('final')
+    : isSf
+      ? t('semifinals')
+      : isQf
+        ? t('quarterfinals')
+        : isR16
+          ? t('roundOf16')
+          : (FINAL_GROUPS[group] ? `${t('group')} ${group}` : (group ? `${t('group')} ${group}` : t('groupStage')));
+
+  const bestOfLabel = isFinal
+    ? 'BEST OF 5'
+    : (isR16 || isQf || isSf)
+      ? 'BEST OF 3'
+      : 'BEST OF 1';
+
+  // Marcador actual: serie BO3/BO5 si existe; si no, tiempos del mapa en curso / último
+  const hasSeries = match.seriesScoreA != null && match.seriesScoreB != null
+    && String(match.seriesScoreA).trim() !== '' && String(match.seriesScoreB).trim() !== '';
+  const games = Array.isArray(match.games) ? match.games : [];
+  const lastGame = games.length ? games[games.length - 1] : null;
+
+  let displayA;
+  let displayB;
+  let scoreIsSeries = false;
+  if(hasSeries){
+    displayA = String(match.seriesScoreA);
+    displayB = String(match.seriesScoreB);
+    scoreIsSeries = true;
+  }else if(lastGame && (lastGame.timeA || lastGame.timeB)){
+    displayA = lastGame.timeA && lastGame.timeA !== '-' ? formatManualTime(lastGame.timeA) : '-';
+    displayB = lastGame.timeB && lastGame.timeB !== '-' ? formatManualTime(lastGame.timeB) : '-';
+  }else{
+    const rawA = match.timeA && match.timeA !== '-' ? formatManualTime(match.timeA) : '-';
+    const rawB = match.timeB && match.timeB !== '-' ? formatManualTime(match.timeB) : '-';
+    displayA = rawA || '-';
+    displayB = rawB || '-';
+  }
+
+  const formatGameTime = (raw) => {
+    const text = String(raw ?? '').trim();
+    if(!text || text === '-') return '—';
+    if(/^(DEAD|DEATH|DIED)\b/i.test(text)) return text.toUpperCase().startsWith('DEAD') ? 'DEAD' : 'DIED';
+    return formatManualTime(text) || text;
+  };
+
+  // Lista de tiempos por mapa, uno debajo del otro bajo el marcador de cada jugador
+  let gamesForDisplay = games;
+  if(!gamesForDisplay.length && ((match.timeA && match.timeA !== '-') || (match.timeB && match.timeB !== '-'))){
+    gamesForDisplay = [{ timeA: match.timeA || '-', timeB: match.timeB || '-' }];
+  }
+
+  const gamesListA = gamesForDisplay.length
+    ? `<ul class="home-games-list">${gamesForDisplay.map((game, index) =>
+        `<li><span class="home-game-time">${formatGameTime(game.timeA)}</span></li>`
+      ).join('')}</ul>`
+    : '';
+  const gamesListB = gamesForDisplay.length
+    ? `<ul class="home-games-list">${gamesForDisplay.map((game, index) =>
+        `<li><span class="home-game-time ">${formatGameTime(game.timeB)}</span></li>`
+      ).join('')}</ul>`
+    : '';
+
   container.innerHTML = `
     <div class="home-live-card">
       <div class="home-live-backdrop"></div>
       <div class="home-live-header">
         <span class="home-live-pill"><i></i> ${t('live')}</span>
-        <span>${t('group')} ${match.group}</span>
+        <span>${stageLabel}</span>
       </div>
       <div class="home-matchup">
         <div class="home-contestant">
           <div class="home-avatar">${getPlayerAvatarMarkup(playerA)}</div>
           <div class="home-player-name">${match.playerA}</div>
           <div class="home-player-flag">${flagA}</div>
-          <div class="home-player-time">${match.timeA || '-'}</div>
+          <div class="home-player-time ${scoreIsSeries ? 'home-series-score' : ''}">${displayA}</div>
+          ${gamesListA}
         </div>
-        <div class="home-versus"><strong>VS</strong><span>BEST OF 1</span></div>
+        <div class="home-versus">
+          <strong>VS</strong>
+          <span class="home-best-of">${bestOfLabel}</span>
+        </div>
         <div class="home-contestant">
           <div class="home-avatar">${getPlayerAvatarMarkup(playerB)}</div>
           <div class="home-player-name">${match.playerB}</div>
           <div class="home-player-flag">${flagB}</div>
-          <div class="home-player-time">${match.timeB || '-'}</div>
+          <div class="home-player-time ${scoreIsSeries ? 'home-series-score' : ''}">${displayB}</div>
+          ${gamesListB}
         </div>
       </div>
       <div class="home-live-footer">
@@ -1115,8 +1191,7 @@ function mergeMatchSchedules(groupsSchedule, r16Schedule){
 
 async function loadExternalMatchSchedule(){
   try{
-    let r16Table;
-    const [groupsTable, initialR16Table] = await Promise.all([
+    const [groupsTable, r16Table] = await Promise.all([
       fetchGvizSheetTable(MATCH_SCHEDULE_GROUPS_SHEET_URL).catch(err => {
         console.warn('No se pudo cargar Match Schedule (Groups).', err);
         return null;
@@ -1126,16 +1201,6 @@ async function loadExternalMatchSchedule(){
         return null;
       })
     ]);
-    r16Table = initialR16Table;
-    console.log(cellValue(r16Table?.rows?.[3]?.c?.[1]));
-    //corroborar si r16table tiene datos de matchs (Celda B4 no está vacía)
-    if(r16Table && !cellValue(r16Table?.rows?.[3]?.c?.[1])){
-      console.warn('No se encontraron datos de matchs en Round of 16. Intentando URL de respaldo...');
-      r16Table = await fetchGvizSheetTable(MATCH_SCHEDULE_ROUND_OF_16_FALLBACK_URL).catch(err => {
-        console.warn('No se pudo cargar Match Schedule (Round of 16) desde la URL de respaldo.', err);
-        return null;
-      });
-    }
     const groupsSchedule = groupsTable
       ? parseMatchScheduleTable(groupsTable, { stage: 'groups' })
       : null;
