@@ -1060,7 +1060,8 @@ function mergeMatchSchedules(groupsSchedule, r16Schedule){
 
 async function loadExternalMatchSchedule(){
   try{
-    const [groupsTable, r16Table] = await Promise.all([
+    let r16Table;
+    const [groupsTable, initialR16Table] = await Promise.all([
       fetchGvizSheetTable(MATCH_SCHEDULE_GROUPS_SHEET_URL).catch(err => {
         console.warn('No se pudo cargar Match Schedule (Groups).', err);
         return null;
@@ -1070,7 +1071,16 @@ async function loadExternalMatchSchedule(){
         return null;
       })
     ]);
-
+    r16Table = initialR16Table;
+    console.log(cellValue(r16Table?.rows?.[3]?.c?.[1]));
+    //corroborar si r16table tiene datos de matchs (Celda B4 no está vacía)
+    if(r16Table && !cellValue(r16Table?.rows?.[3]?.c?.[1])){
+      console.warn('No se encontraron datos de matchs en Round of 16. Intentando URL de respaldo...');
+      r16Table = await fetchGvizSheetTable(MATCH_SCHEDULE_ROUND_OF_16_FALLBACK_URL).catch(err => {
+        console.warn('No se pudo cargar Match Schedule (Round of 16) desde la URL de respaldo.', err);
+        return null;
+      });
+    }
     const groupsSchedule = groupsTable
       ? parseMatchScheduleTable(groupsTable, { stage: 'groups' })
       : null;
@@ -1728,7 +1738,10 @@ function normalizeResultsData(rawResults){
             stage: match.stage || stage
           })))
         : [];
-      const matches = [...directMatches, ...groupMatches].map(match => ({
+      // Si ya existen matches aplanados Y groups, no concatenar ambos (doble conteo al re-normalizar).
+      // Preferir groups como fuente cuando está presente; si no, usar matches.
+      const sourceMatches = groupMatches.length > 0 ? groupMatches : directMatches;
+      const matches = sourceMatches.map(match => ({
         ...match,
         stage: match.stage || stage,
         fixtureDateNumber: number
