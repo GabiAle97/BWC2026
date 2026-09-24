@@ -537,7 +537,7 @@ function renderHomePanel(players = []){
   const container = document.getElementById('inicio-content');
   if(!container) return;
 
-  const results = externalMatchSchedule;
+  const results = externalMatchSchedule || getLoadedResults();
   const matches = Array.isArray(results?.matches) ? results.matches : [];
   const liveMatch = matches
     .map(match => ({ match, schedule: formatScheduledDateTime(match.date, match.time) }))
@@ -566,7 +566,6 @@ function renderHomePanel(players = []){
   const isQf = stage === 'qf' || /cuartos|quarter/i.test(stage + group);
   const isSf = stage === 'sf' || /semi/i.test(stage + group);
   const isFinal = stage === 'final' || (/final/i.test(stage + group) && !/semi/i.test(stage + group));
-  const isKnockout = isR16 || isQf || isSf || isFinal;
 
   const stageLabel = isFinal
     ? t('final')
@@ -584,11 +583,29 @@ function renderHomePanel(players = []){
       ? 'BEST OF 3'
       : 'BEST OF 1';
 
-  // Marcador actual: serie BO3/BO5 si existe; si no, tiempos del mapa en curso / último
   const hasSeries = match.seriesScoreA != null && match.seriesScoreB != null
     && String(match.seriesScoreA).trim() !== '' && String(match.seriesScoreB).trim() !== '';
-  const games = Array.isArray(match.games) ? match.games : [];
-  const lastGame = games.length ? games[games.length - 1] : null;
+
+  // Juegos del schedule + fallback desde sheet de detalles (Match 49/50/51)
+  let games = Array.isArray(match.games) ? match.games.slice() : [];
+  if(externalMatchDetails){
+    const key = [normalizeManualMatchName(match.playerA), normalizeManualMatchName(match.playerB)].sort().join('|');
+    const details = externalMatchDetails.get(key);
+    if(details && Array.isArray(details.games) && details.games.length){
+      const sameOrder = normalizeManualMatchName(details.playerA) === normalizeManualMatchName(match.playerA);
+      const detailGames = details.games.map(game => sameOrder
+        ? { timeA: game.timeA, timeB: game.timeB }
+        : { timeA: game.timeB, timeB: game.timeA }
+      );
+      // Preferir detalles si traen más mapas o si el schedule no tiene juegos
+      if(detailGames.length >= games.length){
+        games = detailGames;
+      }
+    }
+  }
+  if(!games.length && ((match.timeA && match.timeA !== '-') || (match.timeB && match.timeB !== '-'))){
+    games = [{ timeA: match.timeA || '-', timeB: match.timeB || '-' }];
+  }
 
   let displayA;
   let displayB;
@@ -597,14 +614,13 @@ function renderHomePanel(players = []){
     displayA = String(match.seriesScoreA);
     displayB = String(match.seriesScoreB);
     scoreIsSeries = true;
-  }else if(lastGame && (lastGame.timeA || lastGame.timeB)){
-    displayA = lastGame.timeA && lastGame.timeA !== '-' ? formatManualTime(lastGame.timeA) : '-';
-    displayB = lastGame.timeB && lastGame.timeB !== '-' ? formatManualTime(lastGame.timeB) : '-';
+  }else if(games.length){
+    const last = games[games.length - 1];
+    displayA = last.timeA && last.timeA !== '-' ? (formatManualTime(last.timeA) || last.timeA) : '-';
+    displayB = last.timeB && last.timeB !== '-' ? (formatManualTime(last.timeB) || last.timeB) : '-';
   }else{
-    const rawA = match.timeA && match.timeA !== '-' ? formatManualTime(match.timeA) : '-';
-    const rawB = match.timeB && match.timeB !== '-' ? formatManualTime(match.timeB) : '-';
-    displayA = rawA || '-';
-    displayB = rawB || '-';
+    displayA = match.timeA && match.timeA !== '-' ? (formatManualTime(match.timeA) || match.timeA) : '-';
+    displayB = match.timeB && match.timeB !== '-' ? (formatManualTime(match.timeB) || match.timeB) : '-';
   }
 
   const formatGameTime = (raw) => {
@@ -665,6 +681,7 @@ function renderHomePanel(players = []){
     </div>
   `;
 }
+
 
 function getStoredResults(){
   try{
@@ -930,6 +947,16 @@ function parseScheduleDateCells(dayValue, dateValue){
   const fullDate = parseScheduleDayLabel(dateValue);
   if(fullDate) return fullDate;
 
+  // "sept. 24" / "sep 24" / "1 oct."
+  const monthDay = String(dateValue || '').trim().match(/^([A-ZÁÉÍÓÚ]{3,})[.]?\s+(\d{1,2})$/i);
+  if(monthDay){
+    return parseScheduleDayLabel(`DAY 1 ${monthDay[1]} ${monthDay[2]}`);
+  }
+  const dayMonth = String(dateValue || '').trim().match(/^(\d{1,2})\s+([A-ZÁÉÍÓÚ]{3,})[.]?$/i);
+  if(dayMonth){
+    return parseScheduleDayLabel(`DAY 1 ${dayMonth[2]} ${dayMonth[1]}`);
+  }
+
   const compactDate = `${String(dayValue || '').trim()} ${String(dateValue || '').trim()}`
     .replace(/\s+/g, ' ')
     .trim();
@@ -953,7 +980,25 @@ function normalizeScheduleTime(value){
 function isScheduleDetailValue(value){
   const text = String(value || '').trim().toUpperCase();
   const isDiedPattern = /^(DIED|DEAD)\b/.test(text);
-  return text === '' || text === 'DEATH' || text === 'DIED' || text === 'DEAD' || isDiedPattern || /^\d{1,2}:\d{2}(?:\.\d+)?$/.test(text);
+  return text === '' || text === '-' || text === 'DEATH' || text === 'DIED' || text === 'DEAD'
+    || isDiedPattern || /^\d{1,2}:\d{2}(?:\.\d+)?$/.test(text);
+}
+
+function isValidSchedulePlayerName(value){
+  const text = String(value || '').trim();
+  if(!text) return false;
+  if(text === '-' || text === 'TBD' || text === '—' || text === '–') return false;
+  if(isScheduleDetailValue(text)) return false;
+  if(/^DAY\s*\d+/i.test(text)) return false;
+  if(/^BO\s*\d+$/i.test(text)) return false;
+  if(/^GROUP\s+[A-H]$/i.test(text)) return false;
+  // Fechas tipo "sept. 25", "1 oct.", "sep 25"
+  if(/^[a-záéíóúüñ]{3,}\.?\s+\d{1,2}$/i.test(text)) return false;
+  if(/^\d{1,2}\s+[a-záéíóúüñ]{3,}\.?$/i.test(text)) return false;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+  // Solo números o marcadores de serie
+  if(/^\d+$/.test(text)) return false;
+  return true;
 }
 
 function resolveScheduleSeriesWinner(scoreA, scoreB, playerA, playerB){
@@ -975,7 +1020,7 @@ function resolveScheduleSeriesWinner(scoreA, scoreB, playerA, playerB){
 
 function collectScheduleGames(rows, rowIndex, start, scheduleCol){
   const games = [];
-  for(let candidateIndex = rowIndex + 1; candidateIndex <= rowIndex + 5; candidateIndex++){
+  for(let candidateIndex = rowIndex + 1; candidateIndex <= rowIndex + 8; candidateIndex++){
     const candidateRow = rows[candidateIndex];
     if(!candidateRow) break;
 
@@ -983,28 +1028,25 @@ function collectScheduleGames(rows, rowIndex, start, scheduleCol){
     const valueB = getSheetCell(candidateRow, start + 3);
     const groupValue = getSheetCell(candidateRow, scheduleCol);
 
-    // Fila de otro partido (dos nombres de jugadores)
-    const looksLikeAnotherMatchRow = valueA && valueB &&
-      valueA !== 'TBD' && valueB !== 'TBD' &&
-      !isScheduleDetailValue(valueA) && !isScheduleDetailValue(valueB) &&
-      !/GROUP\s+[A-H]/i.test(groupValue) &&
-      !/R\s*16|ROUND\s*OF\s*16|OCTAVOS|BO\s*3/i.test(groupValue);
-    if(looksLikeAnotherMatchRow) break;
+    // Siguiente partido (dos nombres válidos)
+    if(isValidSchedulePlayerName(valueA) && isValidSchedulePlayerName(valueB)) break;
 
     // Encabezado de día
     if(/^DAY\s+\d+/i.test(valueA) || /^DAY\s+\d+/i.test(getSheetCell(candidateRow, 0))) break;
 
-    const hasGameTime = isScheduleDetailValue(valueA) || isScheduleDetailValue(valueB);
-    if(!hasGameTime){
-      // fila GROUP / vacía: seguir buscando juegos
-      if(/GROUP\s+[A-H]/i.test(groupValue) || (!valueA && !valueB)) continue;
-      break;
-    }
+    // Fila BO3 / vacía: seguir buscando tiempos
+    if(/^BO\s*\d+$/i.test(groupValue) && !valueA && !valueB) continue;
+    if(!valueA && !valueB) continue;
 
-    const timeA = valueA || '-';
-    const timeB = valueB || '-';
-    if(timeA === '-' && timeB === '-') continue;
-    games.push({ timeA, timeB });
+    const hasGameTime = isScheduleDetailValue(valueA) || isScheduleDetailValue(valueB);
+    if(!hasGameTime) break;
+
+    // Ambos vacíos o solo guiones → placeholder, ignorar
+    const cleanA = (!valueA || valueA === '-') ? '-' : valueA;
+    const cleanB = (!valueB || valueB === '-') ? '-' : valueB;
+    if(cleanA === '-' && cleanB === '-') continue;
+
+    games.push({ timeA: cleanA, timeB: cleanB });
   }
   return games;
 }
@@ -1063,8 +1105,7 @@ function parseMatchScheduleTable(table, options = {}){
 
       const playerA = getSheetCell(row, start);
       const playerB = getSheetCell(row, start + 3);
-      if(!playerA || !playerB || playerA === 'TBD' || playerB === 'TBD') return;
-      if(isScheduleDetailValue(playerA) || isScheduleDetailValue(playerB)) return;
+      if(!isValidSchedulePlayerName(playerA) || !isValidSchedulePlayerName(playerB)) return;
 
       let detailRowIndex = null;
       for(let candidateIndex = rowIndex + 1; candidateIndex <= rowIndex + 3; candidateIndex++){
@@ -1100,7 +1141,18 @@ function parseMatchScheduleTable(table, options = {}){
       const games = collectScheduleGames(rows, rowIndex, start, schedule);
       const timeA = games[0]?.timeA || getSheetCell(detailRow, start) || '-';
       const timeB = games[0]?.timeB || getSheetCell(detailRow, start + 3) || '-';
-      const scheduleValue = getSheetCell(row, schedule);
+      let scheduleValue = getSheetCell(row, schedule);
+      // En octavos la celda puede ser "BO3"; el horario real suele estar en la misma fila
+      if(/^BO\s*\d+$/i.test(scheduleValue)){
+        // buscar hora en columnas cercanas de la misma fila
+        for(let c = schedule - 2; c <= schedule + 1; c++){
+          const candidate = normalizeScheduleTime(getSheetCell(row, c));
+          if(isScheduleClockTime(candidate)){
+            scheduleValue = candidate;
+            break;
+          }
+        }
+      }
       const normalizedScheduleTime = normalizeScheduleTime(scheduleValue);
       const hasScheduledTime = isScheduleClockTime(normalizedScheduleTime);
       const hasSeriesScore = /^\d+$/.test(String(scoreA).trim()) && /^\d+$/.test(String(scoreB).trim());
@@ -1131,34 +1183,47 @@ function parseMatchScheduleTable(table, options = {}){
     });
   }
 
-  // Grupos: siempre las 3 fechas (aunque alguna esté vacía).
-  // Octavos: solo fechas con partidos cargados.
-  const roundsForLabels = stage === 'r16'
-    ? matchesByRound
-        .map((matches, index) => ({ matches, index }))
-        .filter(({ matches }) => matches.length > 0)
-    : matchesByRound.map((matches, index) => ({ matches, index }));
-  const totalDates = roundsForLabels.length || 1;
-
-  const dates = roundsForLabels.map(({ matches }, labelIndex) => {
-    const number = labelIndex + 1;
-    const baseLabel = `${t('dateLabel')} ${number} ${t('of')} ${totalDates}`;
-    const label = dateLabelPrefix ? `${dateLabelPrefix} · ${baseLabel}` : baseLabel;
-    const groupNames = stage === 'r16'
-      ? [...new Set(matches.map(match => match.group).filter(Boolean))]
-      : [...Object.keys(FINAL_GROUPS), ...new Set(matches.map(match => match.group).filter(group => !FINAL_GROUPS[group]))];
-    return {
-      number,
-      label,
-      stage,
-      groups: groupNames.map(group => ({
-        name: group,
-        matches: removeRescheduledDuplicates(matches)
-          .filter(match => match.group === group)
-          .map(({ group: _g, ...match }) => ({ ...match, stage: match.stage || stage }))
-      }))
-    };
-  });
+  // Grupos: 3 bloques de columnas (fechas 1-3).
+  // Octavos: un solo bloque con los 8 partidos (ordenados por fecha/hora).
+  let dates;
+  if(stage === 'r16'){
+    const allMatches = removeRescheduledDuplicates(matchesByRound.flat())
+      .map(({ group: _g, ...match }) => ({ ...match, group: 'R16', stage: 'r16' }))
+      .sort((a, b) => {
+        const dateCmp = String(a.date || '').localeCompare(String(b.date || ''));
+        if(dateCmp !== 0) return dateCmp;
+        return String(a.time || '').localeCompare(String(b.time || ''));
+      });
+    dates = [{
+      number: 1,
+      label: dateLabelPrefix || t('roundOf16'),
+      stage: 'r16',
+      groups: [{
+        name: 'R16',
+        matches: allMatches
+      }]
+    }];
+  }else{
+    const roundsForLabels = matchesByRound.map((matches, index) => ({ matches, index }));
+    const totalDates = roundsForLabels.length || 1;
+    dates = roundsForLabels.map(({ matches }, labelIndex) => {
+      const number = labelIndex + 1;
+      const baseLabel = `${t('dateLabel')} ${number} ${t('of')} ${totalDates}`;
+      const label = dateLabelPrefix ? `${dateLabelPrefix} · ${baseLabel}` : baseLabel;
+      const groupNames = [...Object.keys(FINAL_GROUPS), ...new Set(matches.map(match => match.group).filter(group => !FINAL_GROUPS[group]))];
+      return {
+        number,
+        label,
+        stage,
+        groups: groupNames.map(group => ({
+          name: group,
+          matches: removeRescheduledDuplicates(matches)
+            .filter(match => match.group === group)
+            .map(({ group: _g, ...match }) => ({ ...match, stage: match.stage || stage }))
+        }))
+      };
+    });
+  }
 
   return normalizeResultsData({ dates });
 }
@@ -1180,7 +1245,7 @@ function mergeMatchSchedules(groupsSchedule, r16Schedule){
   const r16Dates = (r16Schedule.dates || []).map((date, index) => ({
     ...date,
     number: groupsDates.length + index + 1,
-    label: date.label || `${t('roundOf16')} · ${t('dateLabel')} ${index + 1} ${t('of')} ${(r16Schedule.dates || []).length}`,
+    label: date.label || t('roundOf16'),
     stage: 'r16'
   }));
 
@@ -1504,6 +1569,9 @@ async function loadExternalMatchDetails(){
         pendingMatchDetailsModal = null;
         openMatchDetailsModal(playerA, playerB, groupLetter);
       }
+      if(lastLeaderboardSnapshot?.players){
+        renderHomePanel(lastLeaderboardSnapshot.players);
+      }
       return externalMatchDetails;
     }
     throw new Error('Payload de colores vacío');
@@ -1523,6 +1591,9 @@ async function loadExternalMatchDetails(){
       const { playerA, playerB, groupLetter } = pendingMatchDetailsModal;
       pendingMatchDetailsModal = null;
       openMatchDetailsModal(playerA, playerB, groupLetter);
+    }
+    if(lastLeaderboardSnapshot?.players){
+      renderHomePanel(lastLeaderboardSnapshot.players);
     }
     return externalMatchDetails;
   }catch(err){
@@ -2669,24 +2740,34 @@ function renderCalendarFixturePanel(players = []){
   if(storedResults && Array.isArray(storedResults.dates)){
     storedResults.dates.forEach((date, index) => {
       const number = Number(date.number || date.numero || index + 1);
-      const key = `fixture-${number}`;
-      calendarBuckets.set(key, {
-        label: date.label || `${t('dateLabel')} ${number} ${t('of')} ${storedResults.dates.length}`,
-        matches: []
-      });
+      const isR16Date = date.stage === 'r16' || (date.matches || []).some(m => m.stage === 'r16' || m.group === 'R16');
+      // Un solo bloque para todos los octavos
+      const key = isR16Date ? 'fixture-r16' : `fixture-${number}`;
+      if(!calendarBuckets.has(key)){
+        calendarBuckets.set(key, {
+          label: isR16Date ? t('roundOf16') : (date.label || `${t('dateLabel')} ${number} ${t('of')} ${storedResults.dates.length}`),
+          matches: []
+        });
+      }
       (date.matches || []).forEach(record => {
-        const group = resolveManualMatchKey(record) || (date.stage === 'r16' ? 'R16' : null);
+        const group = resolveManualMatchKey(record) || (date.stage === 'r16' || record.stage === 'r16' ? 'R16' : null);
         const playerA = record.playerA || record.jugadorA || record.a || record.teamA || record.player_1;
         const playerB = record.playerB || record.jugadorB || record.b || record.teamB || record.player_2;
-        if(!playerA || !playerB) return;
-        if(!group && date.stage !== 'r16') return;
+        if(!isValidSchedulePlayerName(playerA) || !isValidSchedulePlayerName(playerB)) return;
+        if(!group && date.stage !== 'r16' && record.stage !== 'r16') return;
         calendarBuckets.get(key).matches.push({
           group: group || 'R16',
           stage: date.stage || record.stage || null,
           playerA, playerB,
           date: record.date || record.fecha || record.day || 'Fecha por definir',
           time: record.time || record.horario || 'Horario: por definir',
-          dateNumber: number
+          dateNumber: number,
+          seriesScoreA: record.seriesScoreA ?? null,
+          seriesScoreB: record.seriesScoreB ?? null,
+          games: Array.isArray(record.games) ? record.games : [],
+          winner: record.winner || '',
+          timeA: record.timeA,
+          timeB: record.timeB
         });
       });
     });
@@ -2748,11 +2829,17 @@ function renderCalendarFixturePanel(players = []){
     bucket.matches = [...uniqueMatches.values()];
   }
   const orderedDates = Array.from(calendarBuckets.entries()).sort(([aKey], [bKey]) => {
-    if(aKey.startsWith('fixture-') && bKey.startsWith('fixture-')) return Number(aKey.slice(8)) - Number(bKey.slice(8));
-    if(aKey.startsWith('fixture-')) return -1;
-    if(bKey.startsWith('fixture-')) return 1;
-    if(aKey === 'sin-fecha') return 1;
-    if(bKey === 'sin-fecha') return -1;
+    const rank = (key) => {
+      if(key === 'sin-fecha') return 10000;
+      if(key === 'fixture-r16') return 5000;
+      if(key.startsWith('fixture-')){
+        const n = Number(key.slice(8));
+        return Number.isFinite(n) ? n : 9000;
+      }
+      return 8000;
+    };
+    const diff = rank(aKey) - rank(bKey);
+    if(diff !== 0) return diff;
     return aKey.localeCompare(bKey);
   });
 
