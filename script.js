@@ -84,7 +84,7 @@ const TRANSLATIONS = {
     predictionsShareMenu: 'Compartir predicción', predictionsShareNative: 'Compartir…', predictionsShareX: 'Compartir en X',
     predictionsShareWhatsApp: 'WhatsApp', predictionsShareDiscord: 'Discord',
     predictionsDiscordHint: 'Imagen y mensaje copiados. Pegá en Discord (Ctrl+V / Cmd+V).',
-    statsStageGroups: 'Fase de Grupos', statsStageRo16: 'Octavos', statsStageQf: 'Cuartos',
+    statsStageTournament: 'Torneo', statsStageGroups: 'Fase de Grupos', statsStageRo16: 'Octavos', statsStageQf: 'Cuartos',
     statsStageSf: 'Semifinales', statsStageFinal: 'Final',
     statsMatch: 'Partido', statsComingSoon: 'Estadísticas de esta fase próximamente.',
     statsBasement: 'Basement', statsTrainCrash: 'Train Crash', statsTime: 'Tiempo',
@@ -138,7 +138,7 @@ const TRANSLATIONS = {
     predictionsShareMenu: 'Share prediction', predictionsShareNative: 'Share…', predictionsShareX: 'Share on X',
     predictionsShareWhatsApp: 'WhatsApp', predictionsShareDiscord: 'Discord',
     predictionsDiscordHint: 'Image and message copied. Paste in Discord (Ctrl+V / Cmd+V).',
-    statsStageGroups: 'Group Stage', statsStageRo16: 'Round of 16', statsStageQf: 'Quarterfinals',
+    statsStageTournament: 'Tournament', statsStageGroups: 'Group Stage', statsStageRo16: 'Round of 16', statsStageQf: 'Quarterfinals',
     statsStageSf: 'Semifinals', statsStageFinal: 'Final',
     statsMatch: 'Match', statsComingSoon: 'Statistics for this stage coming soon.',
     statsBasement: 'Basement', statsTrainCrash: 'Train Crash', statsTime: 'Time',
@@ -1662,7 +1662,8 @@ const DEATH_LOCATION_ORDER = [
   'nemy ct',
   '1st floor',
   'carlos',
-  'hunter factory',
+  'hunter factory', // o tambien "factory hunter", que valen igual
+  'factory hunter',
   'nemy acid',
   'neme acid',
   'nemy final'
@@ -1852,6 +1853,110 @@ function renderTournamentWideStats(container, metric){
   renderStatsRankingTable(container, rows, t(labelKey));
 }
 
+function collectTournamentMetricCandidates(metricId){
+  // metricId: mismos ids que fase de grupos
+  const byPlayer = new Map();
+
+  const push = (name, flag, raw) => {
+    const textVal = String(raw || '').trim();
+    if(!textVal || textVal === '-') return;
+    const key = normalizeParticipantName(name);
+    if(!key) return;
+    let entry = byPlayer.get(key);
+    if(!entry){
+      entry = { name, flag: flag || '', values: [] };
+      byPlayer.set(key, entry);
+    }else if(!entry.flag && flag){
+      entry.flag = flag;
+    }
+    entry.values.push(textVal);
+  };
+
+  const isBasement = metricId === 'basement-pb' || metricId === 'worst-basement';
+  const isTrain = metricId === 'train-crash-pb' || metricId === 'worst-train-crash';
+  const isComplete = metricId === 'tournament-best' || metricId === 'worst-tournament-best';
+
+  for(const stats of externalPlayerStats.values()){
+    if(isBasement){
+      push(stats.name, stats.flag, metricId.startsWith('worst') ? stats.worstBasement : stats.basementPb);
+    }else if(isTrain){
+      push(stats.name, stats.flag, metricId.startsWith('worst') ? stats.worstTC : stats.trainCrash);
+    }else if(isComplete){
+      push(stats.name, stats.flag, metricId.startsWith('worst') ? stats.worstTB : stats.tournamentBest);
+    }
+  }
+
+  for(const stageKey of ['ro16', 'qf', 'sf', 'final']){
+    const stageMap = externalKnockoutStats[stageKey] || new Map();
+    for(const stats of stageMap.values()){
+      const matches = stats.matches || {};
+      for(const match of Object.values(matches)){
+        if(!match) continue;
+        if(isBasement) push(stats.name, stats.flag, match.basement);
+        else if(isTrain) push(stats.name, stats.flag, match.trainCrash);
+        else if(isComplete) push(stats.name, stats.flag, match.time);
+      }
+    }
+  }
+
+  return byPlayer;
+}
+
+function pickTournamentValue(values, worstFirst){
+  if(!values.length) return null;
+  const rows = values.map(raw => {
+    const death = isDeathStatValue(raw);
+    return {
+      value: raw,
+      seconds: parsePbSeconds(raw),
+      isDeath: death,
+      deathRank: death ? getDeathLocationRank(raw) : null,
+      name: ''
+    };
+  });
+  sortStatsRows(rows, worstFirst);
+  return rows[0]?.value || null;
+}
+
+function renderTournamentStageStats(container){
+  const statDefinitions = {
+    'basement-pb': { labelKey: 'statsBasementPb', worst: false },
+    'train-crash-pb': { labelKey: 'statsTrainCrashPb', worst: false },
+    'tournament-best': { labelKey: 'statsTournamentBest', worst: false },
+    'worst-basement': { labelKey: 'statsWorstBasement', worst: true },
+    'worst-train-crash': { labelKey: 'statsWorstTrainCrash', worst: true },
+    'worst-tournament-best': { labelKey: 'statsWorstCompleteRun', worst: true }
+  };
+  const metricId = statsUiState.groupMetric;
+  const definition = statDefinitions[metricId] || statDefinitions['basement-pb'];
+  const byPlayer = collectTournamentMetricCandidates(metricId);
+
+  if(!byPlayer.size){
+    container.innerHTML = `<div class="loading">${t('statsComingSoon')}</div>`;
+    return;
+  }
+
+  const rows = sortStatsRows([...byPlayer.values()].map(entry => {
+    const picked = pickTournamentValue(entry.values, definition.worst);
+    if(!picked) return null;
+    const death = isDeathStatValue(picked);
+    return {
+      name: entry.name,
+      flag: getStatsFlagMarkup({ name: entry.name, flag: entry.flag }),
+      value: picked,
+      seconds: parsePbSeconds(picked),
+      isDeath: death,
+      deathRank: death ? getDeathLocationRank(picked) : null
+    };
+  }).filter(Boolean), definition.worst);
+
+  if(!rows.length){
+    container.innerHTML = `<div class="loading">${t('noDataYet')}</div>`;
+    return;
+  }
+  renderStatsRankingTable(container, rows, t(definition.labelKey));
+}
+
 function renderGroupStageStats(container){
   const statDefinitions = {
     'basement-pb': { key: 'basementPb', labelKey: 'statsBasementPb', worst: false },
@@ -1928,7 +2033,7 @@ function buildStatsSubtabs(){
     return;
   }
 
-  if(stage === 'groups'){
+  if(stage === 'groups' || stage === 'tournament'){
     matchTabs.hidden = true;
     matchTabs.innerHTML = '';
     const groupMetrics = [
@@ -1998,7 +2103,7 @@ function renderStatsPanel(){
     if(button.dataset.bound) return;
     button.addEventListener('click', () => {
       statsUiState.stage = button.dataset.statsStage;
-      if(statsUiState.stage === 'groups'){
+      if(statsUiState.stage === 'groups' || statsUiState.stage === 'tournament'){
         statsUiState.groupMetric = 'basement-pb';
       }else if(statsUiState.stage === 'ro16' || statsUiState.stage === 'qf' || statsUiState.stage === 'sf' || statsUiState.stage === 'final'){
         statsUiState.knockoutMatch = 1;
@@ -2020,6 +2125,8 @@ function renderStatsPanel(){
     renderTournamentWideStats(container, stage);
   }else if(stage === 'tabla-final'){
     renderFinalTableStats(container);
+  }else if(stage === 'tournament'){
+    renderTournamentStageStats(container);
   }else if(stage === 'groups'){
     renderGroupStageStats(container);
   }else if(stage === 'ro16' || stage === 'qf' || stage === 'sf' || stage === 'final'){
