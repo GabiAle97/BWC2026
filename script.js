@@ -91,9 +91,12 @@ const TRANSLATIONS = {
     statsOverallPb: 'Overall PB', statsTablaFinal: 'Tabla Final', statsQualifiersPb: 'Qualifiers PB', statsWinRate: 'Win Rate',
     statsFinalBestTime: 'Mejor tiempo', statsFinalWorstTime: 'Peor tiempo', statsFinalDiffPb: 'Diff. PB',
     statsFinalTotalRuns: 'Runs totales', statsFinalFinishedRuns: 'Runs terminadas', statsFinalWinPct: '% wins',
-    statsBasementPb: 'Basement PB', statsTrainCrashPb: 'Train Crash PB',
+    statsBasementPb: 'Basement PB', statsTrainCrashPb: 'Traincrash PB',
+    statsTournamentPb: 'Tournament PB',
     statsTournamentBest: 'Tournament Best', statsWorstBasement: 'Worst Basement',
-    statsWorstTrainCrash: 'Worst Train Crash', statsWorstCompleteRun: 'Worst Complete Run'
+    statsWorstTrainCrash: 'Worst Train Crash', statsWorstCompleteRun: 'Worst Complete Run',
+    statsBestPb: 'Best PB', statsWorstPb: 'Worst PB',
+    statsSortBy: 'Ordenar por', statsSortAsc: 'Ascendente', statsSortDesc: 'Descendente'
   },
   en: {
     navInicio: 'Home', navTabla: 'Qualifiers', navStats: 'Statistics',
@@ -145,9 +148,12 @@ const TRANSLATIONS = {
     statsOverallPb: 'Overall PB', statsTablaFinal: 'Final Table', statsQualifiersPb: 'Qualifiers PB', statsWinRate: 'Win Rate',
     statsFinalBestTime: 'Best time', statsFinalWorstTime: 'Worst time', statsFinalDiffPb: 'Diff. PB',
     statsFinalTotalRuns: 'Total runs', statsFinalFinishedRuns: 'Finished runs', statsFinalWinPct: '% wins',
-    statsBasementPb: 'Basement PB', statsTrainCrashPb: 'Train Crash PB',
+    statsBasementPb: 'Basement PB', statsTrainCrashPb: 'Traincrash PB',
+    statsTournamentPb: 'Tournament PB',
     statsTournamentBest: 'Tournament Best', statsWorstBasement: 'Worst Basement',
-    statsWorstTrainCrash: 'Worst Train Crash', statsWorstCompleteRun: 'Worst Complete Run'
+    statsWorstTrainCrash: 'Worst Train Crash', statsWorstCompleteRun: 'Worst Complete Run',
+    statsBestPb: 'Best PB', statsWorstPb: 'Worst PB',
+    statsSortBy: 'Sort by', statsSortAsc: 'Ascending', statsSortDesc: 'Descending'
   }
 };
 
@@ -216,9 +222,8 @@ let externalMatchSchedule = null;
 let externalMatchScheduleLoad = null;
 let statsUiState = {
   stage: 'overall',
-  groupMetric: 'basement-pb',
-  knockoutMatch: 1,
-  knockoutMetric: 'basement'
+  dualSortBy: 'best',   // 'best' | 'worst'
+  dualSortDir: 'asc'    // 'asc' | 'desc'
 };
 
 const QUALIFYING_PARTICIPANTS = [
@@ -504,6 +509,104 @@ function isMatchLive(startDate){
   return elapsed >= 0 && elapsed <= LIVE_WINDOW_MS;
 }
 
+function getTwitchLoginFromStreamUrl(url = LIVE_STREAM_URL){
+  const match = String(url || '').match(/twitch\.tv\/([a-zA-Z0-9_]+)/i);
+  return match ? match[1].toLowerCase() : 'basementcup';
+}
+
+let twitchLiveCache = { checkedAt: 0, isLive: false, login: null };
+const TWITCH_LIVE_CACHE_MS = 30 * 1000;
+
+/**
+ * ¿El canal de Twitch está transmitiendo ahora?
+ * No lee el contenido del video (eso requeriría OCR/backend);
+ * usa el estado "online" del stream como señal de que hay transmisión.
+ */
+async function fetchTwitchChannelIsLive(login = getTwitchLoginFromStreamUrl()){
+  const now = Date.now();
+  if(twitchLiveCache.login === login && (now - twitchLiveCache.checkedAt) < TWITCH_LIVE_CACHE_MS){
+    return twitchLiveCache.isLive;
+  }
+
+  let isLive = false;
+  try{
+    // decapi: responde uptime si está en vivo, o mensaje de offline
+    const response = await fetch(`https://decapi.me/twitch/uptime/${encodeURIComponent(login)}`, {
+      cache: 'no-store'
+    });
+    const text = String(await response.text() || '').trim().toLowerCase();
+    if(response.ok){
+      const offline = /not live|is offline|offline|does not exist|unavailable|error/.test(text);
+      isLive = text.length > 0 && !offline;
+    }
+  }catch(err){
+    console.warn('No se pudo consultar el estado del stream de Twitch.', err);
+    isLive = twitchLiveCache.isLive; // conservar último valor conocido
+  }
+
+  twitchLiveCache = { checkedAt: now, isLive, login };
+  return isLive;
+}
+
+function isSeriesDecided(match){
+  if(!match) return false;
+  if(match.winner) return true;
+  const a = Number(match.seriesScoreA);
+  const b = Number(match.seriesScoreB);
+  if(!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  const stage = String(match.stage || '').toLowerCase();
+  const group = String(match.group || '');
+  const isFinal = stage === 'final' || (/final/i.test(stage + group) && !/semi/i.test(stage + group));
+  const isKnockout = stage === 'r16' || group === 'R16'
+    || /octavos|qf|sf|cuartos|semi|final|round\s*of\s*16/i.test(stage + group);
+  if(!isKnockout) return (a >= 1 && b === 0) || (b >= 1 && a === 0);
+  return a >= (isFinal ? 3 : 2) || b >= (isFinal ? 3 : 2);
+}
+
+/**
+ * Candidato a EN VIVO: el stream está on Y el partido ya debería haber empezado
+ * (horario del fixture) Y la serie no terminó. Así no marcamos un partido
+ * futuro solo porque el canal está en vivo (charla, espera, etc.).
+ */
+function isFixtureMatchLiveCandidate(match, scheduleDate, streamIsLive){
+  if(!streamIsLive || !match) return false;
+  if(isSeriesDecided(match)) return false;
+  if(!scheduleDate) return false;
+  return isMatchLive(scheduleDate);
+}
+
+
+const LIVE_STATUS_POLL_MS = 30 * 1000;
+let liveStatusPollTimer = null;
+
+async function refreshLiveStatusFromStream(){
+  try{
+    await fetchTwitchChannelIsLive();
+    // Refrescar schedule por si cambió el marcador mientras transmite
+    await loadExternalMatchSchedule();
+    if(lastLeaderboardSnapshot?.players){
+      renderHomePanel(lastLeaderboardSnapshot.players);
+      const fixturePanel = document.getElementById('fixture');
+      if(fixturePanel && fixturePanel.classList.contains('active')){
+        renderFixturePanel(lastLeaderboardSnapshot.players);
+      }
+    }
+  }catch(err){
+    console.warn('No se pudo actualizar el estado en vivo.', err);
+  }
+}
+
+function startLiveStatusPolling(){
+  if(liveStatusPollTimer) return;
+  // Primera consulta inmediata del stream
+  fetchTwitchChannelIsLive().then(() => {
+    if(lastLeaderboardSnapshot?.players){
+      renderHomePanel(lastLeaderboardSnapshot.players);
+    }
+  });
+  liveStatusPollTimer = setInterval(refreshLiveStatusFromStream, LIVE_STATUS_POLL_MS);
+}
+
 function getPlayerAvatarMarkup(player, avatar){
   const imageUrl = player?.assets?.image?.uri;
   if (avatar) {
@@ -539,9 +642,10 @@ function renderHomePanel(players = []){
 
   const results = externalMatchSchedule || getLoadedResults();
   const matches = Array.isArray(results?.matches) ? results.matches : [];
+  const streamIsLive = Boolean(twitchLiveCache.isLive);
   const liveMatch = matches
     .map(match => ({ match, schedule: formatScheduledDateTime(match.date, match.time) }))
-    .find(item => item.schedule && isMatchLive(item.schedule.date));
+    .find(item => item.schedule && isFixtureMatchLiveCandidate(item.match, item.schedule.date, streamIsLive));
 
   if(!liveMatch){
     container.innerHTML = `
@@ -817,11 +921,13 @@ async function loadKnockoutStageStats(url, stageKey, matchCount){
       const matches = {};
       for(let m = 1; m <= matchCount; m++){
         const base = 6 + (m - 1) * 3;
-        matches[m] = {
+        const matchData = {
           basement: sheetCellValue(row, base),
           trainCrash: sheetCellValue(row, base + 1),
           time: sheetCellValue(row, base + 2)
         };
+        matches[m] = matchData;
+        matches[String(m)] = matchData;
       }
       map.set(normalizeParticipantName(name), {
         name,
@@ -1144,7 +1250,6 @@ function parseMatchScheduleTable(table, options = {}){
       let scheduleValue = getSheetCell(row, schedule);
       // En octavos la celda puede ser "BO3"; el horario real suele estar en la misma fila
       if(/^BO\s*\d+$/i.test(scheduleValue)){
-        // buscar hora en columnas cercanas de la misma fila
         for(let c = schedule - 2; c <= schedule + 1; c++){
           const candidate = normalizeScheduleTime(getSheetCell(row, c));
           if(isScheduleClockTime(candidate)){
@@ -1572,6 +1677,7 @@ async function loadExternalMatchDetails(){
       if(lastLeaderboardSnapshot?.players){
         renderHomePanel(lastLeaderboardSnapshot.players);
       }
+      renderStatsPanel();
       return externalMatchDetails;
     }
     throw new Error('Payload de colores vacío');
@@ -1595,6 +1701,7 @@ async function loadExternalMatchDetails(){
     if(lastLeaderboardSnapshot?.players){
       renderHomePanel(lastLeaderboardSnapshot.players);
     }
+    renderStatsPanel();
     return externalMatchDetails;
   }catch(err){
     externalMatchDetails = null;
@@ -1662,8 +1769,7 @@ const DEATH_LOCATION_ORDER = [
   'nemy ct',
   '1st floor',
   'carlos',
-  'hunter factory', // o tambien "factory hunter", que valen igual
-  'factory hunter',
+  'hunter factory',
   'nemy acid',
   'neme acid',
   'nemy final'
@@ -1853,53 +1959,146 @@ function renderTournamentWideStats(container, metric){
   renderStatsRankingTable(container, rows, t(labelKey));
 }
 
-function collectTournamentMetricCandidates(metricId){
-  // metricId: mismos ids que fase de grupos
+function playersShareGroup(playerA, playerB){
+  const a = normalizeParticipantName(playerA);
+  const b = normalizeParticipantName(playerB);
+  if(!a || !b || a === b) return false;
+  return Object.values(FINAL_GROUPS).some(members => {
+    const names = members.map(normalizeParticipantName);
+    return names.includes(a) && names.includes(b);
+  });
+}
+
+function pushStatCandidate(byPlayer, name, flag, raw){
+  const textVal = String(raw || '').trim();
+  if(!textVal || textVal === '-') return;
+  const key = normalizeParticipantName(name);
+  if(!key) return;
+  let entry = byPlayer.get(key);
+  if(!entry){
+    entry = { name, flag: flag || '', values: [] };
+    byPlayer.set(key, entry);
+  }else if(!entry.flag && flag){
+    entry.flag = flag;
+  }
+  if(!entry.values.includes(textVal)) entry.values.push(textVal);
+}
+
+function metricKindFromId(metricId){
+  if(metricId === 'basement-pb' || metricId === 'worst-basement') return 'basement';
+  if(metricId === 'train-crash-pb' || metricId === 'worst-train-crash') return 'trainCrash';
+  if(metricId === 'tournament-best' || metricId === 'worst-tournament-best') return 'time';
+  return null;
+}
+
+function extractDetailMetricForSide(game, side, kind){
+  if(!game) return '';
+  if(kind === 'time'){
+    return side === 'A' ? (game.timeA || '') : (game.timeB || '');
+  }
+  const segments = Array.isArray(game.segments) ? game.segments : [];
+  const labelMatch = kind === 'basement'
+    ? /^basement$/i
+    : /train\s*crash|^tc$/i;
+  const seg = segments.find(s => labelMatch.test(String(s.label || '').trim()));
+  if(!seg) return '';
+  return side === 'A' ? (seg.valueA || '') : (seg.valueB || '');
+}
+
+/** Valores por jugador desde Match Details. pairFilter(a,b) → true para incluir el cruce. */
+function collectMetricsFromMatchDetails(metricId, pairFilter){
   const byPlayer = new Map();
+  const kind = metricKindFromId(metricId);
+  if(!kind || !externalMatchDetails || typeof externalMatchDetails.values !== 'function') return byPlayer;
 
-  const push = (name, flag, raw) => {
-    const textVal = String(raw || '').trim();
-    if(!textVal || textVal === '-') return;
-    const key = normalizeParticipantName(name);
-    if(!key) return;
-    let entry = byPlayer.get(key);
-    if(!entry){
-      entry = { name, flag: flag || '', values: [] };
-      byPlayer.set(key, entry);
-    }else if(!entry.flag && flag){
-      entry.flag = flag;
-    }
-    entry.values.push(textVal);
-  };
+  for(const entry of externalMatchDetails.values()){
+    const playerA = entry.playerA;
+    const playerB = entry.playerB;
+    if(!playerA || !playerB) continue;
+    if(typeof pairFilter === 'function' && !pairFilter(playerA, playerB)) continue;
 
-  const isBasement = metricId === 'basement-pb' || metricId === 'worst-basement';
-  const isTrain = metricId === 'train-crash-pb' || metricId === 'worst-train-crash';
-  const isComplete = metricId === 'tournament-best' || metricId === 'worst-tournament-best';
+    const games = Array.isArray(entry.games) && entry.games.length
+      ? entry.games
+      : [{ timeA: entry.timeA, timeB: entry.timeB, segments: entry.segments || [] }];
 
-  for(const stats of externalPlayerStats.values()){
-    if(isBasement){
-      push(stats.name, stats.flag, metricId.startsWith('worst') ? stats.worstBasement : stats.basementPb);
-    }else if(isTrain){
-      push(stats.name, stats.flag, metricId.startsWith('worst') ? stats.worstTC : stats.trainCrash);
-    }else if(isComplete){
-      push(stats.name, stats.flag, metricId.startsWith('worst') ? stats.worstTB : stats.tournamentBest);
+    for(const game of games){
+      pushStatCandidate(byPlayer, playerA, null, extractDetailMetricForSide(game, 'A', kind));
+      pushStatCandidate(byPlayer, playerB, null, extractDetailMetricForSide(game, 'B', kind));
     }
   }
+  return byPlayer;
+}
+
+function collectKnockoutSheetMetrics(metricId){
+  const byPlayer = new Map();
+  const kind = metricKindFromId(metricId);
+  if(!kind) return byPlayer;
 
   for(const stageKey of ['ro16', 'qf', 'sf', 'final']){
-    const stageMap = externalKnockoutStats[stageKey] || new Map();
+    const stageMap = externalKnockoutStats[stageKey];
+    if(!stageMap || typeof stageMap.values !== 'function') continue;
     for(const stats of stageMap.values()){
       const matches = stats.matches || {};
-      for(const match of Object.values(matches)){
+      for(let m = 1; m <= 5; m++){
+        const match = matches[m] || matches[String(m)];
         if(!match) continue;
-        if(isBasement) push(stats.name, stats.flag, match.basement);
-        else if(isTrain) push(stats.name, stats.flag, match.trainCrash);
-        else if(isComplete) push(stats.name, stats.flag, match.time);
+        if(kind === 'basement') pushStatCandidate(byPlayer, stats.name, stats.flag, match.basement);
+        else if(kind === 'trainCrash') pushStatCandidate(byPlayer, stats.name, stats.flag, match.trainCrash);
+        else if(kind === 'time') pushStatCandidate(byPlayer, stats.name, stats.flag, match.time);
       }
     }
   }
-
   return byPlayer;
+}
+
+function mergeStatCandidateMaps(...maps){
+  const merged = new Map();
+  for(const map of maps){
+    if(!map) continue;
+    for(const [key, entry] of map.entries()){
+      for(const value of entry.values){
+        pushStatCandidate(merged, entry.name, entry.flag, value);
+      }
+    }
+  }
+  return merged;
+}
+
+/** Solo fase de grupos: partidos entre jugadores del mismo grupo (Match Details). */
+function collectGroupStageMetricCandidates(metricId){
+  const fromDetails = collectMetricsFromMatchDetails(metricId, playersShareGroup);
+  // Si no hay details aún, no usar STATS_SHEET "best" (puede incluir eliminatorias).
+  // Solo rellenar jugadores sin ningún valor de details con la hoja, como último recurso.
+  const kind = metricKindFromId(metricId);
+  const wantWorst = String(metricId || '').startsWith('worst');
+  for(const stats of externalPlayerStats.values()){
+    const key = normalizeParticipantName(stats.name);
+    if(fromDetails.has(key) && fromDetails.get(key).values.length) continue;
+    let raw = '';
+    if(kind === 'basement') raw = wantWorst ? stats.worstBasement : stats.basementPb;
+    else if(kind === 'trainCrash') raw = wantWorst ? stats.worstTC : stats.trainCrash;
+    else if(kind === 'time') raw = wantWorst ? stats.worstTB : stats.tournamentBest;
+    pushStatCandidate(fromDetails, stats.name, stats.flag, raw);
+  }
+  return fromDetails;
+}
+
+/** Todo el torneo: hoja STATS_SHEET (best/worst globales del torneo).
+ *  No usa Match Details — esa fuente queda solo para Fase de Grupos. */
+function collectTournamentMetricCandidates(metricId){
+  const fromSummary = new Map();
+  const kind = metricKindFromId(metricId);
+  const wantWorst = String(metricId || '').startsWith('worst');
+
+  for(const stats of externalPlayerStats.values()){
+    let raw = '';
+    if(kind === 'basement') raw = wantWorst ? stats.worstBasement : stats.basementPb;
+    else if(kind === 'trainCrash') raw = wantWorst ? stats.worstTC : stats.trainCrash;
+    else if(kind === 'time') raw = wantWorst ? stats.worstTB : stats.tournamentBest;
+    pushStatCandidate(fromSummary, stats.name, stats.flag, raw);
+  }
+
+  return fromSummary;
 }
 
 function pickTournamentValue(values, worstFirst){
@@ -1958,31 +2157,42 @@ function renderTournamentStageStats(container){
 }
 
 function renderGroupStageStats(container){
+  // Solo partidos de fase de grupos (mismo grupo en Match Details)
   const statDefinitions = {
-    'basement-pb': { key: 'basementPb', labelKey: 'statsBasementPb', worst: false },
-    'train-crash-pb': { key: 'trainCrash', labelKey: 'statsTrainCrashPb', worst: false },
-    'tournament-best': { key: 'tournamentBest', labelKey: 'statsTournamentBest', worst: false },
-    'worst-basement': { key: 'worstBasement', labelKey: 'statsWorstBasement', worst: true },
-    'worst-train-crash': { key: 'worstTC', labelKey: 'statsWorstTrainCrash', worst: true },
-    'worst-tournament-best': { key: 'worstTB', labelKey: 'statsWorstCompleteRun', worst: true }
+    'basement-pb': { labelKey: 'statsBasementPb', worst: false },
+    'train-crash-pb': { labelKey: 'statsTrainCrashPb', worst: false },
+    'tournament-best': { labelKey: 'statsTournamentBest', worst: false },
+    'worst-basement': { labelKey: 'statsWorstBasement', worst: true },
+    'worst-train-crash': { labelKey: 'statsWorstTrainCrash', worst: true },
+    'worst-tournament-best': { labelKey: 'statsWorstCompleteRun', worst: true }
   };
-  const definition = statDefinitions[statsUiState.groupMetric] || statDefinitions['basement-pb'];
-  if(!externalPlayerStats.size){
-    container.innerHTML = `<div class="loading">${t('statsLoadError')}</div>`;
+  const metricId = statsUiState.groupMetric;
+  const definition = statDefinitions[metricId] || statDefinitions['basement-pb'];
+  const byPlayer = collectGroupStageMetricCandidates(metricId);
+
+  if(!byPlayer.size){
+    container.innerHTML = `<div class="loading">${externalMatchDetails ? t('noDataYet') : t('loadingStats')}</div>`;
     return;
   }
-  const rows = sortStatsRows([...externalPlayerStats.values()].map(stats => {
-    const raw = stats[definition.key] || '-';
-    const death = isDeathStatValue(raw);
+
+  const rows = sortStatsRows([...byPlayer.values()].map(entry => {
+    const picked = pickTournamentValue(entry.values, definition.worst);
+    if(!picked) return null;
+    const death = isDeathStatValue(picked);
     return {
-      name: stats.name,
-      flag: getStatsFlagMarkup(stats),
-      value: raw,
-      seconds: parsePbSeconds(raw),
+      name: entry.name,
+      flag: getStatsFlagMarkup({ name: entry.name, flag: entry.flag }),
+      value: picked,
+      seconds: parsePbSeconds(picked),
       isDeath: death,
-      deathRank: death ? getDeathLocationRank(raw) : null
+      deathRank: death ? getDeathLocationRank(picked) : null
     };
-  }), definition.worst);
+  }).filter(Boolean), definition.worst);
+
+  if(!rows.length){
+    container.innerHTML = `<div class="loading">${t('noDataYet')}</div>`;
+    return;
+  }
   renderStatsRankingTable(container, rows, t(definition.labelKey));
 }
 
@@ -2018,81 +2228,155 @@ function renderKnockoutStageStats(container, stageKey){
   renderStatsRankingTable(container, rows, t(labelKey));
 }
 
+function compareDualPbField(a, b, field, dir){
+  // field: 'best' | 'worst'
+  // dir: 'asc' = mejor primero (tiempo más bajo; DIED al final)
+  //      'desc' = peor primero (DIED primero; tiempo más alto)
+  const valueKey = field === 'worst' ? 'worstValue' : 'bestValue';
+  const secondsKey = field === 'worst' ? 'worstSeconds' : 'bestSeconds';
+  const deathKey = field === 'worst' ? 'worstIsDeath' : 'bestIsDeath';
+  const deathRankKey = field === 'worst' ? 'worstDeathRank' : 'bestDeathRank';
+
+  const aDeath = Boolean(a[deathKey]);
+  const bDeath = Boolean(b[deathKey]);
+  const aSec = a[secondsKey];
+  const bSec = b[secondsKey];
+  const nameCmp = () => a.name.localeCompare(b.name);
+
+  if(dir === 'desc'){
+    // Peor primero
+    if(aDeath && !bDeath) return -1;
+    if(bDeath && !aDeath) return 1;
+    if(aDeath && bDeath){
+      const rankA = a[deathRankKey] ?? getDeathLocationRank(a[valueKey]);
+      const rankB = b[deathRankKey] ?? getDeathLocationRank(b[valueKey]);
+      if(rankA !== rankB) return rankA - rankB;
+      return nameCmp();
+    }
+    if(aSec == null && bSec == null) return nameCmp();
+    if(aSec == null) return 1;
+    if(bSec == null) return -1;
+    return bSec - aSec || nameCmp();
+  }
+
+  // Ascendente: mejor primero
+  if(aDeath && !bDeath) return 1;
+  if(bDeath && !aDeath) return -1;
+  if(aDeath && bDeath){
+    const rankA = a[deathRankKey] ?? getDeathLocationRank(a[valueKey]);
+    const rankB = b[deathRankKey] ?? getDeathLocationRank(b[valueKey]);
+    if(rankA !== rankB) return rankB - rankA;
+    return nameCmp();
+  }
+  if(aSec == null && bSec == null) return nameCmp();
+  if(aSec == null) return 1;
+  if(bSec == null) return -1;
+  return aSec - bSec || nameCmp();
+}
+
+function sortDualPbRows(rows, sortBy, sortDir){
+  rows.sort((a, b) => compareDualPbField(a, b, sortBy, sortDir));
+  return rows;
+}
+
+function renderDualPbStats(container, stage){
+  // stage: basement-pb | traincrash-pb | tournament-pb
+  // Datos desde STATS_SHEET (externalPlayerStats)
+  const fieldMap = {
+    'basement-pb': { best: 'basementPb', worst: 'worstBasement', titleKey: 'statsBasementPb' },
+    'traincrash-pb': { best: 'trainCrash', worst: 'worstTC', titleKey: 'statsTrainCrashPb' },
+    'tournament-pb': { best: 'tournamentBest', worst: 'worstTB', titleKey: 'statsTournamentPb' }
+  };
+  const fields = fieldMap[stage] || fieldMap['basement-pb'];
+
+  if(!externalPlayerStats.size){
+    container.innerHTML = `<div class="loading">${t('statsLoadError')}</div>`;
+    return;
+  }
+
+  if(statsUiState.dualSortBy !== 'best' && statsUiState.dualSortBy !== 'worst'){
+    statsUiState.dualSortBy = 'best';
+  }
+  if(statsUiState.dualSortDir !== 'asc' && statsUiState.dualSortDir !== 'desc'){
+    statsUiState.dualSortDir = 'asc';
+  }
+
+  const rows = sortDualPbRows([...externalPlayerStats.values()].map(stats => {
+    const bestRaw = stats[fields.best] || '-';
+    const worstRaw = stats[fields.worst] || '-';
+    const bestDeath = isDeathStatValue(bestRaw);
+    const worstDeath = isDeathStatValue(worstRaw);
+    return {
+      name: stats.name,
+      flag: getStatsFlagMarkup(stats),
+      bestValue: bestRaw,
+      bestSeconds: parsePbSeconds(bestRaw),
+      bestIsDeath: bestDeath,
+      bestDeathRank: bestDeath ? getDeathLocationRank(bestRaw) : null,
+      worstValue: worstRaw,
+      worstSeconds: parsePbSeconds(worstRaw),
+      worstIsDeath: worstDeath,
+      worstDeathRank: worstDeath ? getDeathLocationRank(worstRaw) : null
+    };
+  }).filter(row => (row.bestValue && row.bestValue !== '-') || (row.worstValue && row.worstValue !== '-')),
+  statsUiState.dualSortBy,
+  statsUiState.dualSortDir);
+
+  if(!rows.length){
+    container.innerHTML = `<div class="loading">${t('noDataYet')}</div>`;
+    return;
+  }
+
+  const sortBy = statsUiState.dualSortBy;
+  const sortDir = statsUiState.dualSortDir;
+  const arrow = sortDir === 'asc' ? '▲' : '▼';
+
+  const header = `
+    <tr>
+      <th>#</th>
+      <th>${t('player')}</th>
+      <th class="stats-sortable${sortBy === 'best' ? ' is-sorted' : ''}" data-sort-by="best">${t('statsBestPb')}${sortBy === 'best' ? ` ${arrow}` : ''}</th>
+      <th class="stats-sortable${sortBy === 'worst' ? ' is-sorted' : ''}" data-sort-by="worst">${t('statsWorstPb')}${sortBy === 'worst' ? ` ${arrow}` : ''}</th>
+    </tr>`;
+
+  const body = rows.map((row, index) => {
+    const bestMissing = row.bestSeconds == null && !row.bestIsDeath;
+    const worstMissing = row.worstSeconds == null && !row.worstIsDeath;
+    return `<tr class="${index === 0 ? 'stats-first' : ''} ${index === rows.length - 1 ? 'stats-last' : ''}">
+      <td class="stats-rank">${index + 1}</td>
+      <td class="stats-player"><button class="player-profile-button stats-player-button" type="button" data-player-name="${row.name}">${row.flag ? `<span class="flag">${row.flag}</span>` : ''}<span>${row.name}</span></button></td>
+      <td class="stats-value${bestMissing ? ' stats-missing' : ''}${sortBy === 'best' ? ' stats-sorted-col' : ''}">${row.bestValue || '-'}</td>
+      <td class="stats-value${worstMissing ? ' stats-missing' : ''}${sortBy === 'worst' ? ' stats-sorted-col' : ''}">${row.worstValue || '-'}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `<div class="stats-table-wrap"><table class="stats-table stats-dual-table"><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
+
+  container.querySelectorAll('[data-sort-by]').forEach(el => {
+    el.addEventListener('click', () => {
+      const next = el.getAttribute('data-sort-by');
+      if(statsUiState.dualSortBy === next){
+        statsUiState.dualSortDir = statsUiState.dualSortDir === 'asc' ? 'desc' : 'asc';
+      }else{
+        statsUiState.dualSortBy = next;
+        statsUiState.dualSortDir = next === 'worst' ? 'desc' : 'asc';
+      }
+      renderStatsPanel();
+    });
+  });
+  container.querySelector('[data-sort-dir-toggle]')?.addEventListener('click', () => {
+    statsUiState.dualSortDir = statsUiState.dualSortDir === 'asc' ? 'desc' : 'asc';
+    renderStatsPanel();
+  });
+}
+
 function buildStatsSubtabs(){
   const subtabs = document.getElementById('stats-subtabs');
   const matchTabs = document.getElementById('stats-match-tabs');
   if(!subtabs || !matchTabs) return;
-
-  const stage = statsUiState.stage;
-
-  // Tournament-wide categories: no subtabs / match tabs
-  if(stage === 'overall' || stage === 'tabla-final' || stage === 'win-rate'){
-    matchTabs.hidden = true;
-    matchTabs.innerHTML = '';
-    subtabs.innerHTML = '';
-    return;
-  }
-
-  if(stage === 'groups' || stage === 'tournament'){
-    matchTabs.hidden = true;
-    matchTabs.innerHTML = '';
-    const groupMetrics = [
-      { id: 'basement-pb', labelKey: 'statsBasementPb' },
-      { id: 'train-crash-pb', labelKey: 'statsTrainCrashPb' },
-      { id: 'tournament-best', labelKey: 'statsTournamentBest' },
-      { id: 'worst-basement', labelKey: 'statsWorstBasement' },
-      { id: 'worst-train-crash', labelKey: 'statsWorstTrainCrash' },
-      { id: 'worst-tournament-best', labelKey: 'statsWorstCompleteRun' }
-    ];
-    if(!groupMetrics.some(m => m.id === statsUiState.groupMetric)){
-      statsUiState.groupMetric = 'basement-pb';
-    }
-    subtabs.innerHTML = groupMetrics.map(m =>
-      `<button class="stats-tab-button${m.id === statsUiState.groupMetric ? ' active' : ''}" type="button" data-stats-target="${m.id}">${t(m.labelKey)}</button>`
-    ).join('');
-    subtabs.querySelectorAll('.stats-tab-button').forEach(button => {
-      button.addEventListener('click', () => {
-        statsUiState.groupMetric = button.dataset.statsTarget;
-        renderStatsPanel();
-      });
-    });
-    return;
-  }
-
-  const matchCount = stage === 'final' ? 5 : 3;
-  if(statsUiState.knockoutMatch < 1 || statsUiState.knockoutMatch > matchCount){
-    statsUiState.knockoutMatch = 1;
-  }
-
-  matchTabs.hidden = false;
-  matchTabs.innerHTML = Array.from({ length: matchCount }, (_, i) => {
-    const n = i + 1;
-    return `<button class="stats-match-button${n === statsUiState.knockoutMatch ? ' active' : ''}" type="button" data-stats-match="${n}">${t('statsMatch')} ${n}</button>`;
-  }).join('');
-  matchTabs.querySelectorAll('.stats-match-button').forEach(button => {
-    button.addEventListener('click', () => {
-      statsUiState.knockoutMatch = Number(button.dataset.statsMatch);
-      renderStatsPanel();
-    });
-  });
-
-  const knockoutMetrics = [
-    { id: 'basement', labelKey: 'statsBasement' },
-    { id: 'train-crash', labelKey: 'statsTrainCrash' },
-    { id: 'time', labelKey: 'statsTime' }
-  ];
-  if(!knockoutMetrics.some(m => m.id === statsUiState.knockoutMetric)){
-    statsUiState.knockoutMetric = 'basement';
-  }
-  subtabs.innerHTML = knockoutMetrics.map(m =>
-    `<button class="stats-tab-button${m.id === statsUiState.knockoutMetric ? ' active' : ''}" type="button" data-stats-target="${m.id}">${t(m.labelKey)}</button>`
-  ).join('');
-  subtabs.querySelectorAll('.stats-tab-button').forEach(button => {
-    button.addEventListener('click', () => {
-      statsUiState.knockoutMetric = button.dataset.statsTarget;
-      renderStatsPanel();
-    });
-  });
+  matchTabs.hidden = true;
+  matchTabs.innerHTML = '';
+  subtabs.innerHTML = '';
 }
 
 function renderStatsPanel(){
@@ -2103,11 +2387,9 @@ function renderStatsPanel(){
     if(button.dataset.bound) return;
     button.addEventListener('click', () => {
       statsUiState.stage = button.dataset.statsStage;
-      if(statsUiState.stage === 'groups' || statsUiState.stage === 'tournament'){
-        statsUiState.groupMetric = 'basement-pb';
-      }else if(statsUiState.stage === 'ro16' || statsUiState.stage === 'qf' || statsUiState.stage === 'sf' || statsUiState.stage === 'final'){
-        statsUiState.knockoutMatch = 1;
-        statsUiState.knockoutMetric = 'basement';
+      if(statsUiState.stage === 'basement-pb' || statsUiState.stage === 'traincrash-pb' || statsUiState.stage === 'tournament-pb'){
+        statsUiState.dualSortBy = 'best';
+        statsUiState.dualSortDir = 'asc';
       }
       renderStatsPanel();
     });
@@ -2125,14 +2407,12 @@ function renderStatsPanel(){
     renderTournamentWideStats(container, stage);
   }else if(stage === 'tabla-final'){
     renderFinalTableStats(container);
-  }else if(stage === 'tournament'){
-    renderTournamentStageStats(container);
-  }else if(stage === 'groups'){
-    renderGroupStageStats(container);
-  }else if(stage === 'ro16' || stage === 'qf' || stage === 'sf' || stage === 'final'){
-    renderKnockoutStageStats(container, stage);
+  }else if(stage === 'basement-pb' || stage === 'traincrash-pb' || stage === 'tournament-pb'){
+    renderDualPbStats(container, stage);
   }else{
-    container.innerHTML = `<div class="loading">${t('statsComingSoon')}</div>`;
+    // Fases eliminadas: redirigir a overall
+    statsUiState.stage = 'overall';
+    renderTournamentWideStats(container, 'overall');
   }
 }
 
@@ -3006,7 +3286,8 @@ function renderCalendarFixturePanel(players = []){
         const scheduledDate = resultMatch && (resultMatch.date || resultMatch.fecha) ? (resultMatch.date || resultMatch.fecha) : match.date;
         const scheduledTime = resultMatch && (resultMatch.time || resultMatch.horario) ? (resultMatch.time || resultMatch.horario) : match.time;
         const schedule = formatScheduledDateTime(scheduledDate, scheduledTime);
-        const liveButton = schedule && isMatchLive(schedule.date)
+        const liveSource = resultMatch || match;
+        const liveButton = isFixtureMatchLiveCandidate(liveSource, schedule?.date, Boolean(twitchLiveCache.isLive))
           ? `<a class="fixture-live-button" href="${LIVE_STREAM_URL}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${t('live')}</a>`
           : '';
 
@@ -4982,6 +5263,7 @@ async function loadLeaderboard(){
     const json = await fetchLeaderboardData();
     // Match details (colores/segmentos) se carga en background: no bloquea el arranque
     await Promise.all([externalStatsLoad, externalMatchScheduleLoad]);
+    startLiveStatusPolling();
     const data = json.data;
     const players = data.players.data;
     const runs = Array.isArray(data.runs)
