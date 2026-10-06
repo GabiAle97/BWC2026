@@ -30,6 +30,9 @@ const STATS_FINAL_TABLE_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297T
 const MATCH_SCHEDULE_GROUPS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Groups)';
 const MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Round%20of%2016)';
 const MATCH_SCHEDULE_ROUND_OF_16_FALLBACK_URL = 'https://docs.google.com/spreadsheets/d/17RvnKg48Yhv-5p-Ze_9ArQEy1rySyidDc0e1yDgkgPE/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Round%20of%2016)';
+const MATCH_SCHEDULE_QUARTERS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Quarter%20Finals)';
+const MATCH_SCHEDULE_SEMIFINALS_SHEET_URL = '';
+const MATCH_SCHEDULE_FINAL_SHEET_URL = '';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
 // Fallback gviz (sin colores) si el script falla
@@ -113,7 +116,7 @@ const TRANSLATIONS = {
     matchSingular: 'match', matchPlural: 'matches',
     noLiveMatch: 'No match has started yet', noLiveMatchSub: 'When a match starts, it will appear here.',
     statsLoadError: 'Could not load statistics.', noDataYet: 'No data yet.', noMatchesLoaded: 'No matches loaded yet.',
-    roundOf16: 'Round of 16', quarterfinals: 'Quarterfinals', semifinals: 'Semifinals', final: 'Final', thirdPlace: 'Third place',
+    roundOf16: 'Round of 16', quarterfinals: 'Quarter Finals', semifinals: 'Semifinals', final: 'Final', thirdPlace: 'Third place',
     standings: 'Standings', groupStage: 'Group stage', twitchChannel: 'Twitch channel', of: 'of', inGroup: 'in Group',
     positionPending: 'Position pending', matchesOfGroup: 'Matches of Group',
     pastMatches: 'Past', upcomingMatches: 'Upcoming', noPastMatches: 'No finished matches yet.', noUpcomingMatches: 'No upcoming matches loaded.',
@@ -141,7 +144,7 @@ const TRANSLATIONS = {
     predictionsShareMenu: 'Share prediction', predictionsShareNative: 'Share…', predictionsShareX: 'Share on X',
     predictionsShareWhatsApp: 'WhatsApp', predictionsShareDiscord: 'Discord',
     predictionsDiscordHint: 'Image and message copied. Paste in Discord (Ctrl+V / Cmd+V).',
-    statsStageTournament: 'Tournament', statsStageGroups: 'Group Stage', statsStageRo16: 'Round of 16', statsStageQf: 'Quarterfinals',
+    statsStageTournament: 'Tournament', statsStageGroups: 'Group Stage', statsStageRo16: 'Round of 16', statsStageQf: 'Quarter Finals',
     statsStageSf: 'Semifinals', statsStageFinal: 'Final',
     statsMatch: 'Match', statsComingSoon: 'Statistics for this stage coming soon.',
     statsBasement: 'Basement', statsTrainCrash: 'Train Crash', statsTime: 'Time',
@@ -1187,7 +1190,7 @@ function inferScheduleGroup(playerA, playerB){
 
 function parseMatchScheduleTable(table, options = {}){
   const {
-    stage = 'groups', // 'groups' | 'r16'
+    stage = 'groups', // 'groups' | 'r16' | 'quarters' | 'semifinals' | 'final'
     defaultGroup = null,
     dateLabelPrefix = null
   } = options;
@@ -1199,7 +1202,7 @@ function parseMatchScheduleTable(table, options = {}){
   ];
   const matchesByRound = rounds.map(() => []);
   const currentDates = rounds.map(() => null);
-  const fallbackGroup = defaultGroup || (stage === 'r16' ? 'R16' : t('noGroup'));
+  const fallbackGroup = defaultGroup || (stage === 'r16' || stage === 'quarters' || stage === 'semifinals' || stage === 'final' ? stage.toUpperCase() : t('noGroup'));
 
   for(let rowIndex = 0; rowIndex < rows.length; rowIndex++){
     const row = rows[rowIndex];
@@ -1219,7 +1222,7 @@ function parseMatchScheduleTable(table, options = {}){
         if(!candidateRow) break;
 
         const groupValue = getSheetCell(candidateRow, schedule);
-        if(/GROUP\s+([A-H])/i.test(groupValue) || /R\s*16|ROUND\s*OF\s*16|OCTAVOS/i.test(groupValue)){
+        if(/GROUP\s+([A-H])/i.test(groupValue) || /R\s*16|ROUND\s*OF\s*16|OCTAVOS/i.test(groupValue) || /QUARTERS|CUARTOS/i.test(groupValue) || /SEMIFINALS|SEMIFINALES/i.test(groupValue) || /FINAL|FINAL/i.test(groupValue)){
           detailRowIndex = candidateIndex;
           break;
         }
@@ -1240,6 +1243,9 @@ function parseMatchScheduleTable(table, options = {}){
       const group = groupMatch?.[1]?.toUpperCase()
         || inferScheduleGroup(playerA, playerB)
         || (/R\s*16|ROUND\s*OF\s*16|OCTAVOS/i.test(groupValue) ? 'R16' : null)
+        || (/QUARTERS|CUARTOS/i.test(groupValue) ? 'QUARTERS' : null)
+        || (/SEMIFINALS|SEMIFINALES/i.test(groupValue) ? 'SEMIFINALS' : null)
+        || (/FINAL|FINAL/i.test(groupValue) ? 'FINAL' : null)
         || fallbackGroup;
 
       const scoreA = getSheetCell(row, start + 1);
@@ -1291,9 +1297,9 @@ function parseMatchScheduleTable(table, options = {}){
   // Grupos: 3 bloques de columnas (fechas 1-3).
   // Octavos: un solo bloque con los 8 partidos (ordenados por fecha/hora).
   let dates;
-  if(stage === 'r16'){
+  if(stage === 'r16' || stage === 'quarters' || stage === 'semifinals' || stage === 'final'){
     const allMatches = removeRescheduledDuplicates(matchesByRound.flat())
-      .map(({ group: _g, ...match }) => ({ ...match, group: 'R16', stage: 'r16' }))
+      .map(({ group: _g, ...match }) => ({ ...match, group: stage.toUpperCase(), stage }))
       .sort((a, b) => {
         const dateCmp = String(a.date || '').localeCompare(String(b.date || ''));
         if(dateCmp !== 0) return dateCmp;
@@ -1301,8 +1307,8 @@ function parseMatchScheduleTable(table, options = {}){
       });
     dates = [{
       number: 1,
-      label: dateLabelPrefix || t('roundOf16'),
-      stage: 'r16',
+      label: dateLabelPrefix || t(stage),
+      stage,
       groups: [{
         name: 'R16',
         matches: allMatches
@@ -1341,8 +1347,8 @@ async function fetchGvizSheetTable(url){
   return JSON.parse(jsonText)?.table;
 }
 
-function mergeMatchSchedules(groupsSchedule, r16Schedule){
-  if(!groupsSchedule && !r16Schedule) return null;
+function mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, finalSchedule){
+  if(!groupsSchedule && !r16Schedule && !quartersSchedule && !semifinalsSchedule && !finalSchedule) return null;
   if(!r16Schedule?.dates?.length) return groupsSchedule || null;
   if(!groupsSchedule?.dates?.length) return r16Schedule || null;
 
@@ -1353,21 +1359,53 @@ function mergeMatchSchedules(groupsSchedule, r16Schedule){
     label: date.label || t('roundOf16'),
     stage: 'r16'
   }));
+  const quartersDates = (quartersSchedule?.dates || []).map((date, index) => ({
+    ...date,
+    number: groupsDates.length + r16Dates.length + index + 1,
+    label: date.label || t('quarterfinals'),
+    stage: 'quarters'
+  }));
+
+  const semifinalsDates = (semifinalsSchedule?.dates || []).map((date, index) => ({
+    ...date,
+    number: groupsDates.length + r16Dates.length + quartersDates.length + index + 1,
+    label: date.label || t('semifinals'),
+    stage: 'semifinals'
+  }));
+
+  const finalDates = (finalSchedule?.dates || []).map((date, index) => ({
+    ...date,
+    number: groupsDates.length + r16Dates.length + quartersDates.length + semifinalsDates.length + index + 1,
+    label: date.label || t('final'),
+    stage: 'final'
+  }));
 
   return normalizeResultsData({
-    dates: [...groupsDates, ...r16Dates]
+    dates: [...groupsDates, ...r16Dates, ...quartersDates, ...semifinalsDates, ...finalDates]
   });
 }
 
 async function loadExternalMatchSchedule(){
   try{
-    const [groupsTable, r16Table] = await Promise.all([
+    const [groupsTable, r16Table, quartersTable, semifinalsTable, finalTable] = await Promise.all([
       fetchGvizSheetTable(MATCH_SCHEDULE_GROUPS_SHEET_URL).catch(err => {
         console.warn('No se pudo cargar Match Schedule (Groups).', err);
         return null;
       }),
       fetchGvizSheetTable(MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL).catch(err => {
         console.warn('No se pudo cargar Match Schedule (Round of 16).', err);
+        return null;
+      }),
+      fetchGvizSheetTable(MATCH_SCHEDULE_QUARTERS_SHEET_URL).catch(err => {
+        console.warn('No se pudo cargar Match Schedule (Quarter Finals).', err);
+        return null;
+      }),
+      fetchGvizSheetTable(MATCH_SCHEDULE_SEMIFINALS_SHEET_URL).catch(err => {
+        console.warn('No se pudo cargar Match Schedule (Semifinals).', err);
+        return null;
+      }),
+      fetchGvizSheetTable(MATCH_SCHEDULE_FINAL_SHEET_URL).catch(err => {
+        console.warn('No se pudo cargar Match Schedule (Final).', err);
         return null;
       })
     ]);
@@ -1381,9 +1419,30 @@ async function loadExternalMatchSchedule(){
           dateLabelPrefix: t('roundOf16')
         })
       : null;
-
-    externalMatchSchedule = mergeMatchSchedules(groupsSchedule, r16Schedule);
-    return externalMatchSchedule;
+    const quartersSchedule = quartersTable
+      ? parseMatchScheduleTable(quartersTable, {
+          stage: 'quarters',
+          defaultGroup: 'QF',
+          dateLabelPrefix: t('quarterfinals')
+        })
+      : null;
+    const semifinalsSchedule = semifinalsTable
+      ? parseMatchScheduleTable(semifinalsTable, {
+          stage: 'semifinals',
+          defaultGroup: 'SF',
+          dateLabelPrefix: t('semifinals')
+        })
+      : null;
+    const finalSchedule = finalTable
+      ? parseMatchScheduleTable(finalTable, {
+          stage: 'final',
+          defaultGroup: 'F',
+          dateLabelPrefix: t('final')
+        })
+      : null;
+      externalMatchSchedule = mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, finalSchedule);
+      console.log(externalMatchSchedule);
+      return externalMatchSchedule;
   }catch(err){
     externalMatchSchedule = null;
     console.warn('No se pudo cargar Match Schedule desde Google Sheets.', err);
@@ -3127,12 +3186,22 @@ function renderCalendarFixturePanel(players = []){
   if(storedResults && Array.isArray(storedResults.dates)){
     storedResults.dates.forEach((date, index) => {
       const number = Number(date.number || date.numero || index + 1);
-      const isR16Date = date.stage === 'r16' || (date.matches || []).some(m => m.stage === 'r16' || m.group === 'R16');
-      // Un solo bloque para todos los octavos
-      const key = isR16Date ? 'fixture-r16' : `fixture-${number}`;
+      const stageKey = String(date.stage || '').toLowerCase();
+      const isKnockoutDate = stageKey === 'r16' || stageKey === 'quarters' || stageKey === 'semifinals' || stageKey === 'final';
+      // Un solo bloque por fase eliminatoria (octavos, cuartos, semis, final)
+      const key = isKnockoutDate ? `fixture-${stageKey}` : `fixture-${number}`;
       if(!calendarBuckets.has(key)){
+        const knockoutLabel = stageKey === 'r16'
+          ? t('roundOf16')
+          : stageKey === 'quarters'
+            ? t('quarterfinals')
+            : stageKey === 'semifinals'
+              ? t('semifinals')
+              : stageKey === 'final'
+                ? t('final')
+                : null;
         calendarBuckets.set(key, {
-          label: isR16Date ? t('roundOf16') : (date.label || `${t('dateLabel')} ${number} ${t('of')} ${storedResults.dates.length}`),
+          label: knockoutLabel || date.label || `${t('dateLabel')} ${number} ${t('of')} ${storedResults.dates.length}`,
           matches: []
         });
       }
@@ -3219,6 +3288,9 @@ function renderCalendarFixturePanel(players = []){
     const rank = (key) => {
       if(key === 'sin-fecha') return 10000;
       if(key === 'fixture-r16') return 5000;
+      if(key === 'fixture-quarters') return 5100;
+      if(key === 'fixture-semifinals') return 5200;
+      if(key === 'fixture-final') return 5300;
       if(key.startsWith('fixture-')){
         const n = Number(key.slice(8));
         return Number.isFinite(n) ? n : 9000;
