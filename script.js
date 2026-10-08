@@ -1200,14 +1200,63 @@ function hasValidScheduleDate(match){
   return /^\d{4}-\d{2}-\d{2}$/.test(String(match?.date || '').trim());
 }
 
+function hasScheduleResultValue(value){
+  const normalized = String(value ?? '').trim();
+  return normalized !== '' && normalized !== '-' && !/^TBD$/i.test(normalized);
+}
+
+function hasScheduleMatchResult(match){
+  return Boolean(
+    hasScheduleResultValue(match?.winner) ||
+    hasScheduleResultValue(match?.seriesScoreA) ||
+    hasScheduleResultValue(match?.seriesScoreB) ||
+    hasScheduleResultValue(match?.timeA) ||
+    hasScheduleResultValue(match?.timeB) ||
+    (Array.isArray(match?.games) && match.games.some(game =>
+      hasScheduleResultValue(game?.timeA) || hasScheduleResultValue(game?.timeB)
+    ))
+  );
+}
+
+function mergeScheduleMatchResults(match, override){
+  if(!hasScheduleMatchResult(override)) return match;
+  const merged = { ...match };
+  ['winner', 'seriesScoreA', 'seriesScoreB', 'timeA', 'timeB'].forEach(field => {
+    if(!hasScheduleResultValue(merged[field]) && hasScheduleResultValue(override[field])){
+      merged[field] = override[field];
+    }
+  });
+  const officialHasGameResults = Array.isArray(merged.games) && merged.games.some(game =>
+    hasScheduleResultValue(game?.timeA) || hasScheduleResultValue(game?.timeB)
+  );
+  const overrideHasGameResults = Array.isArray(override.games) && override.games.some(game =>
+    hasScheduleResultValue(game?.timeA) || hasScheduleResultValue(game?.timeB)
+  );
+  if(!officialHasGameResults && overrideHasGameResults){
+    merged.games = override.games;
+  }
+  return merged;
+}
+
+function getScheduleMatchResultFields(match){
+  return {
+    winner: match.winner,
+    seriesScoreA: match.seriesScoreA,
+    seriesScoreB: match.seriesScoreB,
+    timeA: match.timeA,
+    timeB: match.timeB,
+    games: match.games
+  };
+}
+
 function isTbdScheduleValue(value){
   return /^TBD$/i.test(String(value || '').trim());
 }
 
 /**
- * La hoja alternativa pisa un partido del oficial solo si:
- * - está marcado RESCHEDULED y la fecha oficial ya pasó, o
- * - la fecha oficial es TBD y la reserva tiene una fecha válida.
+ * Los resultados ausentes se completan desde la hoja alternativa. El calendario
+ * oficial solo se pisa si está marcado RESCHEDULED y ya pasó, o si su fecha es
+ * TBD y la reserva tiene una fecha válida.
  */
 function applyRescheduledOverrides(officialMatches, overrideMatches){
   if(!Array.isArray(officialMatches) || !officialMatches.length) return officialMatches || [];
@@ -1222,32 +1271,20 @@ function applyRescheduledOverrides(officialMatches, overrideMatches){
   return officialMatches.map(match => {
     const override = overridesByPair.get(scheduleMatchPairKey(match));
     if(!override) return match;
+    const resultMatch = mergeScheduleMatchResults(match, override);
 
     const rescheduledStale = Boolean(
       match.rescheduled && match.date && today && String(match.date) < today
     );
     const officialDateMissing = Boolean(match.dateTbd || !hasValidScheduleDate(match));
-    if(!rescheduledStale && !officialDateMissing) return match;
-    if(officialDateMissing && !hasValidScheduleDate(override)) return match;
+    if(!rescheduledStale && !officialDateMissing) return resultMatch;
+    if(officialDateMissing && !hasValidScheduleDate(override)) return resultMatch;
 
     if(officialDateMissing && !rescheduledStale){
-      const officialHasResult = Boolean(
-        match.winner ||
-        (Array.isArray(match.games) && match.games.length) ||
-        (match.seriesScoreA != null && String(match.seriesScoreA).trim() !== '' && String(match.seriesScoreA).trim() !== '-')
-      );
       return {
-        ...match,
+        ...resultMatch,
         date: override.date,
         time: isScheduleClockTime(override.time) ? override.time : match.time,
-        ...(officialHasResult ? {} : {
-          timeA: override.timeA,
-          timeB: override.timeB,
-          seriesScoreA: override.seriesScoreA,
-          seriesScoreB: override.seriesScoreB,
-          games: override.games,
-          winner: override.winner
-        }),
         dateTbd: false,
         overridden: true
       };
@@ -1256,6 +1293,7 @@ function applyRescheduledOverrides(officialMatches, overrideMatches){
     return {
       ...match,
       ...override,
+      ...getScheduleMatchResultFields(resultMatch),
       group: match.group,
       stage: match.stage,
       rescheduled: false,
@@ -1502,6 +1540,9 @@ function applyStageRescheduleOverrides(schedule, stage, overrideMatches, options
     });
     if(Array.isArray(date.matches)){
       date.matches = sortScheduleMatches(applyRescheduledOverrides(date.matches, overrideMatches));
+      date.matches.forEach(match => {
+        match.fixtureDateNumber = Number(date.number || date.numero || 1);
+      });
     }
 
     // El oficial deja el día en TBD y no lista el cruce: si la reserva tiene fecha, se agrega.
@@ -1516,6 +1557,7 @@ function applyStageRescheduleOverrides(schedule, stage, overrideMatches, options
         ...match,
         group: stageKey.toUpperCase(),
         stage: stageKey,
+        fixtureDateNumber: Number(date.number || date.numero || 1),
         dateTbd: false,
         overridden: true
       };
