@@ -29,10 +29,16 @@ const STATS_RO16_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TR
 const STATS_FINAL_TABLE_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=582531798';
 const MATCH_SCHEDULE_GROUPS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Groups)';
 const MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Round%20of%2016)';
-const MATCH_SCHEDULE_ROUND_OF_16_FALLBACK_URL = 'https://docs.google.com/spreadsheets/d/17RvnKg48Yhv-5p-Ze_9ArQEy1rySyidDc0e1yDgkgPE/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Round%20of%2016)';
+// Hojas propias: solo se usan para partidos marcados RESCHEDULED en el sheet oficial
+// cuya fecha oficial ya pasó (el oficial no actualizó fecha ni resultado).
+const MATCH_SCHEDULE_OVERRIDE_BASE = 'https://docs.google.com/spreadsheets/d/17RvnKg48Yhv-5p-Ze_9ArQEy1rySyidDc0e1yDgkgPE/gviz/tq?tqx=out:json&sheet=';
+const MATCH_SCHEDULE_ROUND_OF_16_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Round%20of%2016)';
 const MATCH_SCHEDULE_QUARTERS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Quarter%20Finals)';
+const MATCH_SCHEDULE_QUARTERS_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Quarter%20Finals)';
 const MATCH_SCHEDULE_SEMIFINALS_SHEET_URL = '';
+const MATCH_SCHEDULE_SEMIFINALS_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Semifinals)';
 const MATCH_SCHEDULE_FINAL_SHEET_URL = '';
+const MATCH_SCHEDULE_FINAL_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Final)';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
 // Fallback gviz (sin colores) si el script falla
@@ -1127,6 +1133,10 @@ function resolveScheduleSeriesWinner(scoreA, scoreB, playerA, playerB){
   return '';
 }
 
+function isRescheduledMarker(value){
+  return /^RESCHEDULED$/i.test(String(value || '').trim());
+}
+
 function collectScheduleGames(rows, rowIndex, start, scheduleCol){
   const games = [];
   for(let candidateIndex = rowIndex + 1; candidateIndex <= rowIndex + 8; candidateIndex++){
@@ -1147,6 +1157,8 @@ function collectScheduleGames(rows, rowIndex, start, scheduleCol){
     if(/^BO\s*\d+$/i.test(groupValue) && !valueA && !valueB) continue;
     if(!valueA && !valueB) continue;
 
+    if(isRescheduledMarker(valueA) || isRescheduledMarker(valueB) || isRescheduledMarker(groupValue)) continue;
+
     const hasGameTime = isScheduleDetailValue(valueA) || isScheduleDetailValue(valueB);
     if(!hasGameTime) break;
 
@@ -1162,6 +1174,94 @@ function collectScheduleGames(rows, rowIndex, start, scheduleCol){
 
 function isScheduleClockTime(value){
   return /^\d{1,2}:\d{2}$/.test(String(value || '').trim());
+}
+
+function scheduleMatchPairKey(match){
+  const players = [normalizeManualMatchName(match.playerA), normalizeManualMatchName(match.playerB)].sort();
+  return `${players[0]}|${players[1]}`;
+}
+
+/** Fecha local (UTC-3) de hoy, comparable con las fechas YYYY-MM-DD del fixture. */
+function getScheduleTodayKey(){
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SCHEDULE_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date());
+  const year = parts.find(part => part.type === 'year')?.value;
+  const month = parts.find(part => part.type === 'month')?.value;
+  const day = parts.find(part => part.type === 'day')?.value;
+  return year && month && day ? `${year}-${month}-${day}` : '';
+}
+
+function hasValidScheduleDate(match){
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(match?.date || '').trim());
+}
+
+function isTbdScheduleValue(value){
+  return /^TBD$/i.test(String(value || '').trim());
+}
+
+/**
+ * La hoja alternativa pisa un partido del oficial solo si:
+ * - está marcado RESCHEDULED y la fecha oficial ya pasó, o
+ * - la fecha oficial es TBD y la reserva tiene una fecha válida.
+ */
+function applyRescheduledOverrides(officialMatches, overrideMatches){
+  if(!Array.isArray(officialMatches) || !officialMatches.length) return officialMatches || [];
+  if(!Array.isArray(overrideMatches) || !overrideMatches.length) return officialMatches;
+
+  const today = getScheduleTodayKey();
+  const overridesByPair = new Map();
+  overrideMatches.forEach(match => {
+    overridesByPair.set(scheduleMatchPairKey(match), match);
+  });
+
+  return officialMatches.map(match => {
+    const override = overridesByPair.get(scheduleMatchPairKey(match));
+    if(!override) return match;
+
+    const rescheduledStale = Boolean(
+      match.rescheduled && match.date && today && String(match.date) < today
+    );
+    const officialDateMissing = Boolean(match.dateTbd || !hasValidScheduleDate(match));
+    if(!rescheduledStale && !officialDateMissing) return match;
+    if(officialDateMissing && !hasValidScheduleDate(override)) return match;
+
+    if(officialDateMissing && !rescheduledStale){
+      const officialHasResult = Boolean(
+        match.winner ||
+        (Array.isArray(match.games) && match.games.length) ||
+        (match.seriesScoreA != null && String(match.seriesScoreA).trim() !== '' && String(match.seriesScoreA).trim() !== '-')
+      );
+      return {
+        ...match,
+        date: override.date,
+        time: isScheduleClockTime(override.time) ? override.time : match.time,
+        ...(officialHasResult ? {} : {
+          timeA: override.timeA,
+          timeB: override.timeB,
+          seriesScoreA: override.seriesScoreA,
+          seriesScoreB: override.seriesScoreB,
+          games: override.games,
+          winner: override.winner
+        }),
+        dateTbd: false,
+        overridden: true
+      };
+    }
+
+    return {
+      ...match,
+      ...override,
+      group: match.group,
+      stage: match.stage,
+      rescheduled: false,
+      dateTbd: false,
+      overridden: true
+    };
+  });
 }
 
 function removeRescheduledDuplicates(matches){
@@ -1202,6 +1302,8 @@ function parseMatchScheduleTable(table, options = {}){
   ];
   const matchesByRound = rounds.map(() => []);
   const currentDates = rounds.map(() => null);
+  const roundDateTbd = rounds.map(() => false);
+  let sheetHasTbdDate = false;
   const fallbackGroup = defaultGroup || (stage === 'r16' || stage === 'quarters' || stage === 'semifinals' || stage === 'final' ? stage.toUpperCase() : t('noGroup'));
 
   for(let rowIndex = 0; rowIndex < rows.length; rowIndex++){
@@ -1209,8 +1311,19 @@ function parseMatchScheduleTable(table, options = {}){
     const nextRow = rows[rowIndex + 1];
 
     rounds.forEach(({ start, schedule, dateDay, date }, roundIndex) => {
-      const parsedDate = parseScheduleDateCells(getSheetCell(row, dateDay), getSheetCell(row, date));
-      if(parsedDate) currentDates[roundIndex] = parsedDate;
+      const dayCell = getSheetCell(row, dateDay);
+      const dateCell = getSheetCell(row, date);
+      if(isTbdScheduleValue(dateCell) || isTbdScheduleValue(dayCell)){
+        sheetHasTbdDate = true;
+        currentDates[roundIndex] = '';
+        roundDateTbd[roundIndex] = true;
+      }else{
+        const parsedDate = parseScheduleDateCells(dayCell, dateCell);
+        if(parsedDate){
+          currentDates[roundIndex] = parsedDate;
+          roundDateTbd[roundIndex] = false;
+        }
+      }
 
       const playerA = getSheetCell(row, start);
       const playerB = getSheetCell(row, start + 3);
@@ -1253,6 +1366,14 @@ function parseMatchScheduleTable(table, options = {}){
       const games = collectScheduleGames(rows, rowIndex, start, schedule);
       const timeA = games[0]?.timeA || getSheetCell(detailRow, start) || '-';
       const timeB = games[0]?.timeB || getSheetCell(detailRow, start + 3) || '-';
+      const nearbyCells = [
+        getSheetCell(row, schedule),
+        getSheetCell(nextRow, schedule),
+        getSheetCell(detailRow, schedule),
+        getSheetCell(rows[rowIndex + 2], schedule),
+        getSheetCell(rows[rowIndex + 3], schedule)
+      ];
+      const rescheduled = nearbyCells.some(isRescheduledMarker);
       let scheduleValue = getSheetCell(row, schedule);
       // En octavos la celda puede ser "BO3"; el horario real suele estar en la misma fila
       if(/^BO\s*\d+$/i.test(scheduleValue)){
@@ -1267,6 +1388,7 @@ function parseMatchScheduleTable(table, options = {}){
       const normalizedScheduleTime = normalizeScheduleTime(scheduleValue);
       const hasScheduledTime = isScheduleClockTime(normalizedScheduleTime);
       const hasSeriesScore = /^\d+$/.test(String(scoreA).trim()) && /^\d+$/.test(String(scoreB).trim());
+      const dateIsTbd = roundDateTbd[roundIndex];
       const hasResult = Boolean(
         (scoreA && scoreA !== '-') ||
         (scoreB && scoreB !== '-') ||
@@ -1274,7 +1396,7 @@ function parseMatchScheduleTable(table, options = {}){
         (timeB && timeB !== '-') ||
         games.length
       );
-      if(!hasScheduledTime && !hasResult) return;
+      if(!hasScheduledTime && !hasResult && !dateIsTbd) return;
       const winner = resolveScheduleSeriesWinner(scoreA, scoreB, playerA, playerB);
 
       matchesByRound[roundIndex].push({
@@ -1288,8 +1410,10 @@ function parseMatchScheduleTable(table, options = {}){
         seriesScoreB: hasSeriesScore ? String(scoreB).trim() : null,
         games,
         winner,
-        date: currentDates[roundIndex] || '',
-        time: normalizedScheduleTime
+        date: dateIsTbd ? '' : (currentDates[roundIndex] || ''),
+        time: normalizedScheduleTime,
+        rescheduled,
+        dateTbd: dateIsTbd
       });
     });
   }
@@ -1336,15 +1460,74 @@ function parseMatchScheduleTable(table, options = {}){
     });
   }
 
-  return normalizeResultsData({ dates });
+  const normalized = normalizeResultsData({ dates });
+  if(normalized) normalized.hasTbdDate = sheetHasTbdDate;
+  return normalized;
 }
 
 async function fetchGvizSheetTable(url){
+  if(!url) return null;
   const response = await fetch(url, { cache: 'no-store' });
   if(!response.ok) throw new Error('HTTP ' + response.status);
   const text = await response.text();
   const jsonText = text.replace(/^\s*\/\*O_o\*\/\s*google\.visualization\.Query\.setResponse\(/, '').replace(/\);\s*$/, '');
   return JSON.parse(jsonText)?.table;
+}
+
+function parseStageOverrideMatches(table, stage, defaultGroup, dateLabelPrefix){
+  if(!table) return [];
+  return parseMatchScheduleTable(table, {
+    stage,
+    defaultGroup,
+    dateLabelPrefix
+  })?.matches || [];
+}
+
+function sortScheduleMatches(matches){
+  return [...(matches || [])].sort((a, b) => {
+    const dateCmp = String(a.date || '').localeCompare(String(b.date || ''));
+    if(dateCmp !== 0) return dateCmp;
+    return String(a.time || '').localeCompare(String(b.time || ''));
+  });
+}
+
+function applyStageRescheduleOverrides(schedule, stage, overrideMatches, options = {}){
+  if(!schedule?.dates || !overrideMatches?.length) return;
+  const stageKey = String(stage || '').toLowerCase();
+  schedule.dates.forEach(date => {
+    if(String(date.stage || '').toLowerCase() !== stageKey) return;
+    (date.groups || []).forEach(group => {
+      group.matches = applyRescheduledOverrides(group.matches, overrideMatches);
+    });
+    if(Array.isArray(date.matches)){
+      date.matches = sortScheduleMatches(applyRescheduledOverrides(date.matches, overrideMatches));
+    }
+
+    // El oficial deja el día en TBD y no lista el cruce: si la reserva tiene fecha, se agrega.
+    if(!options.includeMissing || !Array.isArray(date.matches)) return;
+    const seen = new Set(date.matches.map(scheduleMatchPairKey));
+    overrideMatches.forEach(match => {
+      if(!hasValidScheduleDate(match)) return;
+      const key = scheduleMatchPairKey(match);
+      if(seen.has(key)) return;
+      seen.add(key);
+      const added = {
+        ...match,
+        group: stageKey.toUpperCase(),
+        stage: stageKey,
+        dateTbd: false,
+        overridden: true
+      };
+      date.matches.push(added);
+      const group = date.groups?.[0];
+      if(group) group.matches = [...(group.matches || []), added];
+    });
+    date.matches = sortScheduleMatches(date.matches);
+    (date.groups || []).forEach(group => {
+      group.matches = sortScheduleMatches(group.matches);
+    });
+  });
+  schedule.matches = schedule.dates.flatMap(date => date.matches || []);
 }
 
 function mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, finalSchedule){
@@ -1387,27 +1570,25 @@ function mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semi
 
 async function loadExternalMatchSchedule(){
   try{
-    const [groupsTable, r16Table, quartersTable, semifinalsTable, finalTable] = await Promise.all([
-      fetchGvizSheetTable(MATCH_SCHEDULE_GROUPS_SHEET_URL).catch(err => {
-        console.warn('No se pudo cargar Match Schedule (Groups).', err);
-        return null;
-      }),
-      fetchGvizSheetTable(MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL).catch(err => {
-        console.warn('No se pudo cargar Match Schedule (Round of 16).', err);
-        return null;
-      }),
-      fetchGvizSheetTable(MATCH_SCHEDULE_QUARTERS_SHEET_URL).catch(err => {
-        console.warn('No se pudo cargar Match Schedule (Quarter Finals).', err);
-        return null;
-      }),
-      fetchGvizSheetTable(MATCH_SCHEDULE_SEMIFINALS_SHEET_URL).catch(err => {
-        console.warn('No se pudo cargar Match Schedule (Semifinals).', err);
-        return null;
-      }),
-      fetchGvizSheetTable(MATCH_SCHEDULE_FINAL_SHEET_URL).catch(err => {
-        console.warn('No se pudo cargar Match Schedule (Final).', err);
-        return null;
-      })
+    const loadSheet = (url, label) => fetchGvizSheetTable(url).catch(err => {
+      console.warn('No se pudo cargar ' + label + '.', err);
+      return null;
+    });
+    const [
+      groupsTable, r16Table, r16OverrideTable,
+      quartersTable, quartersOverrideTable,
+      semifinalsTable, semifinalsOverrideTable,
+      finalTable, finalOverrideTable
+    ] = await Promise.all([
+      loadSheet(MATCH_SCHEDULE_GROUPS_SHEET_URL, 'Match Schedule (Groups)'),
+      loadSheet(MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL, 'Match Schedule (Round of 16)'),
+      loadSheet(MATCH_SCHEDULE_ROUND_OF_16_OVERRIDE_URL, 'respaldo Round of 16'),
+      loadSheet(MATCH_SCHEDULE_QUARTERS_SHEET_URL, 'Match Schedule (Quarter Finals)'),
+      loadSheet(MATCH_SCHEDULE_QUARTERS_OVERRIDE_URL, 'respaldo Quarter Finals'),
+      loadSheet(MATCH_SCHEDULE_SEMIFINALS_SHEET_URL, 'Match Schedule (Semifinals)'),
+      loadSheet(MATCH_SCHEDULE_SEMIFINALS_OVERRIDE_URL, 'respaldo Semifinals'),
+      loadSheet(MATCH_SCHEDULE_FINAL_SHEET_URL, 'Match Schedule (Final)'),
+      loadSheet(MATCH_SCHEDULE_FINAL_OVERRIDE_URL, 'respaldo Final')
     ]);
     const groupsSchedule = groupsTable
       ? parseMatchScheduleTable(groupsTable, { stage: 'groups' })
@@ -1419,6 +1600,7 @@ async function loadExternalMatchSchedule(){
           dateLabelPrefix: t('roundOf16')
         })
       : null;
+    const r16OverrideMatches = parseStageOverrideMatches(r16OverrideTable, 'r16', 'R16', t('roundOf16'));
     const quartersSchedule = quartersTable
       ? parseMatchScheduleTable(quartersTable, {
           stage: 'quarters',
@@ -1440,9 +1622,30 @@ async function loadExternalMatchSchedule(){
           dateLabelPrefix: t('final')
         })
       : null;
-      externalMatchSchedule = mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, finalSchedule);
-      console.log(externalMatchSchedule);
-      return externalMatchSchedule;
+    externalMatchSchedule = mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, finalSchedule);
+    applyStageRescheduleOverrides(externalMatchSchedule, 'r16', r16OverrideMatches, {
+      includeMissing: Boolean(r16Schedule?.hasTbdDate)
+    });
+    applyStageRescheduleOverrides(
+      externalMatchSchedule,
+      'quarters',
+      parseStageOverrideMatches(quartersOverrideTable, 'quarters', 'QF', t('quarterfinals')),
+      { includeMissing: Boolean(quartersSchedule?.hasTbdDate) }
+    );
+    applyStageRescheduleOverrides(
+      externalMatchSchedule,
+      'semifinals',
+      parseStageOverrideMatches(semifinalsOverrideTable, 'semifinals', 'SF', t('semifinals')),
+      { includeMissing: Boolean(semifinalsSchedule?.hasTbdDate) }
+    );
+    applyStageRescheduleOverrides(
+      externalMatchSchedule,
+      'final',
+      parseStageOverrideMatches(finalOverrideTable, 'final', 'F', t('final')),
+      { includeMissing: Boolean(finalSchedule?.hasTbdDate) }
+    );
+    console.log(externalMatchSchedule);
+    return externalMatchSchedule;
   }catch(err){
     externalMatchSchedule = null;
     console.warn('No se pudo cargar Match Schedule desde Google Sheets.', err);
@@ -3392,11 +3595,19 @@ function renderCalendarFixturePanel(players = []){
         const escapedPlayerA = String(match.playerA).replace(/"/g, '&quot;');
         const escapedPlayerB = String(match.playerB).replace(/"/g, '&quot;');
 
-        const stageLabel = match.stage === 'r16' || match.group === 'R16'
-          ? t('roundOf16')
-          : FINAL_GROUPS[match.group]
-            ? `${t('group')} ${match.group}`
-            : (match.group ? `${t('group')} ${match.group}` : t('roundOf16'));
+        const stageKey = String(match.stage || '').toLowerCase();
+        const groupKey = String(match.group || '').toUpperCase();
+        const stageLabel = stageKey === 'final' || groupKey === 'FINAL' || groupKey === 'F'
+          ? t('final')
+          : stageKey === 'semifinals' || groupKey === 'SEMIFINALS' || groupKey === 'SF'
+            ? t('semifinals')
+            : stageKey === 'quarters' || groupKey === 'QUARTERS' || groupKey === 'QF'
+              ? t('quarterfinals')
+              : stageKey === 'r16' || groupKey === 'R16'
+                ? t('roundOf16')
+                : FINAL_GROUPS[match.group]
+                  ? `${t('group')} ${match.group}`
+                  : (match.group ? `${t('group')} ${match.group}` : t('roundOf16'));
 
         return `
           <div class="fixture-match fixture-match-clickable" role="button" tabindex="0" data-player-a="${escapedPlayerA}" data-player-b="${escapedPlayerB}" data-group="${match.group || ''}">
