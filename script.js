@@ -312,7 +312,8 @@ const PLAYER_NAME_ALIASES = {
   bomba: 'bombanemesis',
   adrian: 'adrian20v',
   crisdoile: 'crisdoile2',
-  xploder: 'nemesisxploder'
+  xploder: 'nemesisxploder',
+  shyanjii: 'shyanji'
 };
 
 function normalizeParticipantName(name){
