@@ -39,6 +39,9 @@ const MATCH_SCHEDULE_SEMIFINALS_SHEET_URL = '';
 const MATCH_SCHEDULE_SEMIFINALS_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Semifinals)';
 const MATCH_SCHEDULE_FINAL_SHEET_URL = '';
 const MATCH_SCHEDULE_FINAL_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Final)';
+const MATCH_SCHEDULE_THIRD_PLACE_SHEET_URL = '';
+const MATCH_SCHEDULE_THIRD_PLACE_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Third%20Place)';
+const MATCH_SCHEDULE_MISTERY_SHEET_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Mistery)';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
 // Fallback gviz (sin colores) si el script falla
@@ -66,6 +69,7 @@ const TRANSLATIONS = {
     noLiveMatch: 'Aún no empezó ninguna partida', noLiveMatchSub: 'Cuando comience un enfrentamiento, aparecerá aquí.',
     statsLoadError: 'No se pudieron cargar las estadísticas.', noDataYet: 'Sin datos todavía.', noMatchesLoaded: 'Sin partidos cargados todavía.',
     roundOf16: 'Octavos', quarterfinals: 'Cuartos', semifinals: 'Semifinales', final: 'Final', thirdPlace: 'Tercer puesto',
+    mysteryRunners: 'Mystery Runners', exhibition: 'Exhibición', mysteryRunnerOne: 'Runner 1', mysteryRunnerTwo: 'Runner 2',
     standings: 'Posiciones', groupStage: 'Fase de grupos', twitchChannel: 'Canal de Twitch', of: 'de', inGroup: 'en el Grupo',
     positionPending: 'Posición pendiente', matchesOfGroup: 'Partidos del Grupo',
     pastMatches: 'Pasadas', upcomingMatches: 'Próximas', noPastMatches: 'Todavía no hay partidos finalizados.', noUpcomingMatches: 'No hay próximos partidos cargados.',
@@ -123,6 +127,7 @@ const TRANSLATIONS = {
     noLiveMatch: 'No match has started yet', noLiveMatchSub: 'When a match starts, it will appear here.',
     statsLoadError: 'Could not load statistics.', noDataYet: 'No data yet.', noMatchesLoaded: 'No matches loaded yet.',
     roundOf16: 'Round of 16', quarterfinals: 'Quarter Finals', semifinals: 'Semifinals', final: 'Final', thirdPlace: 'Third place',
+    mysteryRunners: 'Mystery Runners', exhibition: 'Exhibition', mysteryRunnerOne: 'Runner 1', mysteryRunnerTwo: 'Runner 2',
     standings: 'Standings', groupStage: 'Group stage', twitchChannel: 'Twitch channel', of: 'of', inGroup: 'in Group',
     positionPending: 'Position pending', matchesOfGroup: 'Matches of Group',
     pastMatches: 'Past', upcomingMatches: 'Upcoming', noPastMatches: 'No finished matches yet.', noUpcomingMatches: 'No upcoming matches loaded.',
@@ -229,6 +234,7 @@ let externalKnockoutStats = {
 let externalStatsLoad = null;
 let externalMatchSchedule = null;
 let externalMatchScheduleLoad = null;
+let externalMysteryMatches = [];
 let statsUiState = {
   stage: 'overall',
   dualSortBy: 'best',   // 'best' | 'worst'
@@ -653,7 +659,10 @@ function renderHomePanel(players = []){
   const results = externalMatchSchedule || getLoadedResults();
   const matches = Array.isArray(results?.matches) ? results.matches : [];
   const streamIsLive = Boolean(twitchLiveCache.isLive);
-  const liveMatch = matches
+  const liveMysteryMatch = externalMysteryMatches
+    .map(match => ({ match, schedule: formatScheduledDateTime(match.date, match.time) }))
+    .find(item => streamIsLive && item.schedule && isMatchLive(item.schedule.date));
+  const liveMatch = liveMysteryMatch || matches
     .map(match => ({ match, schedule: formatScheduledDateTime(match.date, match.time) }))
     .find(item => item.schedule && isFixtureMatchLiveCandidate(item.match, item.schedule.date, streamIsLive));
 
@@ -676,12 +685,15 @@ function renderHomePanel(players = []){
 
   const stage = String(match.stage || '').toLowerCase();
   const group = String(match.group || '');
+  const isMystery = stage === 'mystery';
   const isR16 = stage === 'r16' || group === 'R16' || /octavos|round\s*of\s*16/i.test(stage + group);
   const isQf = stage === 'qf' || /cuartos|quarter/i.test(stage + group);
   const isSf = stage === 'sf' || /semi/i.test(stage + group);
   const isFinal = stage === 'final' || (/final/i.test(stage + group) && !/semi/i.test(stage + group));
 
-  const stageLabel = isFinal
+  const stageLabel = isMystery
+    ? `${t('mysteryRunners')} · ${t('exhibition')}`
+    : isFinal
     ? t('final')
     : isSf
       ? t('semifinals')
@@ -691,7 +703,9 @@ function renderHomePanel(players = []){
           ? t('roundOf16')
           : (FINAL_GROUPS[group] ? `${t('group')} ${group}` : (group ? `${t('group')} ${group}` : t('groupStage')));
 
-  const bestOfLabel = isFinal
+  const bestOfLabel = isMystery
+    ? t('exhibition').toUpperCase()
+    : isFinal
     ? 'BEST OF 5'
     : (isR16 || isQf || isSf)
       ? 'BEST OF 3'
@@ -1522,6 +1536,50 @@ function parseStageOverrideMatches(table, stage, defaultGroup, dateLabelPrefix){
   })?.matches || [];
 }
 
+function parseMysteryScheduleTable(table){
+  const rows = table?.rows || [];
+  const rounds = [
+    { schedule: 6, dateDay: 0, date: 1 },
+    { schedule: 14, dateDay: 8, date: 9 },
+    { schedule: 22, dateDay: 16, date: 17 }
+  ];
+  const matches = [];
+
+  rounds.forEach(({ schedule, dateDay, date }) => {
+    let currentDate = '';
+    rows.forEach(row => {
+      const dayCell = getSheetCell(row, dateDay);
+      const dateCell = getSheetCell(row, date);
+      if(isTbdScheduleValue(dayCell) || isTbdScheduleValue(dateCell)){
+        currentDate = '';
+      }else{
+        currentDate = parseScheduleDateCells(dayCell, dateCell) || currentDate;
+      }
+
+      const time = normalizeScheduleTime(getSheetCell(row, schedule));
+      if(!currentDate || !isScheduleClockTime(time)) return;
+      if(matches.some(match => match.date === currentDate && match.time === time)) return;
+
+      const playerA = getSheetCell(row, schedule - 5);
+      const playerB = getSheetCell(row, schedule - 2);
+      matches.push({
+        stage: 'mystery',
+        group: 'MYSTERY',
+        playerA: isValidSchedulePlayerName(playerA) ? normalizeSchedulePlayerName(playerA) : t('mysteryRunnerOne'),
+        playerB: isValidSchedulePlayerName(playerB) ? normalizeSchedulePlayerName(playerB) : t('mysteryRunnerTwo'),
+        date: currentDate,
+        time,
+        seriesScoreA: null,
+        seriesScoreB: null,
+        games: [],
+        winner: ''
+      });
+    });
+  });
+
+  return matches;
+}
+
 function sortScheduleMatches(matches){
   return [...(matches || [])].sort((a, b) => {
     const dateCmp = String(a.date || '').localeCompare(String(b.date || ''));
@@ -1573,6 +1631,73 @@ function applyStageRescheduleOverrides(schedule, stage, overrideMatches, options
   schedule.matches = schedule.dates.flatMap(date => date.matches || []);
 }
 
+function applyLocalMatchStageCorrections(schedule){
+  if(!Array.isArray(schedule?.dates)) return;
+
+  const correctedPair = ['mattgael', 'thenevs'].sort().join('|');
+  let matchToMove = null;
+  const isCorrectedPair = match => scheduleMatchPairKey(match) === correctedPair;
+
+  schedule.dates.forEach(date => {
+    const stage = String(date.stage || '').toLowerCase();
+    if(stage === 'quarters'){
+      const misplacedMatch = (date.matches || []).find(isCorrectedPair);
+      if(misplacedMatch) matchToMove = { ...misplacedMatch };
+    }
+    if(stage === 'quarters' || stage === 'r16'){
+      date.matches = (date.matches || []).filter(match => !isCorrectedPair(match));
+      (date.groups || []).forEach(group => {
+        group.matches = (group.matches || []).filter(match => !isCorrectedPair(match));
+      });
+    }
+  });
+
+  if(matchToMove){
+    const r16Date = schedule.dates.find(date => String(date.stage || '').toLowerCase() === 'r16');
+    if(r16Date){
+      const correctedMatch = {
+        ...matchToMove,
+        group: 'R16',
+        stage: 'r16',
+        fixtureDateNumber: Number(r16Date.number || r16Date.numero || 1),
+        locallyCorrected: true
+      };
+      r16Date.matches = sortScheduleMatches([...(r16Date.matches || []), correctedMatch]);
+      const r16Group = r16Date.groups?.[0];
+      if(r16Group){
+        r16Group.matches = sortScheduleMatches([...(r16Group.matches || []), correctedMatch]);
+      }
+    }
+  }
+
+  schedule.matches = schedule.dates.flatMap(date => date.matches || []);
+}
+
+function addLocalMissingScheduleMatch(schedule, stage, playerA, playerB, overrideMatches){
+  if(!Array.isArray(schedule?.dates) || !Array.isArray(overrideMatches)) return;
+
+  const targetKey = scheduleMatchPairKey({ playerA, playerB });
+  const sourceMatch = overrideMatches.find(match => scheduleMatchPairKey(match) === targetKey);
+  const targetDate = schedule.dates.find(date => String(date.stage || '').toLowerCase() === stage);
+  if(!sourceMatch || !targetDate || (targetDate.matches || []).some(match => scheduleMatchPairKey(match) === targetKey)) return;
+
+  const addedMatch = {
+    ...sourceMatch,
+    group: stage.toUpperCase(),
+    stage,
+    fixtureDateNumber: Number(targetDate.number || targetDate.numero || 1),
+    dateTbd: !hasValidScheduleDate(sourceMatch),
+    overridden: true,
+    locallyAdded: true
+  };
+  targetDate.matches = sortScheduleMatches([...(targetDate.matches || []), addedMatch]);
+  const targetGroup = targetDate.groups?.[0];
+  if(targetGroup){
+    targetGroup.matches = sortScheduleMatches([...(targetGroup.matches || []), addedMatch]);
+  }
+  schedule.matches = schedule.dates.flatMap(date => date.matches || []);
+}
+
 function mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, finalSchedule){
   if(!groupsSchedule && !r16Schedule && !quartersSchedule && !semifinalsSchedule && !finalSchedule) return null;
   if(!r16Schedule?.dates?.length) return groupsSchedule || null;
@@ -1621,7 +1746,7 @@ async function loadExternalMatchSchedule(){
       groupsTable, r16Table, r16OverrideTable,
       quartersTable, quartersOverrideTable,
       semifinalsTable, semifinalsOverrideTable,
-      finalTable, finalOverrideTable
+      finalTable, finalOverrideTable, mysteryTable
     ] = await Promise.all([
       loadSheet(MATCH_SCHEDULE_GROUPS_SHEET_URL, 'Match Schedule (Groups)'),
       loadSheet(MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL, 'Match Schedule (Round of 16)'),
@@ -1631,8 +1756,10 @@ async function loadExternalMatchSchedule(){
       loadSheet(MATCH_SCHEDULE_SEMIFINALS_SHEET_URL, 'Match Schedule (Semifinals)'),
       loadSheet(MATCH_SCHEDULE_SEMIFINALS_OVERRIDE_URL, 'respaldo Semifinals'),
       loadSheet(MATCH_SCHEDULE_FINAL_SHEET_URL, 'Match Schedule (Final)'),
-      loadSheet(MATCH_SCHEDULE_FINAL_OVERRIDE_URL, 'respaldo Final')
+      loadSheet(MATCH_SCHEDULE_FINAL_OVERRIDE_URL, 'respaldo Final'),
+      loadSheet(MATCH_SCHEDULE_MISTERY_SHEET_URL, 'Match Schedule (Mistery)')
     ]);
+    externalMysteryMatches = parseMysteryScheduleTable(mysteryTable);
     const groupsSchedule = groupsTable
       ? parseMatchScheduleTable(groupsTable, { stage: 'groups' })
       : null;
@@ -1669,12 +1796,14 @@ async function loadExternalMatchSchedule(){
     applyStageRescheduleOverrides(externalMatchSchedule, 'r16', r16OverrideMatches, {
       includeMissing: Boolean(r16Schedule?.hasTbdDate)
     });
+    const quartersOverrideMatches = parseStageOverrideMatches(quartersOverrideTable, 'quarters', 'QF', t('quarterfinals'));
     applyStageRescheduleOverrides(
       externalMatchSchedule,
       'quarters',
-      parseStageOverrideMatches(quartersOverrideTable, 'quarters', 'QF', t('quarterfinals')),
+      quartersOverrideMatches,
       { includeMissing: Boolean(quartersSchedule?.hasTbdDate) }
     );
+    addLocalMissingScheduleMatch(externalMatchSchedule, 'quarters', 'SonBeto', 'MattGael', quartersOverrideMatches);
     applyStageRescheduleOverrides(
       externalMatchSchedule,
       'semifinals',
@@ -1687,10 +1816,12 @@ async function loadExternalMatchSchedule(){
       parseStageOverrideMatches(finalOverrideTable, 'final', 'F', t('final')),
       { includeMissing: Boolean(finalSchedule?.hasTbdDate) }
     );
+    applyLocalMatchStageCorrections(externalMatchSchedule);
     console.log(externalMatchSchedule);
     return externalMatchSchedule;
   }catch(err){
     externalMatchSchedule = null;
+    externalMysteryMatches = [];
     console.warn('No se pudo cargar Match Schedule desde Google Sheets.', err);
     return null;
   }
