@@ -34,11 +34,11 @@ const MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL = 'https://docs.google.com/spreadshee
 const MATCH_SCHEDULE_OVERRIDE_BASE = 'https://docs.google.com/spreadsheets/d/17RvnKg48Yhv-5p-Ze_9ArQEy1rySyidDc0e1yDgkgPE/gviz/tq?tqx=out:json&sheet=';
 const MATCH_SCHEDULE_ROUND_OF_16_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Round%20of%2016)';
 const MATCH_SCHEDULE_QUARTERS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Quarter%20Finals)';
-const MATCH_SCHEDULE_QUARTERS_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Quarter%20Finals)';
+const MATCH_SCHEDULE_QUARTERS_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Quarter%20Finals)&headers=0';
 const MATCH_SCHEDULE_SEMIFINALS_SHEET_URL = '';
-const MATCH_SCHEDULE_SEMIFINALS_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Semifinals)';
+const MATCH_SCHEDULE_SEMIFINALS_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Semifinals)&headers=0';
 const MATCH_SCHEDULE_FINAL_SHEET_URL = '';
-const MATCH_SCHEDULE_FINAL_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Final)';
+const MATCH_SCHEDULE_FINAL_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Final)&headers=0';
 const MATCH_SCHEDULE_THIRD_PLACE_SHEET_URL = '';
 const MATCH_SCHEDULE_THIRD_PLACE_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Third%20Place)';
 const MATCH_SCHEDULE_MISTERY_SHEET_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Mistery)';
@@ -236,6 +236,11 @@ let externalMatchSchedule = null;
 let externalMatchScheduleLoad = null;
 let externalMysteryMatches = [];
 let knockoutRunTimingsByPair = new Map();
+let knockoutRunTimingsByStage = {
+  quarters: new Map(),
+  semifinals: new Map(),
+  final: new Map()
+};
 let homeRunElapsedTimer = null;
 let statsUiState = {
   stage: 'overall',
@@ -650,14 +655,23 @@ function renderHomePanel(players = []){
 
   const stage = String(match.stage || '').toLowerCase();
   const group = String(match.group || '');
-  const homeMatchPairKey = [normalizeManualMatchName(match.playerA), normalizeManualMatchName(match.playerB)].sort().join('|');
-  const runTiming = knockoutRunTimingsByPair.get(homeMatchPairKey) || null;
-  const showRunElapsed = runTiming?.startSeconds != null;
+  const homeMatchPairKey = knockoutRunPairKey(match.playerA, match.playerB);
   const isMystery = stage === 'mystery';
   const isR16 = stage === 'r16' || group === 'R16' || /octavos|round\s*of\s*16/i.test(stage + group);
   const isQf = stage === 'qf' || /cuartos|quarter/i.test(stage + group);
   const isSf = stage === 'sf' || /semi/i.test(stage + group);
   const isFinal = stage === 'final' || (/final/i.test(stage + group) && !/semi/i.test(stage + group));
+  const stageRunTimings = isQf
+    ? knockoutRunTimingsByStage.quarters
+    : isSf
+      ? knockoutRunTimingsByStage.semifinals
+      : isFinal
+        ? knockoutRunTimingsByStage.final
+        : null;
+  const runTiming = stageRunTimings?.get(homeMatchPairKey)
+    || (stageRunTimings?.size === 1 ? stageRunTimings.values().next().value : null)
+    || null;
+  const showRunElapsed = runTiming?.startSeconds != null;
 
   const stageLabel = isMystery
     ? `${t('mysteryRunners')} · ${t('exhibition')}`
@@ -798,7 +812,7 @@ function renderHomePanel(players = []){
       if(elapsedSeconds < 0 && crossesMidnight) elapsedSeconds += 24 * 60 * 60;
       else if(elapsedSeconds < 0) elapsedSeconds = 0;
 
-      if(runTiming.endSeconds != null){
+      if(runTiming.endSeconds != null && runTiming.endSeconds !== runTiming.startSeconds){
         const runDuration = (runTiming.endSeconds - runTiming.startSeconds + 24 * 60 * 60) % (24 * 60 * 60);
         if(runDuration > 0 && elapsedSeconds >= runDuration){
           elapsedElement.remove();
@@ -1546,14 +1560,18 @@ function parseStageOverrideMatches(table, stage, defaultGroup, dateLabelPrefix){
 }
 
 function parseSheetClockTimeSeconds(table, rowIndex, columnIndex){
-  const value = getSheetCell(table?.rows?.[rowIndex], columnIndex);
+  const cell = table?.rows?.[rowIndex]?.c?.[columnIndex];
+  const formatted = String(cell?.f ?? '').trim();
+  const raw = String(cell?.v ?? '').trim();
+  const value = `${formatted} ${raw}`;
   const dateValue = value.match(/Date\(\d+,\d+,\d+,\s*(\d{1,2}),\s*(\d{1,2}),\s*(\d{1,2})/);
-  const timeValue = value.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  const timeValue = formatted.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
+    || raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   const match = dateValue || timeValue;
   if(!match) return null;
   const hour = Number(match[1]);
   const minute = Number(match[2]);
-  const second = Number(match[3] || (dateValue ? 0 : 0));
+  const second = Number(match[3] || 0);
   if(hour > 23 || minute > 59 || second > 59) return null;
   return hour * 3600 + minute * 60 + second;
 }
@@ -1571,6 +1589,13 @@ function getScheduleClockSeconds(){
     + Number(nowParts.find(part => part.type === 'second')?.value || 0);
 }
 
+function knockoutRunPairKey(playerA, playerB){
+  return [normalizeSchedulePlayerName(playerA), normalizeSchedulePlayerName(playerB)]
+    .map(normalizeManualMatchName)
+    .sort()
+    .join('|');
+}
+
 function resolveActiveKnockoutRunTimings(table){
   const nowSeconds = getScheduleClockSeconds();
   const daySeconds = 24 * 60 * 60;
@@ -1581,10 +1606,12 @@ function resolveActiveKnockoutRunTimings(table){
   blockStarts.forEach(playerCol => {
     let currentPairKey = null;
     rows.forEach((row, rowIndex) => {
-      const playerA = getSheetCell(row, playerCol);
-      const playerB = getSheetCell(row, playerCol + 3);
-      if(isValidSchedulePlayerName(playerA) && isValidSchedulePlayerName(playerB)){
-        currentPairKey = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
+      const possiblePlayers = Array.from({ length: 4 }, (_, offset) => getSheetCell(row, playerCol + offset))
+        .filter(isValidSchedulePlayerName);
+      if(possiblePlayers.length >= 2){
+        // Las hojas de respaldo no siempre ubican al segundo jugador en la misma columna:
+        // puede estar en D o E. Los resultados y las horas se descartan arriba.
+        currentPairKey = knockoutRunPairKey(possiblePlayers[0], possiblePlayers[1]);
       }else{
         const dayMarker = getSheetCell(row, playerCol - 1);
         if(/^DAY\s+\d+/i.test(dayMarker)) currentPairKey = null;
@@ -1595,7 +1622,8 @@ function resolveActiveKnockoutRunTimings(table){
       if(startSeconds == null) return;
       const endSeconds = parseSheetClockTimeSeconds(table, rowIndex, playerCol + 4);
       let isActive = false;
-      if(endSeconds == null){
+      if(endSeconds == null || endSeconds === startSeconds){
+        // Sin hora de fin, o inicio y fin iguales: la run sigue en curso.
         isActive = nowSeconds >= startSeconds;
       }else{
         const duration = (endSeconds - startSeconds + daySeconds) % daySeconds;
@@ -1841,11 +1869,12 @@ async function loadExternalMatchSchedule(){
       loadSheet(MATCH_SCHEDULE_FINAL_OVERRIDE_URL, 'respaldo Final'),
       loadSheet(MATCH_SCHEDULE_MISTERY_SHEET_URL, 'Match Schedule (Mistery)')
     ]);
-    knockoutRunTimingsByPair = new Map([
-      ...resolveActiveKnockoutRunTimings(quartersOverrideTable),
-      ...resolveActiveKnockoutRunTimings(semifinalsOverrideTable),
-      ...resolveActiveKnockoutRunTimings(finalOverrideTable)
-    ]);
+    knockoutRunTimingsByStage = {
+      quarters: resolveActiveKnockoutRunTimings(quartersOverrideTable),
+      semifinals: resolveActiveKnockoutRunTimings(semifinalsOverrideTable),
+      final: resolveActiveKnockoutRunTimings(finalOverrideTable)
+    };
+    knockoutRunTimingsByPair = new Map(Object.values(knockoutRunTimingsByStage).flatMap(timings => [...timings]));
     externalMysteryMatches = parseMysteryScheduleTable(mysteryTable);
     const groupsSchedule = groupsTable
       ? parseMatchScheduleTable(groupsTable, { stage: 'groups' })
@@ -1904,7 +1933,6 @@ async function loadExternalMatchSchedule(){
       { includeMissing: Boolean(finalSchedule?.hasTbdDate) }
     );
     applyLocalMatchStageCorrections(externalMatchSchedule);
-    console.log(externalMatchSchedule);
     return externalMatchSchedule;
   }catch(err){
     externalMatchSchedule = null;
