@@ -567,6 +567,7 @@ footer{
 .home-versus{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff}
 .home-versus strong{font-size:clamp(2rem,5vw,4.5rem);line-height:1;text-shadow:3px 3px 0 #12151b}
 .home-versus span{padding:7px 10px;border:1px solid rgba(255,255,255,.35);color:#e7e9ef;font-size:.62rem;font-weight:700;letter-spacing:.1em}
+.home-versus .home-run-elapsed{padding:0;border:0;color:#aef09b;font-size:1rem;font-variant-numeric:tabular-nums;letter-spacing:.06em}
 .home-live-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 8%;padding:16px 0;border-top:1px solid rgba(255,255,255,.2);color:#d4d8e1;font-size:.8rem}
 .home-live-footer a{padding:8px 12px;border-radius:5px;background:#e64949;color:#fff;font-weight:700;text-decoration:none}
 .home-live-footer a:hover{filter:brightness(1.1)}

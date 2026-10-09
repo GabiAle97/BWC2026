@@ -75,7 +75,7 @@ const TRANSLATIONS = {
     pastMatches: 'Pasadas', upcomingMatches: 'Próximas', noPastMatches: 'Todavía no hay partidos finalizados.', noUpcomingMatches: 'No hay próximos partidos cargados.',
     groupStageOnlyNote: 'La posición y los partidos corresponden exclusivamente a la fase de grupos.',
     noRunsYet: 'Sin runs registradas todavía.', noDataForGroups: 'Sin datos para generar grupos.', leaderboardLoadError: 'No se pudo cargar el leaderboard.',
-    upcomingLabel: 'Próximo', finishedLabel: 'Finalizado',
+    upcomingLabel: 'Próximo', finishedLabel: 'Finalizado', inProgressLabel: 'En curso',
     colMatches: 'Partidos', colWins: 'Victorias', colDraws: 'Empates', colLosses: 'Derrotas', colBestTime: 'Tiempo best', colPoints: 'Puntos',
     dateLabel: 'Fecha', visits: 'Visitas', notAvailable: 'No disponible', notAvailableShort: 'N/D', notAvailablePlural: 'No disponibles',
     channels: 'Canales', signupDate: 'Fecha de inscripción', pbUploadDate: 'Fecha de subida del PB',
@@ -133,7 +133,7 @@ const TRANSLATIONS = {
     pastMatches: 'Past', upcomingMatches: 'Upcoming', noPastMatches: 'No finished matches yet.', noUpcomingMatches: 'No upcoming matches loaded.',
     groupStageOnlyNote: 'The position and matches correspond exclusively to the group stage.',
     noRunsYet: 'No runs registered yet.', noDataForGroups: 'No data to generate groups.', leaderboardLoadError: 'Could not load the leaderboard.',
-    upcomingLabel: 'Upcoming', finishedLabel: 'Finished',
+    upcomingLabel: 'Upcoming', finishedLabel: 'Finished', inProgressLabel: 'In progress',
     colMatches: 'Matches', colWins: 'Wins', colDraws: 'Draws', colLosses: 'Losses', colBestTime: 'Best time', colPoints: 'Points',
     dateLabel: 'Date', visits: 'Visits', notAvailable: 'Not available', notAvailableShort: 'N/A', notAvailablePlural: 'Not available',
     channels: 'Channels', signupDate: 'Signup date', pbUploadDate: 'PB upload date',
@@ -235,6 +235,8 @@ let externalStatsLoad = null;
 let externalMatchSchedule = null;
 let externalMatchScheduleLoad = null;
 let externalMysteryMatches = [];
+let knockoutRunTimingsByPair = new Map();
+let homeRunElapsedTimer = null;
 let statsUiState = {
   stage: 'overall',
   dualSortBy: 'best',   // 'best' | 'worst'
@@ -525,67 +527,34 @@ function isMatchLive(startDate){
   return elapsed >= 0 && elapsed <= LIVE_WINDOW_MS;
 }
 
-function getTwitchLoginFromStreamUrl(url = LIVE_STREAM_URL){
-  const match = String(url || '').match(/twitch\.tv\/([a-zA-Z0-9_]+)/i);
-  return match ? match[1].toLowerCase() : 'basementcup';
-}
-
-let twitchLiveCache = { checkedAt: 0, isLive: false, login: null };
-const TWITCH_LIVE_CACHE_MS = 30 * 1000;
-
-/**
- * ¿El canal de Twitch está transmitiendo ahora?
- * No lee el contenido del video (eso requeriría OCR/backend);
- * usa el estado "online" del stream como señal de que hay transmisión.
- */
-async function fetchTwitchChannelIsLive(login = getTwitchLoginFromStreamUrl()){
-  const now = Date.now();
-  if(twitchLiveCache.login === login && (now - twitchLiveCache.checkedAt) < TWITCH_LIVE_CACHE_MS){
-    return twitchLiveCache.isLive;
-  }
-
-  let isLive = false;
-  try{
-    // decapi: responde uptime si está en vivo, o mensaje de offline
-    const response = await fetch(`https://decapi.me/twitch/uptime/${encodeURIComponent(login)}`, {
-      cache: 'no-store'
-    });
-    const text = String(await response.text() || '').trim().toLowerCase();
-    if(response.ok){
-      const offline = /not live|is offline|offline|does not exist|unavailable|error/.test(text);
-      isLive = text.length > 0 && !offline;
-    }
-  }catch(err){
-    console.warn('No se pudo consultar el estado del stream de Twitch.', err);
-    isLive = twitchLiveCache.isLive; // conservar último valor conocido
-  }
-
-  twitchLiveCache = { checkedAt: now, isLive, login };
-  return isLive;
+function getKnockoutSeriesTarget(stageValue, groupValue = ''){
+  const stage = String(stageValue || '').toLowerCase();
+  const group = String(groupValue || '').toLowerCase();
+  const combined = `${stage} ${group}`;
+  const isKnockout = /r16|round\s*of\s*16|octavos|qf|quarter|cuartos|sf|semi|final|third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/i.test(combined);
+  if(!isKnockout) return null;
+  return /(^|\s)final(\s|$)|third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/i.test(combined) ? 3 : 2;
 }
 
 function isSeriesDecided(match){
   if(!match) return false;
-  if(match.winner) return true;
-  const a = Number(match.seriesScoreA);
-  const b = Number(match.seriesScoreB);
-  if(!Number.isFinite(a) || !Number.isFinite(b)) return false;
-  const stage = String(match.stage || '').toLowerCase();
-  const group = String(match.group || '');
-  const isFinal = stage === 'final' || (/final/i.test(stage + group) && !/semi/i.test(stage + group));
-  const isKnockout = stage === 'r16' || group === 'R16'
-    || /octavos|qf|sf|cuartos|semi|final|round\s*of\s*16/i.test(stage + group);
-  if(!isKnockout) return (a >= 1 && b === 0) || (b >= 1 && a === 0);
-  return a >= (isFinal ? 3 : 2) || b >= (isFinal ? 3 : 2);
+  const target = getKnockoutSeriesTarget(match.stage, match.group);
+  const scoreA = String(match.seriesScoreA ?? '').trim();
+  const scoreB = String(match.seriesScoreB ?? '').trim();
+  if(target != null && scoreA !== '' && scoreB !== ''){
+    const a = Number(scoreA);
+    const b = Number(scoreB);
+    if(Number.isFinite(a) && Number.isFinite(b)) return a >= target || b >= target;
+  }
+  return Boolean(match.winner);
 }
 
 /**
- * Candidato a EN VIVO: el stream está on Y el partido ya debería haber empezado
- * (horario del fixture) Y la serie no terminó. Así no marcamos un partido
- * futuro solo porque el canal está en vivo (charla, espera, etc.).
+ * Candidato a EN VIVO: el partido ya debería haber empezado según el fixture
+ * y la serie no terminó. El estado de Twitch no se consulta.
  */
-function isFixtureMatchLiveCandidate(match, scheduleDate, streamIsLive){
-  if(!streamIsLive || !match) return false;
+function isFixtureMatchLiveCandidate(match, scheduleDate){
+  if(!match) return false;
   if(isSeriesDecided(match)) return false;
   if(!scheduleDate) return false;
   return isMatchLive(scheduleDate);
@@ -595,10 +564,9 @@ function isFixtureMatchLiveCandidate(match, scheduleDate, streamIsLive){
 const LIVE_STATUS_POLL_MS = 30 * 1000;
 let liveStatusPollTimer = null;
 
-async function refreshLiveStatusFromStream(){
+async function refreshLiveStatusFromSchedule(){
   try{
-    await fetchTwitchChannelIsLive();
-    // Refrescar schedule por si cambió el marcador mientras transmite
+    // Refrescar schedule por si cambió el marcador o comenzó un partido
     await loadExternalMatchSchedule();
     if(lastLeaderboardSnapshot?.players){
       renderHomePanel(lastLeaderboardSnapshot.players);
@@ -614,13 +582,7 @@ async function refreshLiveStatusFromStream(){
 
 function startLiveStatusPolling(){
   if(liveStatusPollTimer) return;
-  // Primera consulta inmediata del stream
-  fetchTwitchChannelIsLive().then(() => {
-    if(lastLeaderboardSnapshot?.players){
-      renderHomePanel(lastLeaderboardSnapshot.players);
-    }
-  });
-  liveStatusPollTimer = setInterval(refreshLiveStatusFromStream, LIVE_STATUS_POLL_MS);
+  liveStatusPollTimer = setInterval(refreshLiveStatusFromSchedule, LIVE_STATUS_POLL_MS);
 }
 
 function getPlayerAvatarMarkup(player, avatar){
@@ -658,15 +620,18 @@ function renderHomePanel(players = []){
 
   const results = externalMatchSchedule || getLoadedResults();
   const matches = Array.isArray(results?.matches) ? results.matches : [];
-  const streamIsLive = Boolean(twitchLiveCache.isLive);
   const liveMysteryMatch = externalMysteryMatches
     .map(match => ({ match, schedule: formatScheduledDateTime(match.date, match.time) }))
-    .find(item => streamIsLive && item.schedule && isMatchLive(item.schedule.date));
+    .find(item => item.schedule && isMatchLive(item.schedule.date));
   const liveMatch = liveMysteryMatch || matches
     .map(match => ({ match, schedule: formatScheduledDateTime(match.date, match.time) }))
-    .find(item => item.schedule && isFixtureMatchLiveCandidate(item.match, item.schedule.date, streamIsLive));
+    .find(item => item.schedule && isFixtureMatchLiveCandidate(item.match, item.schedule.date));
 
   if(!liveMatch){
+    if(homeRunElapsedTimer){
+      clearInterval(homeRunElapsedTimer);
+      homeRunElapsedTimer = null;
+    }
     container.innerHTML = `
       <div class="home-empty">
         <span class="home-empty-mark" aria-hidden="true">◷</span>
@@ -685,6 +650,9 @@ function renderHomePanel(players = []){
 
   const stage = String(match.stage || '').toLowerCase();
   const group = String(match.group || '');
+  const homeMatchPairKey = [normalizeManualMatchName(match.playerA), normalizeManualMatchName(match.playerB)].sort().join('|');
+  const runTiming = knockoutRunTimingsByPair.get(homeMatchPairKey) || null;
+  const showRunElapsed = runTiming?.startSeconds != null;
   const isMystery = stage === 'mystery';
   const isR16 = stage === 'r16' || group === 'R16' || /octavos|round\s*of\s*16/i.test(stage + group);
   const isQf = stage === 'qf' || /cuartos|quarter/i.test(stage + group);
@@ -703,16 +671,21 @@ function renderHomePanel(players = []){
           ? t('roundOf16')
           : (FINAL_GROUPS[group] ? `${t('group')} ${group}` : (group ? `${t('group')} ${group}` : t('groupStage')));
 
+  const hasSeries = match.seriesScoreA != null && match.seriesScoreB != null
+    && String(match.seriesScoreA).trim() !== '' && String(match.seriesScoreB).trim() !== '';
+  const seriesRunsCompleted = hasSeries
+    ? Number(match.seriesScoreA) + Number(match.seriesScoreB)
+    : 0;
+  const currentRunNumber = Number.isFinite(seriesRunsCompleted)
+    ? Math.min(3, Math.max(1, seriesRunsCompleted + 1))
+    : 1;
   const bestOfLabel = isMystery
     ? t('exhibition').toUpperCase()
     : isFinal
     ? 'BEST OF 5'
     : (isR16 || isQf || isSf)
-      ? 'BEST OF 3'
+      ? `RUN ${currentRunNumber} OF 3`
       : 'BEST OF 1';
-
-  const hasSeries = match.seriesScoreA != null && match.seriesScoreB != null
-    && String(match.seriesScoreA).trim() !== '' && String(match.seriesScoreB).trim() !== '';
 
   // Juegos del schedule + fallback desde sheet de detalles (Match 49/50/51)
   let games = Array.isArray(match.games) ? match.games.slice() : [];
@@ -793,6 +766,7 @@ function renderHomePanel(players = []){
         <div class="home-versus">
           <strong>VS</strong>
           <span class="home-best-of">${bestOfLabel}</span>
+          ${showRunElapsed ? '<span class="home-run-elapsed" id="home-run-elapsed">00:00</span>' : ''}
         </div>
         <div class="home-contestant">
           <div class="home-avatar">${getPlayerAvatarMarkup(playerB)}</div>
@@ -808,6 +782,40 @@ function renderHomePanel(players = []){
       </div>
     </div>
   `;
+
+  if(homeRunElapsedTimer){
+    clearInterval(homeRunElapsedTimer);
+    homeRunElapsedTimer = null;
+  }
+  if(showRunElapsed){
+    const elapsedElement = document.getElementById('home-run-elapsed');
+    const updateElapsed = () => {
+      if(!elapsedElement) return;
+      const nowSeconds = getScheduleClockSeconds();
+      let elapsedSeconds = nowSeconds - runTiming.startSeconds;
+      const crossesMidnight = runTiming.endSeconds != null
+        && runTiming.endSeconds < runTiming.startSeconds;
+      if(elapsedSeconds < 0 && crossesMidnight) elapsedSeconds += 24 * 60 * 60;
+      else if(elapsedSeconds < 0) elapsedSeconds = 0;
+
+      if(runTiming.endSeconds != null){
+        const runDuration = (runTiming.endSeconds - runTiming.startSeconds + 24 * 60 * 60) % (24 * 60 * 60);
+        if(runDuration > 0 && elapsedSeconds >= runDuration){
+          elapsedElement.remove();
+          if(homeRunElapsedTimer){
+            clearInterval(homeRunElapsedTimer);
+            homeRunElapsedTimer = null;
+          }
+          return;
+        }
+      }
+      const minutes = Math.floor(elapsedSeconds / 60);
+      const seconds = elapsedSeconds % 60;
+      elapsedElement.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    };
+    updateElapsed();
+    homeRunElapsedTimer = setInterval(updateElapsed, 1000);
+  }
 }
 
 
@@ -1131,19 +1139,20 @@ function isValidSchedulePlayerName(value){
   return true;
 }
 
-function resolveScheduleSeriesWinner(scoreA, scoreB, playerA, playerB){
+function resolveScheduleSeriesWinner(scoreA, scoreB, playerA, playerB, stage = '', group = ''){
   const a = Number(String(scoreA ?? '').trim());
   const b = Number(String(scoreB ?? '').trim());
-  if(Number.isFinite(a) && Number.isFinite(b) && String(scoreA).trim() !== '' && String(scoreB).trim() !== '' && a !== b){
+  if(!Number.isFinite(a) || !Number.isFinite(b) || String(scoreA).trim() === '' || String(scoreB).trim() === '') return '';
+  const target = getKnockoutSeriesTarget(stage, group);
+  if(target != null){
+    if(a < target && b < target) return '';
+  }else if(a === b){
+    return '';
+  }
+  if(a !== b){
     return a > b
       ? normalizeSchedulePlayerName(playerA)
       : normalizeSchedulePlayerName(playerB);
-  }
-  if(String(scoreA).trim() === '1' && String(scoreB).trim() === '0'){
-    return normalizeSchedulePlayerName(playerA);
-  }
-  if(String(scoreA).trim() === '0' && String(scoreB).trim() === '1'){
-    return normalizeSchedulePlayerName(playerB);
   }
   return '';
 }
@@ -1450,7 +1459,7 @@ function parseMatchScheduleTable(table, options = {}){
         games.length
       );
       if(!hasScheduledTime && !hasResult && !dateIsTbd) return;
-      const winner = resolveScheduleSeriesWinner(scoreA, scoreB, playerA, playerB);
+      const winner = resolveScheduleSeriesWinner(scoreA, scoreB, playerA, playerB, stage, group);
 
       matchesByRound[roundIndex].push({
         group,
@@ -1534,6 +1543,79 @@ function parseStageOverrideMatches(table, stage, defaultGroup, dateLabelPrefix){
     defaultGroup,
     dateLabelPrefix
   })?.matches || [];
+}
+
+function parseSheetClockTimeSeconds(table, rowIndex, columnIndex){
+  const value = getSheetCell(table?.rows?.[rowIndex], columnIndex);
+  const dateValue = value.match(/Date\(\d+,\d+,\d+,\s*(\d{1,2}),\s*(\d{1,2}),\s*(\d{1,2})/);
+  const timeValue = value.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  const match = dateValue || timeValue;
+  if(!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const second = Number(match[3] || (dateValue ? 0 : 0));
+  if(hour > 23 || minute > 59 || second > 59) return null;
+  return hour * 3600 + minute * 60 + second;
+}
+
+function getScheduleClockSeconds(){
+  const nowParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: SCHEDULE_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date());
+  return Number(nowParts.find(part => part.type === 'hour')?.value || 0) * 3600
+    + Number(nowParts.find(part => part.type === 'minute')?.value || 0) * 60
+    + Number(nowParts.find(part => part.type === 'second')?.value || 0);
+}
+
+function resolveActiveKnockoutRunTimings(table){
+  const nowSeconds = getScheduleClockSeconds();
+  const daySeconds = 24 * 60 * 60;
+  const activeRuns = new Map();
+  const rows = table?.rows || [];
+  const blockStarts = [1, 9, 17];
+
+  blockStarts.forEach(playerCol => {
+    let currentPairKey = null;
+    rows.forEach((row, rowIndex) => {
+      const playerA = getSheetCell(row, playerCol);
+      const playerB = getSheetCell(row, playerCol + 3);
+      if(isValidSchedulePlayerName(playerA) && isValidSchedulePlayerName(playerB)){
+        currentPairKey = [normalizeManualMatchName(playerA), normalizeManualMatchName(playerB)].sort().join('|');
+      }else{
+        const dayMarker = getSheetCell(row, playerCol - 1);
+        if(/^DAY\s+\d+/i.test(dayMarker)) currentPairKey = null;
+      }
+      if(!currentPairKey) return;
+
+      const startSeconds = parseSheetClockTimeSeconds(table, rowIndex, playerCol - 1);
+      if(startSeconds == null) return;
+      const endSeconds = parseSheetClockTimeSeconds(table, rowIndex, playerCol + 4);
+      let isActive = false;
+      if(endSeconds == null){
+        isActive = nowSeconds >= startSeconds;
+      }else{
+        const duration = (endSeconds - startSeconds + daySeconds) % daySeconds;
+        const elapsed = (nowSeconds - startSeconds + daySeconds) % daySeconds;
+        isActive = duration > 0 && elapsed < duration;
+      }
+      if(!isActive) return;
+
+      const previous = activeRuns.get(currentPairKey);
+      const elapsed = (nowSeconds - startSeconds + daySeconds) % daySeconds;
+      const previousElapsed = previous
+        ? (nowSeconds - previous.startSeconds + daySeconds) % daySeconds
+        : Number.POSITIVE_INFINITY;
+      if(!previous || elapsed < previousElapsed){
+        activeRuns.set(currentPairKey, { startSeconds, endSeconds });
+      }
+    });
+  });
+
+  return activeRuns;
 }
 
 function parseMysteryScheduleTable(table){
@@ -1758,6 +1840,11 @@ async function loadExternalMatchSchedule(){
       loadSheet(MATCH_SCHEDULE_FINAL_SHEET_URL, 'Match Schedule (Final)'),
       loadSheet(MATCH_SCHEDULE_FINAL_OVERRIDE_URL, 'respaldo Final'),
       loadSheet(MATCH_SCHEDULE_MISTERY_SHEET_URL, 'Match Schedule (Mistery)')
+    ]);
+    knockoutRunTimingsByPair = new Map([
+      ...resolveActiveKnockoutRunTimings(quartersOverrideTable),
+      ...resolveActiveKnockoutRunTimings(semifinalsOverrideTable),
+      ...resolveActiveKnockoutRunTimings(finalOverrideTable)
     ]);
     externalMysteryMatches = parseMysteryScheduleTable(mysteryTable);
     const groupsSchedule = groupsTable
@@ -2912,15 +2999,26 @@ function getMatchWinnerName(match, playerA, playerB){
 
   if(winnerValue === 'draw' || winnerValue === 'empate' || winnerValue === 'tie') return null;
 
-  // Serie BO3/BO5 tiene prioridad sobre un solo tiempo de mapa
-  if(match.seriesScoreA != null && match.seriesScoreB != null){
+  const targetWins = getKnockoutSeriesTarget(match.stage, match.group);
+  const hasSeriesScore = match.seriesScoreA != null && match.seriesScoreB != null
+    && String(match.seriesScoreA).trim() !== '' && String(match.seriesScoreB).trim() !== '';
+
+  // En BO3/BO5, una ventaja de un mapa no concluye la serie.
+  if(targetWins != null && hasSeriesScore){
     const sA = Number(match.seriesScoreA);
     const sB = Number(match.seriesScoreB);
-    if(Number.isFinite(sA) && Number.isFinite(sB) && sA !== sB){
-      const sameOrder = normalizeManualMatchName(match.playerA || match.jugadorA || match.a) === normalizeManualMatchName(playerA);
-      if(sameOrder) return sA > sB ? playerA : playerB;
-      return sA > sB ? playerB : playerA;
-    }
+    if(!Number.isFinite(sA) || !Number.isFinite(sB) || (sA < targetWins && sB < targetWins)) return null;
+    const sameOrder = normalizeManualMatchName(match.playerA || match.jugadorA || match.a) === normalizeManualMatchName(playerA);
+    if(sameOrder) return sA > sB ? playerA : playerB;
+    return sA > sB ? playerB : playerA;
+  }
+  if(targetWins != null){
+    if(!match.winner) return null;
+    return normalizeManualMatchName(match.winner) === normalizeManualMatchName(playerA)
+      ? playerA
+      : normalizeManualMatchName(match.winner) === normalizeManualMatchName(playerB)
+        ? playerB
+        : null;
   }
 
   const rawTimeA = match.timeA ?? match.tiempoA ?? match.time_a ?? match.times?.[playerA] ?? match.result?.timeA ?? match.result?.[playerA];
@@ -3736,7 +3834,7 @@ function renderCalendarFixturePanel(players = []){
         const scheduledTime = resultMatch && (resultMatch.time || resultMatch.horario) ? (resultMatch.time || resultMatch.horario) : match.time;
         const schedule = formatScheduledDateTime(scheduledDate, scheduledTime);
         const liveSource = resultMatch || match;
-        const liveButton = isFixtureMatchLiveCandidate(liveSource, schedule?.date, Boolean(twitchLiveCache.isLive))
+        const liveButton = isFixtureMatchLiveCandidate(liveSource, schedule?.date)
           ? `<a class="fixture-live-button" href="${LIVE_STREAM_URL}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${t('live')}</a>`
           : '';
 
@@ -3754,14 +3852,15 @@ function renderCalendarFixturePanel(players = []){
       // partidos ya concluídos al final.
       enrichedMatches.sort((a, b) => {
         if (a.isFinished !== b.isFinished) return a.isFinished ? 1 : -1;
+        // El partido en vivo va primero aunque su horario programado ya haya pasado.
+        if (a.liveButton && !b.liveButton) return -1;
+        if (!a.liveButton && b.liveButton) return 1;
         // Si el scheduledTime de a es 60 minutos menor que la hora actual y no está finalizado, se considera reprogramado
         const now = Date.now();
         const aReprogrammed = a.sortTime < now - 60 * 60 * 1000 && !a.isFinished;
         const bReprogrammed = b.sortTime < now - 60 * 60 * 1000 && !b.isFinished;
         if (aReprogrammed && !bReprogrammed) return 1;
         if (!aReprogrammed && bReprogrammed) return -1;
-        if (a.liveButton && !b.liveButton) return -1;
-        if (!a.liveButton && b.liveButton) return 1;
         return a.sortTime - b.sortTime;
       });
 
@@ -4148,19 +4247,26 @@ function buildKnockoutBracket(runs, players){
     const match = findKnockoutMatch(slotA.name, slotB.name, stageFilter);
     if(!match) return { winnerIndex: null, winner: null };
 
-    // Preferir marcador de serie BO3/BO5
+    // En eliminatorias, el resultado de un mapa no determina al ganador de la serie.
     let winnerName = null;
-    if(match.seriesScoreA != null && match.seriesScoreB != null){
+    const targetWins = getKnockoutSeriesTarget(stageFilter, match.stage || match.group);
+    const hasSeriesScore = match.seriesScoreA != null && match.seriesScoreB != null
+      && String(match.seriesScoreA).trim() !== '' && String(match.seriesScoreB).trim() !== '';
+    if(targetWins != null && hasSeriesScore){
       const sA = Number(match.seriesScoreA);
       const sB = Number(match.seriesScoreB);
-      if(Number.isFinite(sA) && Number.isFinite(sB) && sA !== sB){
-        const sameOrder = normalizeManualMatchName(match.playerA) === normalizeManualMatchName(slotA.name);
-        if(sameOrder) winnerName = sA > sB ? slotA.name : slotB.name;
-        else winnerName = sA > sB ? slotB.name : slotA.name;
+      if(!Number.isFinite(sA) || !Number.isFinite(sB) || (sA < targetWins && sB < targetWins)){
+        return { winnerIndex: null, winner: null };
       }
-    }
-    if(!winnerName){
-      winnerName = getMatchWinnerName(match, slotA.name, slotB.name);
+      const sameOrder = normalizeManualMatchName(match.playerA) === normalizeManualMatchName(slotA.name);
+      if(sameOrder) winnerName = sA > sB ? slotA.name : slotB.name;
+      else winnerName = sA > sB ? slotB.name : slotA.name;
+    }else if(match.winner){
+      winnerName = normalizeManualMatchName(match.winner) === normalizeManualMatchName(slotA.name)
+        ? slotA.name
+        : normalizeManualMatchName(match.winner) === normalizeManualMatchName(slotB.name)
+          ? slotB.name
+          : null;
     }
     if(!winnerName) return { winnerIndex: null, winner: null };
 
@@ -5065,8 +5171,9 @@ function closePlayerModal(){
 
 function getMatchSeriesPageCount(stage, groupLetter){
   const key = String(stage || groupLetter || '').toLowerCase();
-  if(key === 'final' || key.includes('final')) return 5;
-  if(key === 'r16' || key === 'qf' || key === 'sf' || key.includes('octavos') || key.includes('cuartos') || key.includes('semi') || key.includes('round of 16')) return 3;
+  if(/third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/.test(key)) return 5;
+  if(/(^|[\s_-])final([\s_-]|$)/.test(key)) return 5;
+  if(key === 'r16' || key === 'qf' || key === 'sf' || key.includes('quarter') || key.includes('octavos') || key.includes('cuartos') || key.includes('semi') || key.includes('round of 16')) return 3;
   return 1;
 }
 
@@ -5195,10 +5302,7 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
     timeBBetter = Number.isFinite(nA) && Number.isFinite(nB) && nB > nA;
   }
 
-  const isKnockoutMatch = String(groupLetter || '').toUpperCase() === 'R16'
-    || resultMatchStage === 'r16'
-    || /r16|qf|sf|final|octavos|cuartos|semi|round\s*of\s*16/i.test(String(groupLetter || ''))
-    || /r16|qf|sf|final/i.test(String(resultMatchStage || ''));
+  const isKnockoutMatch = getKnockoutSeriesTarget(resultMatchStage, groupLetter) != null;
 
   const expectedPages = isKnockoutMatch
     ? getMatchSeriesPageCount(resultMatchStage || groupLetter, groupLetter)
@@ -5243,10 +5347,16 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
     });
   }
 
+  const knockoutStageLabel = (() => {
+    const stage = `${resultMatchStage || ''} ${groupLetter || ''}`.toLowerCase();
+    if(/third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/.test(stage)) return t('thirdPlace');
+    if(/(^|\s)final(\s|$)/.test(stage)) return t('final');
+    if(/semi|\bsf\b/.test(stage)) return t('semifinals');
+    if(/quarter|cuartos|\bqf\b/.test(stage)) return t('quarterfinals');
+    return t('roundOf16');
+  })();
   const stageTitle = isKnockoutMatch
-    ? (String(resultMatchStage || groupLetter || '').toLowerCase().includes('final') && !String(resultMatchStage || '').includes('r16')
-      ? t('final')
-      : t('roundOf16'))
+    ? knockoutStageLabel
     : (groupLetter && FINAL_GROUPS[groupLetter]
       ? `${t('group')} ${groupLetter}`
       : (groupLetter ? `${t('group')} ${groupLetter}` : t('groupStage')));
@@ -5315,7 +5425,17 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
     const formattedA = formatDisplayTime(pageTimeA);
     const formattedB = formatDisplayTime(pageTimeB);
     const hasResult = formattedA !== '-' || formattedB !== '-';
-    const statusLabel = hasResult ? t('finishedLabel') : t('upcomingLabel');
+    const seriesTarget = getKnockoutSeriesTarget(resultMatchStage, groupLetter);
+    const hasSeriesScore = seriesScoreA != null && seriesScoreB != null
+      && String(seriesScoreA).trim() !== '' && String(seriesScoreB).trim() !== '';
+    const seriesScoreAValue = Number(seriesScoreA);
+    const seriesScoreBValue = Number(seriesScoreB);
+    const seriesDecided = seriesTarget != null && hasSeriesScore
+      && Number.isFinite(seriesScoreAValue) && Number.isFinite(seriesScoreBValue)
+      && (seriesScoreAValue >= seriesTarget || seriesScoreBValue >= seriesTarget);
+    const statusLabel = seriesTarget != null && hasSeriesScore && !seriesDecided
+      ? (hasResult ? t('inProgressLabel') : t('upcomingLabel'))
+      : (hasResult ? t('finishedLabel') : t('upcomingLabel'));
     const matchLabel = page?.matchLabel || null;
 
     const pageSegments = page?.segments || [];
