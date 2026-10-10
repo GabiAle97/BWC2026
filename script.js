@@ -2,6 +2,7 @@ const LEADERBOARD_URL = "https://www.speedrun.com/api/v1/leaderboards/kdkzvyqd/c
 const SCHEDULE_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 const LIVE_STREAM_URL = 'https://www.twitch.tv/basementcup';
 const LIVE_WINDOW_MS = 200 * 60 * 1000;
+const POST_MATCH_HOME_WINDOW_MS = 10 * 60 * 1000;
 
 // La API de speedrun.com a veces no manda el header CORS y el navegador
 // bloquea el fetch directo. Si eso pasa, reintentamos vía un proxy CORS público.
@@ -559,10 +560,15 @@ function isSeriesDecided(match){
  * y la serie no terminó. El estado de Twitch no se consulta.
  */
 function isFixtureMatchLiveCandidate(match, scheduleDate){
-  if(!match) return false;
-  if(isSeriesDecided(match)) return false;
-  if(!scheduleDate) return false;
-  return isMatchLive(scheduleDate);
+  if(!match || !scheduleDate) return false;
+  const elapsed = Date.now() - scheduleDate.getTime();
+  if(elapsed < 0) return false;
+
+  const hasSeriesWinner = isSeriesDecided(match);
+  const isRegularLiveWindow = elapsed <= LIVE_WINDOW_MS;
+  const isRecentlyFinishedWindow = hasSeriesWinner && elapsed <= LIVE_WINDOW_MS + POST_MATCH_HOME_WINDOW_MS;
+
+  return isRegularLiveWindow || isRecentlyFinishedWindow;
 }
 
 
