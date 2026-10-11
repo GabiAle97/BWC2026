@@ -1654,6 +1654,7 @@ function resolveActiveKnockoutRunTimings(table){
 
 function parseMysteryScheduleTable(table){
   const rows = table?.rows || [];
+  const columnLabels = (table?.cols || []).map(column => String(column?.label || '').trim());
   const rounds = [
     { schedule: 6, dateDay: 0, date: 1 },
     { schedule: 14, dateDay: 8, date: 9 },
@@ -1692,6 +1693,32 @@ function parseMysteryScheduleTable(table){
       });
     });
   });
+
+  // La hoja de Mystery publica la fecha y la hora en los encabezados de columna,
+  // no en las filas de datos como las demás hojas del fixture.
+  if(!matches.length){
+    const dateLabel = columnLabels
+      .map(label => label.match(/\b(\d{1,2}\s+[A-ZÁÉÍÓÚ]{3,}\.?)/i)?.[1])
+      .find(Boolean);
+    const timeLabel = columnLabels.find(label => /\bTIME\b/i.test(label) && /\d{1,2}:\d{2}/.test(label));
+    const date = dateLabel ? parseScheduleDateCells('', dateLabel) : null;
+    const time = timeLabel ? normalizeScheduleTime(timeLabel) : '';
+
+    if(date && isScheduleClockTime(time)){
+      matches.push({
+        stage: 'mystery',
+        group: 'MYSTERY',
+        playerA: t('mysteryRunnerOne'),
+        playerB: t('mysteryRunnerTwo'),
+        date,
+        time,
+        seriesScoreA: null,
+        seriesScoreB: null,
+        games: [],
+        winner: ''
+      });
+    }
+  }
 
   return matches;
 }
