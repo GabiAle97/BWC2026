@@ -953,7 +953,7 @@ function renderHomePanel(players = []){
       </div>
       <div class="home-matchup">
         <div class="home-contestant">
-          <div class="home-avatar">${getPlayerAvatarMarkup(playerA)}</div>
+          <div class="home-avatar">${getPlayerAvatarMarkup(match.playerA)}</div>
           <div class="home-player-name">${match.playerA}</div>
           <div class="home-player-flag">${flagA}</div>
           <div class="home-player-time ${scoreIsSeries ? 'home-series-score' : ''}">${displayA}</div>
@@ -965,7 +965,7 @@ function renderHomePanel(players = []){
           ${showRunElapsed ? '<span class="home-run-elapsed" id="home-run-elapsed">00:00</span>' : ''}
         </div>
         <div class="home-contestant">
-          <div class="home-avatar">${getPlayerAvatarMarkup(playerB)}</div>
+          <div class="home-avatar">${getPlayerAvatarMarkup(match.playerB)}</div>
           <div class="home-player-name">${match.playerB}</div>
           <div class="home-player-flag">${flagB}</div>
           <div class="home-player-time ${scoreIsSeries ? 'home-series-score' : ''}">${displayB}</div>
@@ -6309,8 +6309,10 @@ async function loadLeaderboard(){
 
     previousOrder = currentOrder;
   }catch(err){
-    statusEl.textContent = "error: " + err.message;
-    statusEl.className = "status error";
+    if(statusEl){
+      statusEl.textContent = "error: " + err.message;
+      statusEl.className = "status error";
+    }
     document.getElementById('tabla-content').innerHTML =
       `<div class="loading">${t('leaderboardLoadError')}<br><small style="opacity:.7">` +
       err.message.replace(/</g,'&lt;') + '</small></div>';
