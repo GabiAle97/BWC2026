@@ -10,12 +10,7 @@ const LIVE_SPLITS_POLL_MS = 1;
 const LIVE_WINDOW_MS = 200 * 60 * 1000;
 const POST_MATCH_HOME_WINDOW_MS = 10 * 60 * 1000;
 
-// La API de speedrun.com a veces no manda el header CORS y el navegador
-// bloquea el fetch directo. Si eso pasa, reintentamos vía un proxy CORS público.
-const PROXY_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent(LEADERBOARD_URL);
-
 let previousOrder = null;
-let usingProxy = false;
 let lastErrors = [];
 let playerPbCache = new Map();
 let categoryCache = new Map();
@@ -327,6 +322,11 @@ const QUALIFYING_PARTICIPANTS = [
 
 const QUALIFYING_LIMIT = 32;
 
+const PLAYER_COUNTRY_FALLBACKS = {
+  im4rcuss: 'BR',
+  exper1ment: 'RU'
+};
+
 const FINAL_GROUPS = {
   A: ["JokerUY", "Fiveskill", "LinoBariana", "Darchaen"],
   B: ["LanceLM", "Adrian20v", "Homuki", "isogai"],
@@ -410,7 +410,14 @@ function buildQualifyingRows(runs, players){
 
   const displayRows = QUALIFYING_PARTICIPANTS.map((name) => {
     const normalized = normalizeParticipantName(name);
-    const known = normalized ? knownByName.get(normalized) : null;
+    const leaderboardEntry = normalized ? knownByName.get(normalized) : null;
+    const sheetStats = normalized ? externalPlayerStats.get(normalized) : null;
+    const sheetPlace = Number(sheetStats?.rank);
+    const sheetTime = parseManualTime(sheetStats?.qualifiersPb);
+    const sheetEntry = Number.isInteger(sheetPlace) && sheetPlace > 0 && sheetTime != null
+      ? { name, place: sheetPlace, time: sheetTime, playerId: null }
+      : null;
+    const known = sheetEntry || leaderboardEntry;
     return {
       name,
       place: known && known.place != null ? known.place : null,
@@ -418,49 +425,40 @@ function buildQualifyingRows(runs, players){
       placeLabel: known && known.place != null ? known.place : '?',
       isPending: !known || known.time == null,
       playerId: known && known.playerId ? known.playerId : null,
+      hasSheetRank: Boolean(sheetEntry),
       isQualified: known && known.place != null && known.place <= QUALIFYING_LIMIT
     };
   });
 
-  const rankedRows = displayRows
-    .filter(row => !row.isPending)
+  const sheetRankedRows = displayRows
+    .filter(row => !row.isPending && row.hasSheetRank)
+    .sort((a, b) => a.place - b.place);
+  const additionalRankedRows = displayRows
+    .filter(row => !row.isPending && !row.hasSheetRank)
     .sort((a, b) => (a.place ?? Number.MAX_SAFE_INTEGER) - (b.place ?? Number.MAX_SAFE_INTEGER));
+  const lastSheetPlace = sheetRankedRows[sheetRankedRows.length - 1]?.place ?? 0;
+  additionalRankedRows.forEach((row, index) => {
+    row.place = lastSheetPlace + index + 1;
+    row.placeLabel = row.place;
+  });
+  const rankedRows = [...sheetRankedRows, ...additionalRankedRows];
   const pendingRows = displayRows.filter(row => row.isPending);
 
   return [...rankedRows, ...pendingRows];
 }
 
-async function fetchJsonWithProxy(url, fallbackUrl = null){
-  try{
-    const res = await fetch(url, { cache: "no-store" });
-    if(!res.ok) throw new Error("HTTP " + res.status);
-    return await res.json();
-  }catch(err){
-    const proxyUrl = fallbackUrl || "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
-    const proxyRes = await fetch(proxyUrl, { cache: "no-store" });
-    if(!proxyRes.ok) throw new Error("HTTP " + proxyRes.status + " (vía proxy)");
-    return await proxyRes.json();
-  }
+async function fetchJson(url){
+  const res = await fetch(url, { cache: "no-store" });
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  return await res.json();
 }
 
 async function fetchLeaderboardData(){
   lastErrors = [];
-  if(!usingProxy){
-    try{
-      const res = await fetch(LEADERBOARD_URL, { cache: "no-store" });
-      if(!res.ok) throw new Error("HTTP " + res.status);
-      return await res.json();
-    }catch(err){
-      lastErrors.push("Directo: " + err.message);
-      usingProxy = true;
-    }
-  }
   try{
-    const res = await fetch(PROXY_URL, { cache: "no-store" });
-    if(!res.ok) throw new Error("HTTP " + res.status + " (vía proxy)");
-    return await res.json();
+    return await fetchJson(LEADERBOARD_URL);
   }catch(err){
-    lastErrors.push("Proxy: " + err.message);
+    lastErrors.push("Directo: " + err.message);
     throw new Error(lastErrors.join(" | "));
   }
 }
@@ -834,10 +832,8 @@ function renderHomePanel(players = []){
       normalizeManualMatchName(runner).toLowerCase() === normalizeManualMatchName(name).toLowerCase()
     ))
     .filter(Boolean);
-  const playerA = resolvePlayerByName(players, match.playerA);
-  const playerB = resolvePlayerByName(players, match.playerB);
-  const flagA = playerA ? countryFlag(players, playerA.id) : '🏳️';
-  const flagB = playerB ? countryFlag(players, playerB.id) : '🏳️';
+  const flagA = participantCountryFlag(players, match.playerA) || '🏳️';
+  const flagB = participantCountryFlag(players, match.playerB) || '🏳️';
 
   const stage = String(match.stage || '').toLowerCase();
   const group = String(match.group || '');
@@ -1149,6 +1145,7 @@ async function loadExternalPlayerStats(){
       if(!name) return;
       externalPlayerStats.set(normalizeParticipantName(name), {
         name,
+        rank: valueAt(row, 'rank'),
         flag: valueAt(row, 'flag'),
         overallPb: valueAt(row, 'overall pb'),
         qualifiersPb: valueAt(row, 'qualifiers pb'),
@@ -2591,8 +2588,7 @@ function getStatsFlagMarkup(stats){
     const flagMarkup = countryCodeToFlagMarkup(sheetFlag);
     if(flagMarkup) return flagMarkup;
   }
-  const profile = resolvePlayerByName(lastLeaderboardSnapshot?.players || [], stats?.name);
-  return profile ? countryFlag(lastLeaderboardSnapshot.players, profile.id) || '' : '';
+  return participantCountryFlag(lastLeaderboardSnapshot?.players || [], stats?.name) || '';
 }
 
 function isDeathStatValue(value){
@@ -3565,6 +3561,15 @@ function countryFlag(playersData, playerId){
   return null;
 }
 
+function participantCountryFlag(players, name){
+  const profile = resolvePlayerByName(players, name);
+  const profileFlag = profile ? countryFlag(players, profile.id) : null;
+  if(profileFlag) return profileFlag;
+
+  const countryCode = PLAYER_COUNTRY_FALLBACKS[normalizeParticipantName(name)];
+  return countryCode ? countryCodeToFlagMarkup(countryCode) : null;
+}
+
 function formatDate(value){
   if(!value) return t('notAvailable');
   const date = new Date(value);
@@ -3610,7 +3615,7 @@ async function getCategoryName(categoryId){
   const url = 'https://www.speedrun.com/api/v1/categories/' + encodeURIComponent(categoryId);
 
   try{
-    const json = await fetchJsonWithProxy(url);
+    const json = await fetchJson(url);
     const name = json && json.data && json.data.name
       ? json.data.name
       : categoryId;
@@ -3633,7 +3638,7 @@ async function getGameName(gameId){
   const url = 'https://www.speedrun.com/api/v1/games/' + encodeURIComponent(gameId);
 
   try{
-    const json = await fetchJsonWithProxy(url);
+    const json = await fetchJson(url);
     const name = json && json.data && json.data.names
       ? json.data.names.international || json.data.names.twitch
       : gameId;
@@ -3663,7 +3668,7 @@ async function fetchPlayerPersonalBests(player){
   }
 
   try{
-    const json = await fetchJsonWithProxy(personalBestLink.uri);
+    const json = await fetchJson(personalBestLink.uri);
     const pbs = Array.isArray(json.data)
       ? [...json.data].sort((a, b) => (a.place ?? Number.MAX_SAFE_INTEGER) - (b.place ?? Number.MAX_SAFE_INTEGER))
       : [];
@@ -3742,11 +3747,10 @@ function buildGroupStage(runs, players){
     return Object.entries(FINAL_GROUPS).map(([letter, names]) => {
       const standings = groupStandings && groupStandings[letter] ? Object.values(groupStandings[letter]) : [];
       const playersWithScore = names.map((name) => {
-        const playerProfile = resolvePlayerByName(players, name);
         const standing = standings.find(entry => normalizeManualMatchName(entry.name) === normalizeManualMatchName(name));
         return {
           name,
-          flag: playerProfile ? countryFlag(players, playerProfile.id) : null,
+          flag: participantCountryFlag(players, name),
           matches: standing ? standing.matches : 0,
           wins: standing ? standing.wins : 0,
           draws: standing ? standing.draws : 0,
@@ -3798,9 +3802,7 @@ function buildGroupStage(runs, players){
       ? playerObj.name
       : (playerProfile ? playerProfile.names?.international || t('player') : t('player'));
 
-    const flag = playerObj && playerObj.rel !== 'guest'
-      ? countryFlag(players, playerObj.id)
-      : null;
+    const flag = participantCountryFlag(players, playerName);
 
     groups[groupIndex].players[slotIndex] = {
       name: playerName,
@@ -4082,9 +4084,9 @@ function renderCalendarFixturePanel(players = []){
       if(key === 'sin-fecha') return 10000;
       if(key === 'fixture-r16') return 5000;
       if(key === 'fixture-quarters') return 5100;
+      if(key === 'fixture-fifthplace') return 5150;
       if(key === 'fixture-semifinals') return 5200;
       if(key === 'fixture-thirdplace') return 5250;
-      if(key === 'fixture-fifthplace') return 5275;
       if(key === 'fixture-final') return 5300;
       if(key.startsWith('fixture-')){
         const n = Number(key.slice(8));
@@ -4110,10 +4112,8 @@ function renderCalendarFixturePanel(players = []){
       if (!matches.length) return `<div class="loading">${t('noMatchesLoaded')}</div>`;
 
       const enrichedMatches = matches.map(match => {
-        const playerAProfile = resolvePlayerByName(players, match.playerA);
-        const playerBProfile = resolvePlayerByName(players, match.playerB);
-        const playerAFlag = playerAProfile ? countryFlag(players, playerAProfile.id) : null;
-        const playerBFlag = playerBProfile ? countryFlag(players, playerBProfile.id) : null;
+        const playerAFlag = participantCountryFlag(players, match.playerA);
+        const playerBFlag = participantCountryFlag(players, match.playerB);
 
         const resultMatch = allMatches.find((record) => {
           const groupMatch = resolveManualMatchKey(record) || '';
@@ -4456,11 +4456,10 @@ function buildQualifiedParticipants(players){
       const name = slot === 0 ? resolved.first : resolved.second;
       if(!name) return { label, name: t('tbd'), flag: null, details: t('drawPending') };
 
-      const profile = resolvePlayerByName(players, name);
       return {
         label,
         name,
-        flag: profile ? countryFlag(players, profile.id) : null,
+        flag: participantCountryFlag(players, name),
         details: t('qualified')
       };
     });
@@ -4475,10 +4474,7 @@ function buildKnockoutBracket(runs, players){
     const participant = (name, label = t('qualified')) => ({
       label,
       name,
-      flag: (() => {
-        const profile = resolvePlayerByName(players, name);
-        return profile ? countryFlag(players, profile.id) : null;
-      })(),
+      flag: participantCountryFlag(players, name),
       details: ''
     });
     const readRound = (roundName, expectedLength) => Array.from({ length: expectedLength }, (_, index) => {
@@ -4518,11 +4514,10 @@ function buildKnockoutBracket(runs, players){
 
   const participantFromName = (name, label = t('qualified')) => {
     if(!name || name === t('tbd')) return tbdSlot();
-    const profile = resolvePlayerByName(players, name);
     return {
       label,
       name,
-      flag: profile ? countryFlag(players, profile.id) : null,
+      flag: participantCountryFlag(players, name),
       details: t('qualified')
     };
   };
@@ -5410,7 +5405,7 @@ function openPlayerModal(playerName){
   const players = lastLeaderboardSnapshot?.players || [];
   const profile = resolvePlayerByName(players, playerName);
   const summary = getGroupPlayerSummary(playerName);
-  const flag = profile ? countryFlag(players, profile.id) : null;
+  const flag = participantCountryFlag(players, playerName);
   const twitchChannel = profile ? playerChannels(profile).find(channel => channel.rel === 'twitch') : null;
   const externalStats = externalPlayerStats.get(normalizeParticipantName(profile?.names?.international || playerName));
   const entry = summary?.entry || { matches: 0, wins: 0, draws: 0, losses: 0, bestTime: null, bestTimeLabel: null, points: 0 };
@@ -6213,7 +6208,7 @@ async function loadLeaderboard(){
       const place = row.place;
       const name = row.name;
       const playerObj = row.playerId ? players.find(pl => pl.id === row.playerId) : null;
-      const flag = playerObj ? countryFlag(players, row.playerId) : null;
+      const flag = participantCountryFlag(players, name);
       const time = row.time;
       const isPending = row.isPending;
       const isOutsideGroups = place != null && place > QUALIFYING_LIMIT;
@@ -6243,7 +6238,7 @@ async function loadLeaderboard(){
             <button class="player-profile-button player-button" type="button" data-player-id="${row.playerId}" data-player-name="${name}">
               <span class="player-name">${name}</span>${flag ? ` <span class="flag">${flag}</span>` : ''}
             </button>
-          ` : `<span class="player-name pending-player">${name}</span>`}
+          ` : `<span class="player-name${isPending ? ' pending-player' : ''}">${name}</span>${flag ? ` <span class="flag">${flag}</span>` : ''}`}
         </td>
         <td class="time ${isPending ? 'pending-value' : ''}">${time}</td>
       </tr>
