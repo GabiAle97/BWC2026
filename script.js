@@ -13,9 +13,13 @@ const POST_MATCH_HOME_WINDOW_MS = 10 * 60 * 1000;
 let previousOrder = null;
 let lastErrors = [];
 let playerPbCache = new Map();
+let playerPbRequests = new Map();
 let categoryCache = new Map();
+let categoryNameRequests = new Map();
 let gameCache = new Map();
-let expandedPlayerId = null;
+let gameNameRequests = new Map();
+let homePlayerProfileCache = new Map();
+let homePlayerProfileRequests = new Map();
 let finishedQualy = true;
 let finishedGroups = false;
 let lastLeaderboardSnapshot = null;
@@ -87,6 +91,7 @@ const TRANSLATIONS = {
     colMatches: 'Partidos', colWins: 'Victorias', colDraws: 'Empates', colLosses: 'Derrotas', colBestTime: 'Tiempo best', colPoints: 'Puntos',
     dateLabel: 'Fecha', visits: 'Visitas', notAvailable: 'No disponible', notAvailableShort: 'N/D', notAvailablePlural: 'No disponibles',
     channels: 'Canales', signupDate: 'Fecha de inscripción', pbUploadDate: 'Fecha de subida del PB',
+    personalBests: 'Personal Bests', loadingPersonalBests: 'Cargando Personal Bests…',
     aboutKicker: 'Streamer · Speedrunner · Creador', aboutSectionLabel: 'Sobre mí',
     aboutCopy1: 'Soy <strong>Gabriel Pereyra</strong>, streamer en Twitch conocido como <strong>GabiAle97</strong>. Creo contenido de gaming, speedrunning y videojuegos clásicos, además de proyectos técnicos y herramientas para la comunidad.',
     aboutCopy2: 'Soy un participante de la <strong>Basement World Cup 2026</strong>, así que me veran enfrentarme a los mejores runners de RE3 de este año. <strong>NOS VEMOS ALLÁ!</strong>',
@@ -150,6 +155,7 @@ const TRANSLATIONS = {
     colMatches: 'Matches', colWins: 'Wins', colDraws: 'Draws', colLosses: 'Losses', colBestTime: 'Best time', colPoints: 'Points',
     dateLabel: 'Date', visits: 'Visits', notAvailable: 'Not available', notAvailableShort: 'N/A', notAvailablePlural: 'Not available',
     channels: 'Channels', signupDate: 'Signup date', pbUploadDate: 'PB upload date',
+    personalBests: 'Personal Bests', loadingPersonalBests: 'Loading Personal Bests…',
     aboutKicker: 'Streamer · Speedrunner · Creator', aboutSectionLabel: 'About me',
     aboutCopy1: 'I\'m <strong>Gabriel Pereyra</strong>, a Twitch streamer known as <strong>GabiAle97</strong>. I create gaming, speedrunning and classic video game content, plus technical projects and tools for the community.',
     aboutCopy2: 'I\'m a participant in the <strong>Basement World Cup 2026</strong>, so you\'ll see me facing off against the best RE3 runners this year. <strong>SEE YOU THERE!</strong>',
@@ -352,6 +358,10 @@ const PLAYER_NAME_ALIASES = {
   shyanjii: 'shyanji'
 };
 
+const PLAYER_LOCAL_IMAGE_ALIASES = {
+  im4rcuss: 'im4rcus'
+};
+
 function normalizeParticipantName(name){
   const normalized = (name || '')
     .normalize('NFD')
@@ -378,6 +388,37 @@ function resolvePlayerByName(players, name){
 
     return names.some(candidate => normalizeParticipantName(candidate) === target);
   }) || null;
+}
+
+async function getHomePlayerProfile(name){
+  const key = normalizeParticipantName(name);
+  if(homePlayerProfileCache.has(key)){
+    return homePlayerProfileCache.get(key);
+  }
+  if(homePlayerProfileRequests.has(key)){
+    return homePlayerProfileRequests.get(key);
+  }
+
+  const request = (async () => {
+    try{
+      const url = 'https://www.speedrun.com/api/v1/users?lookup=' + encodeURIComponent(name);
+      const json = await fetchJson(url);
+      const profiles = Array.isArray(json.data) ? json.data : [];
+      const profile = profiles.find(candidate => normalizeParticipantName(
+        candidate.names?.international || candidate.names?.twitch || ''
+      ) === key) || null;
+      homePlayerProfileCache.set(key, profile);
+      return profile;
+    }catch(err){
+      console.warn('No se pudo cargar el perfil de Speedrun.com para', name, err.message);
+      homePlayerProfileCache.set(key, null);
+      return null;
+    }finally{
+      homePlayerProfileRequests.delete(key);
+    }
+  })();
+  homePlayerProfileRequests.set(key, request);
+  return request;
 }
 
 function buildQualifyingRows(runs, players){
@@ -618,15 +659,23 @@ function startLiveStatusPolling(){
 
 function getPlayerAvatarMarkup(player, avatar){
   const imageUrl = player?.assets?.image?.uri;
+  const playerName = typeof player === 'string'
+    ? player
+    : player?.names?.international || player?.names?.twitch || player?.name;
+  const profileKeyAttribute = avatar && playerName
+    ? ` data-player-profile-key="${normalizeParticipantName(playerName)}"`
+    : '';
+  const localImageName = playerName
+    ? PLAYER_LOCAL_IMAGE_ALIASES[normalizeParticipantName(playerName)] || playerName
+    : null;
   if (avatar) {
     if(imageUrl){
-      return `<img src="${imageUrl}" class="md-avatar" alt="" loading="lazy">`;
+      return `<img src="${imageUrl}" class="md-avatar"${profileKeyAttribute} alt="" loading="lazy">`;
     }
 
-    const playerName = player?.names?.international || player?.names?.twitch || player?.name;
-    if(playerName){
-      const localImageUrl = `./playerimg/${encodeURIComponent(playerName)}.png`;
-      return `<img src="${localImageUrl}" class="md-avatar" alt="" loading="lazy">`;
+    if(localImageName){
+      const localImageUrl = `./playerimg/${encodeURIComponent(localImageName)}.png`;
+      return `<img src="${localImageUrl}" class="md-avatar"${profileKeyAttribute} alt="" loading="lazy">`;
     }
 
     return '<span class="home-avatar-placeholder" aria-hidden="true">🏃</span>';
@@ -635,9 +684,8 @@ function getPlayerAvatarMarkup(player, avatar){
       return `<img src="${imageUrl}" alt="" loading="lazy">`;
     }
 
-    const playerName = player?.names?.international || player?.names?.twitch || player?.name;
-    if(playerName){
-      const localImageUrl = `./playerimg/${encodeURIComponent(playerName)}.png`;
+    if(localImageName){
+      const localImageUrl = `./playerimg/${encodeURIComponent(localImageName)}.png`;
       return `<img src="${localImageUrl}" alt="" loading="lazy">`;
     }
 
@@ -834,6 +882,12 @@ function renderHomePanel(players = []){
     .filter(Boolean);
   const flagA = participantCountryFlag(players, match.playerA) || '🏳️';
   const flagB = participantCountryFlag(players, match.playerB) || '🏳️';
+  const playerAProfile = resolvePlayerByName(players, match.playerA) || match.playerA;
+  const playerBProfile = resolvePlayerByName(players, match.playerB) || match.playerB;
+  const playerAProfileIsLoaded = typeof playerAProfile !== 'string';
+  const playerBProfileIsLoaded = typeof playerBProfile !== 'string';
+  const playerAAvatarKey = normalizeParticipantName(match.playerA);
+  const playerBAvatarKey = normalizeParticipantName(match.playerB);
 
   const stage = String(match.stage || '').toLowerCase();
   const group = String(match.group || '');
@@ -953,7 +1007,7 @@ function renderHomePanel(players = []){
       </div>
       <div class="home-matchup">
         <div class="home-contestant">
-          <div class="home-avatar">${getPlayerAvatarMarkup(match.playerA)}</div>
+          <div class="home-avatar" data-home-avatar-key="${playerAAvatarKey}">${getPlayerAvatarMarkup(playerAProfile)}</div>
           <div class="home-player-name">${match.playerA}</div>
           <div class="home-player-flag">${flagA}</div>
           <div class="home-player-time ${scoreIsSeries ? 'home-series-score' : ''}">${displayA}</div>
@@ -965,7 +1019,7 @@ function renderHomePanel(players = []){
           ${showRunElapsed ? '<span class="home-run-elapsed" id="home-run-elapsed">00:00</span>' : ''}
         </div>
         <div class="home-contestant">
-          <div class="home-avatar">${getPlayerAvatarMarkup(match.playerB)}</div>
+          <div class="home-avatar" data-home-avatar-key="${playerBAvatarKey}">${getPlayerAvatarMarkup(playerBProfile)}</div>
           <div class="home-player-name">${match.playerB}</div>
           <div class="home-player-flag">${flagB}</div>
           <div class="home-player-time ${scoreIsSeries ? 'home-series-score' : ''}">${displayB}</div>
@@ -1001,6 +1055,20 @@ function renderHomePanel(players = []){
       </div>
     </div>
   `;
+
+  [
+    [match.playerA, playerAProfileIsLoaded, playerAAvatarKey],
+    [match.playerB, playerBProfileIsLoaded, playerBAvatarKey]
+  ].forEach(([playerName, profileIsLoaded, avatarKey]) => {
+    if(profileIsLoaded) return;
+    getHomePlayerProfile(playerName).then(profile => {
+      const imageUrl = profile?.assets?.image?.uri;
+      if(!imageUrl || !container.isConnected) return;
+      const avatar = container.querySelector(`[data-home-avatar-key="${avatarKey}"]`);
+      const image = avatar?.querySelector('img');
+      if(image) image.src = imageUrl;
+    });
+  });
 
   if(isMattGaelLive){
     startHomeLiveSplitsPolling();
@@ -3611,21 +3679,28 @@ async function getCategoryName(categoryId){
   if(categoryCache.has(categoryId)){
     return categoryCache.get(categoryId);
   }
-
-  const url = 'https://www.speedrun.com/api/v1/categories/' + encodeURIComponent(categoryId);
-
-  try{
-    const json = await fetchJson(url);
-    const name = json && json.data && json.data.name
-      ? json.data.name
-      : categoryId;
-
-    categoryCache.set(categoryId, name);
-    return name;
-  }catch(err){
-    categoryCache.set(categoryId, categoryId);
-    return categoryId;
+  if(categoryNameRequests.has(categoryId)){
+    return categoryNameRequests.get(categoryId);
   }
+
+  const request = (async () => {
+    const url = 'https://www.speedrun.com/api/v1/categories/' + encodeURIComponent(categoryId);
+    try{
+      const json = await fetchJson(url);
+      const name = json && json.data && json.data.name
+        ? json.data.name
+        : categoryId;
+      categoryCache.set(categoryId, name);
+      return name;
+    }catch(err){
+      categoryCache.set(categoryId, categoryId);
+      return categoryId;
+    }finally{
+      categoryNameRequests.delete(categoryId);
+    }
+  })();
+  categoryNameRequests.set(categoryId, request);
+  return request;
 }
 
 async function getGameName(gameId){
@@ -3634,21 +3709,28 @@ async function getGameName(gameId){
   if(gameCache.has(gameId)){
     return gameCache.get(gameId);
   }
-
-  const url = 'https://www.speedrun.com/api/v1/games/' + encodeURIComponent(gameId);
-
-  try{
-    const json = await fetchJson(url);
-    const name = json && json.data && json.data.names
-      ? json.data.names.international || json.data.names.twitch
-      : gameId;
-
-    gameCache.set(gameId, name);
-    return name;
-  }catch(err){
-    gameCache.set(gameId, gameId);
-    return gameId;
+  if(gameNameRequests.has(gameId)){
+    return gameNameRequests.get(gameId);
   }
+
+  const request = (async () => {
+    const url = 'https://www.speedrun.com/api/v1/games/' + encodeURIComponent(gameId);
+    try{
+      const json = await fetchJson(url);
+      const name = json && json.data && json.data.names
+        ? json.data.names.international || json.data.names.twitch
+        : gameId;
+      gameCache.set(gameId, name);
+      return name;
+    }catch(err){
+      gameCache.set(gameId, gameId);
+      return gameId;
+    }finally{
+      gameNameRequests.delete(gameId);
+    }
+  })();
+  gameNameRequests.set(gameId, request);
+  return request;
 }
 
 async function fetchPlayerPersonalBests(player){
@@ -3656,6 +3738,9 @@ async function fetchPlayerPersonalBests(player){
 
   if(playerPbCache.has(player.id)){
     return playerPbCache.get(player.id);
+  }
+  if(playerPbRequests.has(player.id)){
+    return playerPbRequests.get(player.id);
   }
 
   const personalBestLink = Array.isArray(player.links)
@@ -3667,44 +3752,50 @@ async function fetchPlayerPersonalBests(player){
     return [];
   }
 
-  try{
-    const json = await fetchJson(personalBestLink.uri);
-    const pbs = Array.isArray(json.data)
-      ? [...json.data].sort((a, b) => (a.place ?? Number.MAX_SAFE_INTEGER) - (b.place ?? Number.MAX_SAFE_INTEGER))
-      : [];
-    const resolvedPbs = [];
-
-    for(const pb of pbs){
-      const run = pb && pb.run ? pb.run : null;
-      const gameId = run && run.game ? run.game : null;
-      const gameName = gameId ? await getGameName(gameId) : t('game');
-      const categoryId = run && run.category ? run.category : null;
-      const categoryName = categoryId ? await getCategoryName(categoryId) : t('category');
-      const primaryTime = run && run.times && run.times.primary_t != null
-        ? formatTime(run.times.primary_t)
-        : t('notAvailableShort');
-
-      const videoLinks = run && run.videos && Array.isArray(run.videos.links)
-        ? run.videos.links
+  const request = (async () => {
+    try{
+      const json = await fetchJson(personalBestLink.uri);
+      const pbs = Array.isArray(json.data)
+        ? [...json.data].sort((a, b) => (a.place ?? Number.MAX_SAFE_INTEGER) - (b.place ?? Number.MAX_SAFE_INTEGER))
         : [];
+      const resolvedPbs = [];
 
-      resolvedPbs.push({
-        gameName,
-        categoryName,
-        primaryTime,
-        submitted: run && run.submitted ? run.submitted : run && run.date ? run.date : null,
-        date: run && run.date ? run.date : null,
-        videoUri: videoLinks.length > 0 ? videoLinks[0].uri : null
-      });
+      for(const pb of pbs){
+        const run = pb && pb.run ? pb.run : null;
+        const gameId = run && run.game ? run.game : null;
+        const gameName = gameId ? await getGameName(gameId) : t('game');
+        const categoryId = run && run.category ? run.category : null;
+        const categoryName = categoryId ? await getCategoryName(categoryId) : t('category');
+        const primaryTime = run && run.times && run.times.primary_t != null
+          ? formatTime(run.times.primary_t)
+          : t('notAvailableShort');
+
+        const videoLinks = run && run.videos && Array.isArray(run.videos.links)
+          ? run.videos.links
+          : [];
+
+        resolvedPbs.push({
+          gameName,
+          categoryName,
+          primaryTime,
+          submitted: run && run.submitted ? run.submitted : run && run.date ? run.date : null,
+          date: run && run.date ? run.date : null,
+          videoUri: videoLinks.length > 0 ? videoLinks[0].uri : null
+        });
+      }
+
+      playerPbCache.set(player.id, resolvedPbs);
+      return resolvedPbs;
+    }catch(err){
+      console.warn('No se pudieron cargar PBs para', player.id, err.message);
+      playerPbCache.set(player.id, []);
+      return [];
+    }finally{
+      playerPbRequests.delete(player.id);
     }
-
-    playerPbCache.set(player.id, resolvedPbs);
-    return resolvedPbs;
-  }catch(err){
-    console.warn('No se pudieron cargar PBs para', player.id, err.message);
-    playerPbCache.set(player.id, []);
-    return [];
-  }
+  })();
+  playerPbRequests.set(player.id, request);
+  return request;
 }
 
 function getYoutubeEmbedUrl(videoUrl){
@@ -5396,6 +5487,15 @@ function formatCalendarDate(value){
   return key && /^\d{4}-\d{2}-\d{2}$/.test(key) ? key.split('-').reverse().join('/') : value;
 }
 
+function renderPlayerPersonalBests(pbs){
+  if(!Array.isArray(pbs) || pbs.length === 0){
+    return `<div class="player-modal-empty">${t('notAvailablePlural')}</div>`;
+  }
+  return `<ul class="pb-sublist">${pbs.slice(0, 3).map(pb =>
+    `<li>${pb.gameName || t('game')} — ${pb.categoryName || t('category')}: ${pb.primaryTime || t('notAvailableShort')}</li>`
+  ).join('')}</ul>`;
+}
+
 function openPlayerModal(playerName){
   const modal = document.getElementById('player-modal');
   const content = document.getElementById('player-modal-content');
@@ -5467,6 +5567,10 @@ function openPlayerModal(playerName){
       <div><span>PTS</span><strong>${entry.points}</strong></div>
     </div>
     ${externalStatsHtml}
+    ${profile && profile.rel !== 'guest' ? `<div class="player-modal-section">
+      <div class="player-modal-section-title">${t('personalBests')}</div>
+      <div id="player-modal-personal-bests">${t('loadingPersonalBests')}</div>
+    </div>` : ''}
     ${groupTable}
     <div class="player-modal-section">
       <div class="player-modal-section-title">${t('matchesOfGroup')} ${summary?.letter || ''}</div>
@@ -5477,6 +5581,15 @@ function openPlayerModal(playerName){
   `;
   modal.hidden = false;
   document.body.classList.add('modal-open');
+
+  if(profile && profile.rel !== 'guest'){
+    const personalBestsContainer = content.querySelector('#player-modal-personal-bests');
+    fetchPlayerPersonalBests(profile).then(pbs => {
+      if(personalBestsContainer?.isConnected){
+        personalBestsContainer.innerHTML = renderPlayerPersonalBests(pbs);
+      }
+    });
+  }
 }
 
 function closePlayerModal(){
@@ -5965,6 +6078,20 @@ function openMatchDetailsModal(playerA, playerB, groupLetter){
   renderPage();
   modal.hidden = false;
   document.body.classList.add('modal-open');
+
+  [
+    [playerA, profileA],
+    [playerB, profileB]
+  ].forEach(([playerName, profile]) => {
+    if(profile) return;
+    const profileKey = normalizeParticipantName(playerName);
+    getHomePlayerProfile(playerName).then(loadedProfile => {
+      const imageUrl = loadedProfile?.assets?.image?.uri;
+      if(!imageUrl || !modal.classList.contains('match-details-open')) return;
+      const image = content.querySelector(`.md-avatar[data-player-profile-key="${profileKey}"]`);
+      if(image) image.src = imageUrl;
+    });
+  });
 }
 
 
@@ -6183,23 +6310,6 @@ async function loadLeaderboard(){
     renderPrediccionesPanel(players);
     if(!externalMatchSchedule) await loadAutoResults();
 
-    const playerProfileMap = new Map(players.map(player => [player.id, player]));
-    const personalBestsByPlayer = new Map();
-
-    const uniquePlayerIds = [...new Set(
-      runs
-        .map(r => r.run.players[0])
-        .filter(p => p && p.rel !== 'guest')
-        .map(p => p.id)
-    )];
-
-    const pbsLoadPromise = Promise.all(uniquePlayerIds.map(async (playerId) => {
-      const player = playerProfileMap.get(playerId);
-      if(!player) return;
-      const pbs = await fetchPlayerPersonalBests(player);
-      personalBestsByPlayer.set(playerId, pbs);
-    }));
-
     const qualifyingRows = buildQualifyingRows(runs, players);
     let html = `<table><thead><tr><th>#</th><th>${t('player')}</th><th>${t('time')}</th></tr></thead><tbody>`;
     const currentOrder = [];
@@ -6207,7 +6317,6 @@ async function loadLeaderboard(){
     qualifyingRows.forEach(row => {
       const place = row.place;
       const name = row.name;
-      const playerObj = row.playerId ? players.find(pl => pl.id === row.playerId) : null;
       const flag = participantCountryFlag(players, name);
       const time = row.time;
       const isPending = row.isPending;
@@ -6220,11 +6329,6 @@ async function loadLeaderboard(){
       else if(place === 2) placeClass += " place-2";
       else if(place === 3) placeClass += " place-3";
       if(isPending) placeClass += " pending-value";
-
-      const detail = playerObj
-        ? buildPlayerDetails(playerObj, personalBestsByPlayer.get(row.playerId), row.playerId ? '' : '', null)
-        : '';
-      const isExpanded = row.playerId && expandedPlayerId === row.playerId;
 
       const rowClasses = [
         isPending ? 'pending-row' : '',
@@ -6242,60 +6346,12 @@ async function loadLeaderboard(){
         </td>
         <td class="time ${isPending ? 'pending-value' : ''}">${time}</td>
       </tr>
-      ${row.playerId ? `<tr class="player-detail-row${isExpanded ? ' is-open' : ''}" data-player-id="${row.playerId}"><td colspan="3">${detail}</td></tr>` : ''}`;
+      `;
     });
 
     html += '</tbody></table>';
 
-    const activeDetailRow = container.querySelector('tr.player-detail-row.is-open');
-    const activeDetailPlayerId = activeDetailRow ? activeDetailRow.dataset.playerId : null;
-    const activeVideoIframe = activeDetailRow ? activeDetailRow.querySelector('iframe') : null;
-
     container.innerHTML = html;
-
-    if(expandedPlayerId && activeDetailPlayerId && expandedPlayerId === activeDetailPlayerId && activeVideoIframe){
-      const newDetailRow = container.querySelector('tr.player-detail-row[data-player-id="' + activeDetailPlayerId + '"]');
-      const newVideoIframe = newDetailRow ? newDetailRow.querySelector('iframe') : null;
-
-      if(newDetailRow && newVideoIframe && activeVideoIframe){
-        newVideoIframe.replaceWith(activeVideoIframe);
-      }
-    }
-
-    container.querySelectorAll('button.inline-player-button').forEach(button => {
-      button.addEventListener('click', () => {
-        const userId = button.dataset.playerId;
-        const detailRows = container.querySelectorAll('.player-detail-row');
-
-        if(expandedPlayerId === userId){
-          expandedPlayerId = null;
-        }else{
-          expandedPlayerId = userId;
-        }
-
-        detailRows.forEach(row => {
-          row.classList.toggle('is-open', row.dataset.playerId === expandedPlayerId);
-        });
-      });
-    });
-
-    pbsLoadPromise.then(() => {
-      const detailRows = container.querySelectorAll('.player-detail-row');
-      detailRows.forEach(row => {
-        const userId = row.dataset.playerId;
-        const player = playerProfileMap.get(userId);
-        const playerPbs = userId ? personalBestsByPlayer.get(userId) || [] : [];
-        const runInfo = runs.find(r => {
-          const p = r.run && r.run.players && r.run.players[0];
-          return p && p.rel !== 'guest' && p.id === userId;
-        });
-        const runUrl = runInfo && runInfo.run && runInfo.run.videos && Array.isArray(runInfo.run.videos.links)
-          ? runInfo.run.videos.links[0]?.uri || ''
-          : '';
-        const runDate = runInfo && runInfo.run ? runInfo.run.submitted || null : null;
-        row.innerHTML = `<td colspan="3">${buildPlayerDetails(player, playerPbs, runUrl, runDate)}</td>`;
-      });
-    }).catch(() => {});
 
     const uploadInput = document.getElementById('results-upload');
     if(uploadInput && !uploadInput.dataset.bound){
