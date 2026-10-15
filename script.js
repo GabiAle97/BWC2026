@@ -1,6 +1,12 @@
 const LEADERBOARD_URL = "https://www.speedrun.com/api/v1/leaderboards/kdkzvyqd/category/q25r06gk?embed=players,category,game";
 const SCHEDULE_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 const LIVE_STREAM_URL = 'https://www.twitch.tv/basementcup';
+// Placeholder: reemplazar la URL de JokerUY cuando esté disponible.
+const LIVE_RUNNER_SPLITS_URLS = {
+  MattGael: 'https://pro-favors-kinda-scores.trycloudflare.com',
+  JokerUY: 'https://harvard-depend-miss-arrive.trycloudflare.com'
+};
+const LIVE_SPLITS_POLL_MS = 1;
 const LIVE_WINDOW_MS = 200 * 60 * 1000;
 const POST_MATCH_HOME_WINDOW_MS = 10 * 60 * 1000;
 
@@ -41,7 +47,8 @@ const MATCH_SCHEDULE_SEMIFINALS_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'M
 const MATCH_SCHEDULE_FINAL_SHEET_URL = '';
 const MATCH_SCHEDULE_FINAL_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Final)&headers=0';
 const MATCH_SCHEDULE_THIRD_PLACE_SHEET_URL = '';
-const MATCH_SCHEDULE_THIRD_PLACE_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Third%20Place)';
+const MATCH_SCHEDULE_THIRD_PLACE_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Third%20Place)&headers=0';
+const MATCH_SCHEDULE_FIFTH_PLACE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/17RvnKg48Yhv-5p-Ze_9ArQEy1rySyidDc0e1yDgkgPE/gviz/tq?tqx=out:json&gid=161412483';
 const MATCH_SCHEDULE_MISTERY_SHEET_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Mistery)';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
@@ -65,11 +72,16 @@ const TRANSLATIONS = {
     leader: 'Cabecera', position2: '2ª posición', position3: '3ª posición', position4: '4ª posición', position: 'Posición',
     player: 'Jugador', category: 'Categoría', game: 'Juego', noGroup: 'Sin grupo', group: 'Grupo', time: 'Tiempo',
     live: 'EN VIVO', watchStream: 'Ver transmisión', groupStageInProgress: 'Fase de grupos en curso',
+    liveSplitsTitle: 'Comparativa de runners', liveSplitsConnecting: 'Conectando con LiveSplit…',
+    liveSplitsUnavailable: 'Splits temporalmente no disponibles', liveSplitsFinished: 'RUN FINALIZADA',
+    liveSplitsWaiting: 'Esperando los dos feeds', liveSplitsTie: 'Van parejos',
+    liveSplitsMismatch: 'Los splits no coinciden', liveSplitsAhead: 'va adelante', liveSplitsGap: 'de diferencia',
+    liveSplitsRunnerAhead: 'ADELANTE',
     players: 'jugadores', date: 'Fecha', schedule: 'Horario',
     matchSingular: 'partido', matchPlural: 'partidos',
     noLiveMatch: 'Aún no empezó ninguna partida', noLiveMatchSub: 'Cuando comience un enfrentamiento, aparecerá aquí.',
     statsLoadError: 'No se pudieron cargar las estadísticas.', noDataYet: 'Sin datos todavía.', noMatchesLoaded: 'Sin partidos cargados todavía.',
-    roundOf16: 'Octavos', quarterfinals: 'Cuartos', semifinals: 'Semifinales', final: 'Final', thirdPlace: 'Tercer puesto',
+    roundOf16: 'Octavos', quarterfinals: 'Cuartos', semifinals: 'Semifinales', final: 'Final', thirdPlace: 'Tercer puesto', fifthPlace: 'Quinto puesto',
     mysteryRunners: 'Mystery Runners', exhibition: 'Exhibición', mysteryRunnerOne: 'Runner 1', mysteryRunnerTwo: 'Runner 2',
     standings: 'Posiciones', groupStage: 'Fase de grupos', twitchChannel: 'Canal de Twitch', of: 'de', inGroup: 'en el Grupo',
     positionPending: 'Posición pendiente', matchesOfGroup: 'Partidos del Grupo',
@@ -123,11 +135,16 @@ const TRANSLATIONS = {
     leader: 'Leader', position2: '2nd place', position3: '3rd place', position4: '4th place', position: 'Position',
     player: 'Player', category: 'Category', game: 'Game', noGroup: 'No group', group: 'Group', time: 'Time',
     live: 'LIVE', watchStream: 'Watch stream', groupStageInProgress: 'Group stage in progress',
+    liveSplitsTitle: 'Runner comparison', liveSplitsConnecting: 'Connecting to LiveSplit…',
+    liveSplitsUnavailable: 'Splits temporarily unavailable', liveSplitsFinished: 'RUN FINISHED',
+    liveSplitsWaiting: 'Waiting for both feeds', liveSplitsTie: 'Neck and neck',
+    liveSplitsMismatch: 'Splits do not match', liveSplitsAhead: 'is ahead', liveSplitsGap: 'gap',
+    liveSplitsRunnerAhead: 'AHEAD',
     players: 'players', date: 'Date', schedule: 'Time',
     matchSingular: 'match', matchPlural: 'matches',
     noLiveMatch: 'No match has started yet', noLiveMatchSub: 'When a match starts, it will appear here.',
     statsLoadError: 'Could not load statistics.', noDataYet: 'No data yet.', noMatchesLoaded: 'No matches loaded yet.',
-    roundOf16: 'Round of 16', quarterfinals: 'Quarter Finals', semifinals: 'Semifinals', final: 'Final', thirdPlace: 'Third place',
+    roundOf16: 'Round of 16', quarterfinals: 'Quarter Finals', semifinals: 'Semifinals', final: 'Final', thirdPlace: 'Third place', fifthPlace: 'Fifth place',
     mysteryRunners: 'Mystery Runners', exhibition: 'Exhibition', mysteryRunnerOne: 'Runner 1', mysteryRunnerTwo: 'Runner 2',
     standings: 'Standings', groupStage: 'Group stage', twitchChannel: 'Twitch channel', of: 'of', inGroup: 'in Group',
     positionPending: 'Position pending', matchesOfGroup: 'Matches of Group',
@@ -243,6 +260,11 @@ let knockoutRunTimingsByStage = {
   final: new Map()
 };
 let homeRunElapsedTimer = null;
+let homeLiveSplitsPollTimer = null;
+let homeLiveSplitsTickTimer = null;
+let homeLiveSplitsRequestPending = false;
+let homeLiveSplitsState = {};
+let homeLiveSplitsLastErrorAt = {};
 let statsUiState = {
   stage: 'overall',
   dualSortBy: 'best',   // 'best' | 'worst'
@@ -537,7 +559,7 @@ function getKnockoutSeriesTarget(stageValue, groupValue = ''){
   const stage = String(stageValue || '').toLowerCase();
   const group = String(groupValue || '').toLowerCase();
   const combined = `${stage} ${group}`;
-  const isKnockout = /r16|round\s*of\s*16|octavos|qf|quarter|cuartos|sf|semi|final|third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/i.test(combined);
+  const isKnockout = /r16|round\s*of\s*16|octavos|qf|quarter|cuartos|sf|semi|final|third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto|fifth[\s_-]*place|5th[\s_-]*place|quinto[\s_-]*puesto/i.test(combined);
   if(!isKnockout) return null;
   return /(^|\s)final(\s|$)|third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/i.test(combined) ? 3 : 2;
 }
@@ -625,6 +647,156 @@ function getPlayerAvatarMarkup(player, avatar){
   }
 }
 
+function parseLiveSplitDuration(value){
+  const match = String(value || '').trim().match(/^(\d+):(\d{2}):(\d{2})(?:\.(\d+))?$/);
+  if(!match) return null;
+  const fraction = Number(`0.${match[4] || '0'}`);
+  return ((Number(match[1]) * 60 + Number(match[2])) * 60 + Number(match[3]) + fraction) * 1000;
+}
+
+function formatLiveSplitDuration(milliseconds){
+  const totalMilliseconds = Math.max(0, Math.floor(milliseconds));
+  const totalSeconds = Math.floor(totalMilliseconds / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const centiseconds = Math.floor((totalMilliseconds % 1000) / 10);
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+}
+
+function updateHomeLiveSplitsPanel(){
+  const panel = document.getElementById('home-live-splits');
+  if(!panel) return;
+
+  const runnerStates = {};
+  Object.keys(LIVE_RUNNER_SPLITS_URLS).forEach(runner => {
+    const card = panel.querySelector(`.home-split-runner[data-runner="${runner}"]`);
+    if(!card) return;
+
+    const state = homeLiveSplitsState[runner];
+    const referenceTime = state?.timestampMs || state?.receivedAt || 0;
+    const isFresh = Boolean(state && Date.now() - referenceTime <= 15000);
+    runnerStates[runner] = isFresh ? state : null;
+    const nameElement = card.querySelector('.home-split-name');
+    const timeElement = card.querySelector('.home-split-time');
+    const phaseElement = card.querySelector('.home-split-phase');
+
+    if(!isFresh){
+      nameElement.textContent = '—';
+      timeElement.textContent = '—';
+      phaseElement.textContent = homeLiveSplitsLastErrorAt[runner] ? t('liveSplitsUnavailable') : t('liveSplitsConnecting');
+      phaseElement.classList.remove('is-live');
+      card.classList.remove('is-ahead');
+      return;
+    }
+
+    nameElement.textContent = state.split || '—';
+    const isRunning = /running/i.test(state.phase);
+    timeElement.textContent = state.timeMs == null ? '—' : formatLiveSplitDuration(state.timeMs);
+    phaseElement.textContent = isRunning
+      ? t('live')
+      : (/finish|complete|ended/i.test(state.phase) ? t('liveSplitsFinished') : (state.phase || '—'));
+    phaseElement.classList.toggle('is-live', isRunning);
+    card.classList.remove('is-ahead');
+  });
+
+  const leaderElement = panel.querySelector('.home-live-splits-leader');
+  const runnerNames = [...panel.querySelectorAll('.home-split-runner')].map(card => card.dataset.runner);
+  const [runnerA, runnerB] = runnerNames;
+  const stateA = runnerStates[runnerA];
+  const stateB = runnerStates[runnerB];
+  if(!stateA || !stateB){
+    const availableRunner = stateA ? runnerA : stateB ? runnerB : null;
+    leaderElement.textContent = availableRunner
+      ? `${t('liveSplitsWaiting')}: ${availableRunner === runnerA ? runnerB : runnerA}`
+      : t('liveSplitsWaiting');
+    return;
+  }
+
+  const hasComparableIndices = Number.isFinite(stateA.splitIndex) && Number.isFinite(stateB.splitIndex);
+  let leader = null;
+  let gapMs = null;
+  if(stateA.lastSplitTimeMs != null && stateB.lastSplitTimeMs != null){
+    gapMs = Math.abs(stateA.lastSplitTimeMs - stateB.lastSplitTimeMs);
+  }
+  if(hasComparableIndices && stateA.splitIndex !== stateB.splitIndex){
+    leader = stateA.splitIndex > stateB.splitIndex ? runnerA : runnerB;
+  }else if(gapMs > 0){
+    leader = stateA.lastSplitTimeMs < stateB.lastSplitTimeMs ? runnerA : runnerB;
+  }
+
+  if(!leader){
+    leaderElement.textContent = t('liveSplitsTie');
+    return;
+  }
+  leaderElement.textContent = `${leader} ${t('liveSplitsAhead')}`;
+  panel.querySelector(`.home-split-runner[data-runner="${leader}"]`)?.classList.add('is-ahead');
+  if(gapMs != null){
+    const trailingRunner = leader === runnerA ? runnerB : runnerA;
+    const trailingTimeElement = panel.querySelector(`.home-split-runner[data-runner="${trailingRunner}"] .home-split-time`);
+    if(trailingTimeElement) trailingTimeElement.textContent = `+${formatLiveSplitDuration(gapMs)}`;
+  }
+}
+
+async function pollHomeLiveSplits(){
+  if(homeLiveSplitsRequestPending || !document.getElementById('home-live-splits')) return;
+  homeLiveSplitsRequestPending = true;
+  const feeds = await Promise.all(Object.entries(LIVE_RUNNER_SPLITS_URLS).map(async ([runner, url]) => {
+    try{
+      const response = await fetch(url, { cache: 'no-store' });
+      if(!response.ok) throw new Error('HTTP ' + response.status);
+      return { runner, data: await response.json() };
+    }catch(err){
+      console.warn(`No se pudieron cargar los splits en vivo de ${runner}.`, err);
+      return { runner, error: err };
+    }
+  }));
+  feeds.forEach(({ runner, data, error }) => {
+    if(error){
+      homeLiveSplitsLastErrorAt[runner] = Date.now();
+      return;
+    }
+    const timestamp = Number(data?.timestamp);
+    const splitIndex = Number(data?.splitIndex);
+    const receivedAt = Date.now();
+    const split = String(data?.split || '').trim();
+    const phase = String(data?.phase || '').trim();
+    homeLiveSplitsState[runner] = {
+      split,
+      splitIndex: Number.isFinite(splitIndex) ? splitIndex : null,
+      lastSplitTimeMs: parseLiveSplitDuration(data?.lastSplitTime),
+      phase,
+      timeMs: parseLiveSplitDuration(data?.time),
+      timestampMs: Number.isFinite(timestamp) ? (timestamp > 1e12 ? timestamp : timestamp * 1000) : 0,
+      receivedAt
+    };
+    delete homeLiveSplitsLastErrorAt[runner];
+  });
+  homeLiveSplitsRequestPending = false;
+  updateHomeLiveSplitsPanel();
+}
+
+function startHomeLiveSplitsPolling(){
+  if(homeLiveSplitsPollTimer) return;
+  homeLiveSplitsState = {};
+  homeLiveSplitsLastErrorAt = {};
+  pollHomeLiveSplits();
+  homeLiveSplitsPollTimer = setInterval(pollHomeLiveSplits, LIVE_SPLITS_POLL_MS);
+  homeLiveSplitsTickTimer = setInterval(updateHomeLiveSplitsPanel, 1000);
+}
+
+function stopHomeLiveSplitsPolling(){
+  if(homeLiveSplitsPollTimer){
+    clearInterval(homeLiveSplitsPollTimer);
+    homeLiveSplitsPollTimer = null;
+  }
+  if(homeLiveSplitsTickTimer){
+    clearInterval(homeLiveSplitsTickTimer);
+    homeLiveSplitsTickTimer = null;
+  }
+  homeLiveSplitsState = {};
+  homeLiveSplitsLastErrorAt = {};
+}
+
 function renderHomePanel(players = []){
   const container = document.getElementById('inicio-content');
   if(!container) return;
@@ -639,6 +811,7 @@ function renderHomePanel(players = []){
     .find(item => item.schedule && isFixtureMatchLiveCandidate(item.match, item.schedule.date));
 
   if(!liveMatch){
+    stopHomeLiveSplitsPolling();
     if(homeRunElapsedTimer){
       clearInterval(homeRunElapsedTimer);
       homeRunElapsedTimer = null;
@@ -654,6 +827,13 @@ function renderHomePanel(players = []){
   }
 
   const { match, schedule } = liveMatch;
+  const isMattGaelLive = [match.playerA, match.playerB]
+    .some(name => normalizeManualMatchName(name).toLowerCase() === 'mattgael');
+  const liveSplitRunnerNames = [match.playerA, match.playerB]
+    .map(name => Object.keys(LIVE_RUNNER_SPLITS_URLS).find(runner =>
+      normalizeManualMatchName(runner).toLowerCase() === normalizeManualMatchName(name).toLowerCase()
+    ))
+    .filter(Boolean);
   const playerA = resolvePlayerByName(players, match.playerA);
   const playerB = resolvePlayerByName(players, match.playerB);
   const flagA = playerA ? countryFlag(players, playerA.id) : '🏳️';
@@ -796,12 +976,41 @@ function renderHomePanel(players = []){
           ${gamesListB}
         </div>
       </div>
+      ${isMattGaelLive ? `
+        <section class="home-live-splits" id="home-live-splits" aria-live="polite">
+          <div class="home-live-splits-heading">
+            <span>${t('liveSplitsTitle')}</span>
+            <strong class="home-live-splits-leader">${t('liveSplitsWaiting')}</strong>
+          </div>
+          <div class="home-live-splits-runners">
+            ${liveSplitRunnerNames.map(runner => `
+              <div class="home-split-runner" data-runner="${runner}">
+                <div class="home-split-runner-heading">
+                  <span class="home-split-runner-name">${runner}</span>
+                  <span class="home-split-ahead">${t('liveSplitsRunnerAhead')}</span>
+                </div>
+                <span class="home-split-name">${t('liveSplitsConnecting')}</span>
+                <div class="home-split-runner-footer">
+                  <span class="home-split-phase">—</span>
+                  <strong class="home-split-time">—</strong>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
       <div class="home-live-footer">
         <span>${schedule.dateLabel} · ${schedule.timeLabel}</span>
         <a href="${LIVE_STREAM_URL}" target="_blank" rel="noopener noreferrer">${t('watchStream')}</a>
       </div>
     </div>
   `;
+
+  if(isMattGaelLive){
+    startHomeLiveSplitsPolling();
+  }else{
+    stopHomeLiveSplitsPolling();
+  }
 
   if(homeRunElapsedTimer){
     clearInterval(homeRunElapsedTimer);
@@ -1372,7 +1581,7 @@ function inferScheduleGroup(playerA, playerB){
 
 function parseMatchScheduleTable(table, options = {}){
   const {
-    stage = 'groups', // 'groups' | 'r16' | 'quarters' | 'semifinals' | 'final'
+    stage = 'groups', // 'groups' | 'r16' | 'quarters' | 'semifinals' | 'final' | 'thirdplace' | 'fifthplace'
     defaultGroup = null,
     dateLabelPrefix = null
   } = options;
@@ -1386,7 +1595,7 @@ function parseMatchScheduleTable(table, options = {}){
   const currentDates = rounds.map(() => null);
   const roundDateTbd = rounds.map(() => false);
   let sheetHasTbdDate = false;
-  const fallbackGroup = defaultGroup || (stage === 'r16' || stage === 'quarters' || stage === 'semifinals' || stage === 'final' ? stage.toUpperCase() : t('noGroup'));
+  const fallbackGroup = defaultGroup || (stage === 'r16' || stage === 'quarters' || stage === 'semifinals' || stage === 'final' || stage === 'thirdplace' || stage === 'fifthplace' ? stage.toUpperCase() : t('noGroup'));
 
   for(let rowIndex = 0; rowIndex < rows.length; rowIndex++){
     const row = rows[rowIndex];
@@ -1417,7 +1626,7 @@ function parseMatchScheduleTable(table, options = {}){
         if(!candidateRow) break;
 
         const groupValue = getSheetCell(candidateRow, schedule);
-        if(/GROUP\s+([A-H])/i.test(groupValue) || /R\s*16|ROUND\s*OF\s*16|OCTAVOS/i.test(groupValue) || /QUARTERS|CUARTOS/i.test(groupValue) || /SEMIFINALS|SEMIFINALES/i.test(groupValue) || /FINAL|FINAL/i.test(groupValue)){
+        if(/GROUP\s+([A-H])/i.test(groupValue) || /R\s*16|ROUND\s*OF\s*16|OCTAVOS/i.test(groupValue) || /QUARTERS|CUARTOS/i.test(groupValue) || /SEMIFINALS|SEMIFINALES/i.test(groupValue) || /FINAL|FINAL/i.test(groupValue) || /FIFTH|5TH|QUINTO/i.test(groupValue)){
           detailRowIndex = candidateIndex;
           break;
         }
@@ -1440,6 +1649,7 @@ function parseMatchScheduleTable(table, options = {}){
         || (/R\s*16|ROUND\s*OF\s*16|OCTAVOS/i.test(groupValue) ? 'R16' : null)
         || (/QUARTERS|CUARTOS/i.test(groupValue) ? 'QUARTERS' : null)
         || (/SEMIFINALS|SEMIFINALES/i.test(groupValue) ? 'SEMIFINALS' : null)
+        || (/FIFTH|5TH|QUINTO/i.test(groupValue) ? 'FIFTH_PLACE' : null)
         || (/FINAL|FINAL/i.test(groupValue) ? 'FINAL' : null)
         || fallbackGroup;
 
@@ -1460,6 +1670,15 @@ function parseMatchScheduleTable(table, options = {}){
       // En octavos la celda puede ser "BO3"; el horario real suele estar en la misma fila
       if(/^BO\s*\d+$/i.test(scheduleValue)){
         for(let c = schedule - 2; c <= schedule + 1; c++){
+          const candidate = normalizeScheduleTime(getSheetCell(row, c));
+          if(isScheduleClockTime(candidate)){
+            scheduleValue = candidate;
+            break;
+          }
+        }
+      }
+      if(!isScheduleClockTime(normalizeScheduleTime(scheduleValue))){
+        for(let c = schedule - 1; c <= schedule + 1; c++){
           const candidate = normalizeScheduleTime(getSheetCell(row, c));
           if(isScheduleClockTime(candidate)){
             scheduleValue = candidate;
@@ -1503,7 +1722,7 @@ function parseMatchScheduleTable(table, options = {}){
   // Grupos: 3 bloques de columnas (fechas 1-3).
   // Octavos: un solo bloque con los 8 partidos (ordenados por fecha/hora).
   let dates;
-  if(stage === 'r16' || stage === 'quarters' || stage === 'semifinals' || stage === 'final'){
+  if(stage === 'r16' || stage === 'quarters' || stage === 'semifinals' || stage === 'final' || stage === 'thirdplace' || stage === 'fifthplace'){
     const allMatches = removeRescheduledDuplicates(matchesByRound.flat())
       .map(({ group: _g, ...match }) => ({ ...match, group: stage.toUpperCase(), stage }))
       .sort((a, b) => {
@@ -1513,7 +1732,7 @@ function parseMatchScheduleTable(table, options = {}){
       });
     dates = [{
       number: 1,
-      label: dateLabelPrefix || t(stage),
+      label: dateLabelPrefix || t(stage === 'thirdplace' ? 'thirdPlace' : stage === 'fifthplace' ? 'fifthPlace' : stage),
       stage,
       groups: [{
         name: 'R16',
@@ -1841,12 +2060,10 @@ function addLocalMissingScheduleMatch(schedule, stage, playerA, playerB, overrid
   schedule.matches = schedule.dates.flatMap(date => date.matches || []);
 }
 
-function mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, finalSchedule){
-  if(!groupsSchedule && !r16Schedule && !quartersSchedule && !semifinalsSchedule && !finalSchedule) return null;
-  if(!r16Schedule?.dates?.length) return groupsSchedule || null;
-  if(!groupsSchedule?.dates?.length) return r16Schedule || null;
+function mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, thirdPlaceSchedule, fifthPlaceSchedule, finalSchedule){
+  if(!groupsSchedule && !r16Schedule && !quartersSchedule && !semifinalsSchedule && !thirdPlaceSchedule && !fifthPlaceSchedule && !finalSchedule) return null;
 
-  const groupsDates = groupsSchedule.dates || [];
+  const groupsDates = groupsSchedule?.dates || [];
   const r16Dates = (r16Schedule.dates || []).map((date, index) => ({
     ...date,
     number: groupsDates.length + index + 1,
@@ -1867,15 +2084,29 @@ function mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semi
     stage: 'semifinals'
   }));
 
-  const finalDates = (finalSchedule?.dates || []).map((date, index) => ({
+  const thirdPlaceDates = (thirdPlaceSchedule?.dates || []).map((date, index) => ({
     ...date,
     number: groupsDates.length + r16Dates.length + quartersDates.length + semifinalsDates.length + index + 1,
+    label: date.label || t('thirdPlace'),
+    stage: 'thirdplace'
+  }));
+
+  const fifthPlaceDates = (fifthPlaceSchedule?.dates || []).map((date, index) => ({
+    ...date,
+    number: groupsDates.length + r16Dates.length + quartersDates.length + semifinalsDates.length + thirdPlaceDates.length + index + 1,
+    label: date.label || t('fifthPlace'),
+    stage: 'fifthplace'
+  }));
+
+  const finalDates = (finalSchedule?.dates || []).map((date, index) => ({
+    ...date,
+    number: groupsDates.length + r16Dates.length + quartersDates.length + semifinalsDates.length + thirdPlaceDates.length + fifthPlaceDates.length + index + 1,
     label: date.label || t('final'),
     stage: 'final'
   }));
 
   return normalizeResultsData({
-    dates: [...groupsDates, ...r16Dates, ...quartersDates, ...semifinalsDates, ...finalDates]
+    dates: [...groupsDates, ...r16Dates, ...quartersDates, ...semifinalsDates, ...thirdPlaceDates, ...fifthPlaceDates, ...finalDates]
   });
 }
 
@@ -1889,7 +2120,7 @@ async function loadExternalMatchSchedule(){
       groupsTable, r16Table, r16OverrideTable,
       quartersTable, quartersOverrideTable,
       semifinalsTable, semifinalsOverrideTable,
-      finalTable, finalOverrideTable, mysteryTable
+      finalTable, finalOverrideTable, thirdPlaceTable, fifthPlaceTable, mysteryTable
     ] = await Promise.all([
       loadSheet(MATCH_SCHEDULE_GROUPS_SHEET_URL, 'Match Schedule (Groups)'),
       loadSheet(MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL, 'Match Schedule (Round of 16)'),
@@ -1900,6 +2131,8 @@ async function loadExternalMatchSchedule(){
       loadSheet(MATCH_SCHEDULE_SEMIFINALS_OVERRIDE_URL, 'respaldo Semifinals'),
       loadSheet(MATCH_SCHEDULE_FINAL_SHEET_URL, 'Match Schedule (Final)'),
       loadSheet(MATCH_SCHEDULE_FINAL_OVERRIDE_URL, 'respaldo Final'),
+      loadSheet(MATCH_SCHEDULE_THIRD_PLACE_OVERRIDE_URL, 'Match Schedule (Third Place)'),
+      loadSheet(MATCH_SCHEDULE_FIFTH_PLACE_SHEET_URL, 'Match Schedule (Fifth Place)'),
       loadSheet(MATCH_SCHEDULE_MISTERY_SHEET_URL, 'Match Schedule (Mistery)')
     ]);
     knockoutRunTimingsByStage = {
@@ -1927,21 +2160,35 @@ async function loadExternalMatchSchedule(){
           dateLabelPrefix: t('quarterfinals')
         })
       : null;
-    const semifinalsSchedule = semifinalsTable
-      ? parseMatchScheduleTable(semifinalsTable, {
+    const semifinalsSchedule = (semifinalsTable || semifinalsOverrideTable)
+      ? parseMatchScheduleTable(semifinalsTable || semifinalsOverrideTable, {
           stage: 'semifinals',
           defaultGroup: 'SF',
           dateLabelPrefix: t('semifinals')
         })
       : null;
-    const finalSchedule = finalTable
-      ? parseMatchScheduleTable(finalTable, {
+    const finalSchedule = (finalTable || finalOverrideTable)
+      ? parseMatchScheduleTable(finalTable || finalOverrideTable, {
           stage: 'final',
           defaultGroup: 'F',
           dateLabelPrefix: t('final')
         })
       : null;
-    externalMatchSchedule = mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, finalSchedule);
+    const thirdPlaceSchedule = thirdPlaceTable
+      ? parseMatchScheduleTable(thirdPlaceTable, {
+          stage: 'thirdplace',
+          defaultGroup: 'THIRD_PLACE',
+          dateLabelPrefix: t('thirdPlace')
+        })
+      : null;
+      const fifthPlaceSchedule = fifthPlaceTable
+        ? parseMatchScheduleTable(fifthPlaceTable, {
+            stage: 'fifthplace',
+            defaultGroup: 'FIFTH_PLACE',
+            dateLabelPrefix: t('fifthPlace')
+          })
+        : null;
+      externalMatchSchedule = mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, thirdPlaceSchedule, fifthPlaceSchedule, finalSchedule);
     applyStageRescheduleOverrides(externalMatchSchedule, 'r16', r16OverrideMatches, {
       includeMissing: Boolean(r16Schedule?.hasTbdDate)
     });
@@ -1958,6 +2205,12 @@ async function loadExternalMatchSchedule(){
       'semifinals',
       parseStageOverrideMatches(semifinalsOverrideTable, 'semifinals', 'SF', t('semifinals')),
       { includeMissing: Boolean(semifinalsSchedule?.hasTbdDate) }
+    );
+    applyStageRescheduleOverrides(
+      externalMatchSchedule,
+      'thirdplace',
+      parseStageOverrideMatches(thirdPlaceTable, 'thirdplace', 'THIRD_PLACE', t('thirdPlace')),
+      { includeMissing: Boolean(thirdPlaceSchedule?.hasTbdDate) }
     );
     applyStageRescheduleOverrides(
       externalMatchSchedule,
@@ -3723,8 +3976,8 @@ function renderCalendarFixturePanel(players = []){
     storedResults.dates.forEach((date, index) => {
       const number = Number(date.number || date.numero || index + 1);
       const stageKey = String(date.stage || '').toLowerCase();
-      const isKnockoutDate = stageKey === 'r16' || stageKey === 'quarters' || stageKey === 'semifinals' || stageKey === 'final';
-      // Un solo bloque por fase eliminatoria (octavos, cuartos, semis, final)
+      const isKnockoutDate = stageKey === 'r16' || stageKey === 'quarters' || stageKey === 'semifinals' || stageKey === 'thirdplace' || stageKey === 'fifthplace' || stageKey === 'final';
+      // Un solo bloque por fase eliminatoria
       const key = isKnockoutDate ? `fixture-${stageKey}` : `fixture-${number}`;
       if(!calendarBuckets.has(key)){
         const knockoutLabel = stageKey === 'r16'
@@ -3733,9 +3986,13 @@ function renderCalendarFixturePanel(players = []){
             ? t('quarterfinals')
             : stageKey === 'semifinals'
               ? t('semifinals')
-              : stageKey === 'final'
-                ? t('final')
-                : null;
+              : stageKey === 'thirdplace'
+                ? t('thirdPlace')
+                : stageKey === 'fifthplace'
+                  ? t('fifthPlace')
+                : stageKey === 'final'
+                  ? t('final')
+                  : null;
         calendarBuckets.set(key, {
           label: knockoutLabel || date.label || `${t('dateLabel')} ${number} ${t('of')} ${storedResults.dates.length}`,
           matches: []
@@ -3826,6 +4083,8 @@ function renderCalendarFixturePanel(players = []){
       if(key === 'fixture-r16') return 5000;
       if(key === 'fixture-quarters') return 5100;
       if(key === 'fixture-semifinals') return 5200;
+      if(key === 'fixture-thirdplace') return 5250;
+      if(key === 'fixture-fifthplace') return 5275;
       if(key === 'fixture-final') return 5300;
       if(key.startsWith('fixture-')){
         const n = Number(key.slice(8));
@@ -3931,7 +4190,11 @@ function renderCalendarFixturePanel(players = []){
 
         const stageKey = String(match.stage || '').toLowerCase();
         const groupKey = String(match.group || '').toUpperCase();
-        const stageLabel = stageKey === 'final' || groupKey === 'FINAL' || groupKey === 'F'
+        const stageLabel = stageKey === 'fifthplace' || groupKey === 'FIFTHPLACE' || groupKey === 'FIFTH_PLACE'
+          ? t('fifthPlace')
+          : stageKey === 'thirdplace' || groupKey === 'THIRDPLACE' || groupKey === 'THIRD_PLACE'
+          ? t('thirdPlace')
+          : stageKey === 'final' || groupKey === 'FINAL' || groupKey === 'F'
           ? t('final')
           : stageKey === 'semifinals' || groupKey === 'SEMIFINALS' || groupKey === 'SF'
             ? t('semifinals')
