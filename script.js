@@ -41,13 +41,12 @@ const MATCH_SCHEDULE_OVERRIDE_BASE = 'https://docs.google.com/spreadsheets/d/17R
 const MATCH_SCHEDULE_ROUND_OF_16_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Round%20of%2016)';
 const MATCH_SCHEDULE_QUARTERS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&sheet=Match%20Schedule%20(Quarter%20Finals)';
 const MATCH_SCHEDULE_QUARTERS_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Quarter%20Finals)&headers=0';
-const MATCH_SCHEDULE_SEMIFINALS_SHEET_URL = '';
+const MATCH_SCHEDULE_SEMIFINALS_FIFTH_PLACE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1kMWVJ297TRajvaZ-eAOMCu0N_4xeoug9BA_cOMjWP70/gviz/tq?tqx=out:json&gid=2110979049';
 const MATCH_SCHEDULE_SEMIFINALS_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Semifinals)&headers=0';
 const MATCH_SCHEDULE_FINAL_SHEET_URL = '';
 const MATCH_SCHEDULE_FINAL_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Final)&headers=0';
 const MATCH_SCHEDULE_THIRD_PLACE_SHEET_URL = '';
 const MATCH_SCHEDULE_THIRD_PLACE_OVERRIDE_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Third%20Place)&headers=0';
-const MATCH_SCHEDULE_FIFTH_PLACE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/17RvnKg48Yhv-5p-Ze_9ArQEy1rySyidDc0e1yDgkgPE/gviz/tq?tqx=out:json&gid=161412483';
 const MATCH_SCHEDULE_MISTERY_SHEET_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%20Schedule%20(Mistery)';
 // Google Apps Script: valores + color de fondo (rojo = mejor estadística del match)
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
@@ -1648,14 +1647,18 @@ function parseMatchScheduleTable(table, options = {}){
   const {
     stage = 'groups', // 'groups' | 'r16' | 'quarters' | 'semifinals' | 'final' | 'thirdplace' | 'fifthplace'
     defaultGroup = null,
-    dateLabelPrefix = null
+    dateLabelPrefix = null,
+    roundIndexes = null
   } = options;
   const rows = table?.rows || [];
-  const rounds = [
+  const allRounds = [
     { start: 1, schedule: 6, dateDay: 0, date: 1 },
     { start: 9, schedule: 14, dateDay: 8, date: 9 },
     { start: 17, schedule: 22, dateDay: 16, date: 17 }
   ];
+  const rounds = roundIndexes
+    ? allRounds.filter((_, index) => roundIndexes.includes(index))
+    : allRounds;
   const matchesByRound = rounds.map(() => []);
   const currentDates = rounds.map(() => null);
   const roundDateTbd = rounds.map(() => false);
@@ -2185,21 +2188,21 @@ async function loadExternalMatchSchedule(){
       groupsTable, r16Table, r16OverrideTable,
       quartersTable, quartersOverrideTable,
       semifinalsTable, semifinalsOverrideTable,
-      finalTable, finalOverrideTable, thirdPlaceTable, fifthPlaceTable, mysteryTable
+      finalTable, finalOverrideTable, thirdPlaceTable, mysteryTable
     ] = await Promise.all([
       loadSheet(MATCH_SCHEDULE_GROUPS_SHEET_URL, 'Match Schedule (Groups)'),
       loadSheet(MATCH_SCHEDULE_ROUND_OF_16_SHEET_URL, 'Match Schedule (Round of 16)'),
       loadSheet(MATCH_SCHEDULE_ROUND_OF_16_OVERRIDE_URL, 'respaldo Round of 16'),
       loadSheet(MATCH_SCHEDULE_QUARTERS_SHEET_URL, 'Match Schedule (Quarter Finals)'),
       loadSheet(MATCH_SCHEDULE_QUARTERS_OVERRIDE_URL, 'respaldo Quarter Finals'),
-      loadSheet(MATCH_SCHEDULE_SEMIFINALS_SHEET_URL, 'Match Schedule (Semifinals)'),
+      loadSheet(MATCH_SCHEDULE_SEMIFINALS_FIFTH_PLACE_SHEET_URL, 'Match Schedule (Semifinals / Fifth Place)'),
       loadSheet(MATCH_SCHEDULE_SEMIFINALS_OVERRIDE_URL, 'respaldo Semifinals'),
       loadSheet(MATCH_SCHEDULE_FINAL_SHEET_URL, 'Match Schedule (Final)'),
       loadSheet(MATCH_SCHEDULE_FINAL_OVERRIDE_URL, 'respaldo Final'),
       loadSheet(MATCH_SCHEDULE_THIRD_PLACE_OVERRIDE_URL, 'Match Schedule (Third Place)'),
-      loadSheet(MATCH_SCHEDULE_FIFTH_PLACE_SHEET_URL, 'Match Schedule (Fifth Place)'),
       loadSheet(MATCH_SCHEDULE_MISTERY_SHEET_URL, 'Match Schedule (Mistery)')
     ]);
+    const fifthPlaceTable = semifinalsTable;
     knockoutRunTimingsByStage = {
       quarters: resolveActiveKnockoutRunTimings(quartersOverrideTable),
       semifinals: resolveActiveKnockoutRunTimings(semifinalsOverrideTable),
@@ -2229,7 +2232,8 @@ async function loadExternalMatchSchedule(){
       ? parseMatchScheduleTable(semifinalsTable || semifinalsOverrideTable, {
           stage: 'semifinals',
           defaultGroup: 'SF',
-          dateLabelPrefix: t('semifinals')
+          dateLabelPrefix: t('semifinals'),
+          roundIndexes: semifinalsTable ? [1] : null
         })
       : null;
     const finalSchedule = (finalTable || finalOverrideTable)
@@ -2250,7 +2254,8 @@ async function loadExternalMatchSchedule(){
         ? parseMatchScheduleTable(fifthPlaceTable, {
             stage: 'fifthplace',
             defaultGroup: 'FIFTH_PLACE',
-            dateLabelPrefix: t('fifthPlace')
+            dateLabelPrefix: t('fifthPlace'),
+            roundIndexes: [0]
           })
         : null;
       externalMatchSchedule = mergeMatchSchedules(groupsSchedule, r16Schedule, quartersSchedule, semifinalsSchedule, thirdPlaceSchedule, fifthPlaceSchedule, finalSchedule);
