@@ -1368,6 +1368,20 @@ footer{
   overflow:hidden;
   text-overflow:ellipsis;
 }
+.knockout-team-line{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+}
+.knockout-team-line .team-name{flex:1}
+.knockout-team-score{
+  min-width:1em;
+  color:var(--text);
+  font-size:.72rem;
+  font-weight:800;
+  text-align:right;
+}
 .team-detail{font-size:.46rem;color:var(--muted)}
 .team-flag{font-size:.8rem;min-width:1.2em;display:inline-block}
 

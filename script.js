@@ -4627,28 +4627,51 @@ function buildKnockoutBracket(runs, players){
       const playerA = match?.playerA || match?.a || t('tbd');
       const playerB = match?.playerB || match?.b || t('tbd');
       const winner = match?.winner || '';
+      const scoreA = match?.seriesScoreA ?? match?.scoreA ?? null;
+      const scoreB = match?.seriesScoreB ?? match?.scoreB ?? null;
       return Object.assign([
         participant(playerA, match?.labelA || t('qualified')),
         participant(playerB, match?.labelB || t('qualified'))
-      ], { winnerIndex: winner === playerB ? 1 : winner === playerA ? 0 : null });
+      ], {
+        winnerIndex: winner === playerB ? 1 : winner === playerA ? 0 : null,
+        scores: [scoreA, scoreB]
+      });
     });
 
+    const semifinals = readRound('semifinales', 2);
+    const thirdPlaceMatch = knockoutResults.tercerPuesto || knockoutResults.thirdPlace || {};
+    const thirdPlaceLosers = semifinals.map(match => (
+      match.winnerIndex == null ? t('tbd') : match[match.winnerIndex === 0 ? 1 : 0].name
+    ));
+    const thirdPlacePlayerA = thirdPlaceMatch.playerA || thirdPlaceMatch.a;
+    const thirdPlacePlayerB = thirdPlaceMatch.playerB || thirdPlaceMatch.b;
+    const thirdPlaceA = !thirdPlacePlayerA || thirdPlacePlayerA === t('tbd') ? thirdPlaceLosers[0] : thirdPlacePlayerA;
+    const thirdPlaceB = !thirdPlacePlayerB || thirdPlacePlayerB === t('tbd') ? thirdPlaceLosers[1] : thirdPlacePlayerB;
     const finalMatch = knockoutResults.final || {};
     return {
       octavos: readRound('octavos', 8),
       cuartos: readRound('cuartos', 4),
-      semis: readRound('semifinales', 2),
+      semis: semifinals,
       final: Object.assign([
         participant(finalMatch.playerA || finalMatch.a || t('tbd')),
         participant(finalMatch.playerB || finalMatch.b || t('tbd'))
-      ], { winnerIndex: finalMatch.winner === finalMatch.playerB ? 1 : finalMatch.winner ? 0 : null }),
-      thirdPlace: (() => {
-        const match = knockoutResults.tercerPuesto || knockoutResults.thirdPlace || {};
-        return Object.assign([
-          participant(match.playerA || match.a || t('tbd')),
-          participant(match.playerB || match.b || t('tbd'))
-        ], { winnerIndex: match.winner === match.playerB ? 1 : match.winner ? 0 : null });
-      })(),
+      ], {
+        winnerIndex: finalMatch.winner === finalMatch.playerB ? 1 : finalMatch.winner ? 0 : null,
+        scores: [
+          finalMatch.seriesScoreA ?? finalMatch.scoreA ?? null,
+          finalMatch.seriesScoreB ?? finalMatch.scoreB ?? null
+        ]
+      }),
+      thirdPlace: Object.assign([
+        participant(thirdPlaceA),
+        participant(thirdPlaceB)
+      ], {
+        winnerIndex: thirdPlaceMatch.winner === thirdPlaceB ? 1 : thirdPlaceMatch.winner === thirdPlaceA ? 0 : null,
+        scores: [
+          thirdPlaceMatch.seriesScoreA ?? thirdPlaceMatch.scoreA ?? null,
+          thirdPlaceMatch.seriesScoreB ?? thirdPlaceMatch.scoreB ?? null
+        ]
+      }),
       champion: participant(finalMatch.winner || t('tbd'), t('champion'))
     };
   }
@@ -4700,6 +4723,9 @@ function buildKnockoutBracket(runs, players){
       if(stageFilter === 'final'){
         return stage === 'final' || (/final/i.test(stage + group) && !/semi/i.test(stage + group));
       }
+      if(stageFilter === 'thirdplace'){
+        return /third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/i.test(stage + group);
+      }
       return stage.includes(stageFilter) || group.toLowerCase() === stageFilter;
     }) || null;
   };
@@ -4711,18 +4737,23 @@ function buildKnockoutBracket(runs, players){
     const match = findKnockoutMatch(slotA.name, slotB.name, stageFilter);
     if(!match) return { winnerIndex: null, winner: null };
 
+    const hasSeriesScore = match.seriesScoreA != null && match.seriesScoreB != null
+      && String(match.seriesScoreA).trim() !== '' && String(match.seriesScoreB).trim() !== '';
+    const sameOrder = normalizeManualMatchName(match.playerA) === normalizeManualMatchName(slotA.name);
+    const scores = hasSeriesScore
+      ? sameOrder
+        ? [match.seriesScoreA, match.seriesScoreB]
+        : [match.seriesScoreB, match.seriesScoreA]
+      : [null, null];
     // En eliminatorias, el resultado de un mapa no determina al ganador de la serie.
     let winnerName = null;
     const targetWins = getKnockoutSeriesTarget(stageFilter, match.stage || match.group);
-    const hasSeriesScore = match.seriesScoreA != null && match.seriesScoreB != null
-      && String(match.seriesScoreA).trim() !== '' && String(match.seriesScoreB).trim() !== '';
     if(targetWins != null && hasSeriesScore){
       const sA = Number(match.seriesScoreA);
       const sB = Number(match.seriesScoreB);
       if(!Number.isFinite(sA) || !Number.isFinite(sB) || (sA < targetWins && sB < targetWins)){
-        return { winnerIndex: null, winner: null };
+        return { winnerIndex: null, winner: null, scores };
       }
-      const sameOrder = normalizeManualMatchName(match.playerA) === normalizeManualMatchName(slotA.name);
       if(sameOrder) winnerName = sA > sB ? slotA.name : slotB.name;
       else winnerName = sA > sB ? slotB.name : slotA.name;
     }else if(match.winner){
@@ -4732,17 +4763,18 @@ function buildKnockoutBracket(runs, players){
           ? slotB.name
           : null;
     }
-    if(!winnerName) return { winnerIndex: null, winner: null };
+    if(!winnerName) return { winnerIndex: null, winner: null, scores };
 
     const winnerIndex = normalizeManualMatchName(winnerName) === normalizeManualMatchName(slotA.name)
       ? 0
       : normalizeManualMatchName(winnerName) === normalizeManualMatchName(slotB.name)
         ? 1
         : null;
-    if(winnerIndex == null) return { winnerIndex: null, winner: null };
+    if(winnerIndex == null) return { winnerIndex: null, winner: null, scores };
     return {
       winnerIndex,
-      winner: winnerIndex === 0 ? slotA : slotB
+      winner: winnerIndex === 0 ? slotA : slotB,
+      scores
     };
   };
 
@@ -4757,7 +4789,7 @@ function buildKnockoutBracket(runs, players){
     [qualifiedParticipants[14], qualifiedParticipants[13]]
   ].map(pair => {
     const result = resolveWinnerSlot(pair[0], pair[1], 'r16');
-    return Object.assign([pair[0], pair[1]], { winnerIndex: result.winnerIndex, winner: result.winner });
+    return Object.assign([pair[0], pair[1]], { winnerIndex: result.winnerIndex, winner: result.winner, scores: result.scores });
   });
 
   // Avance a cuartos: ganadores de octavos 0+1, 2+3, 4+5, 6+7
@@ -4767,7 +4799,7 @@ function buildKnockoutBracket(runs, players){
     const slotA = left.name === t('tbd') ? tbdSlot() : participantFromName(left.name, left.label || t('qualified'));
     const slotB = right.name === t('tbd') ? tbdSlot() : participantFromName(right.name, right.label || t('qualified'));
     const result = resolveWinnerSlot(slotA, slotB, 'qf');
-    return Object.assign([slotA, slotB], { winnerIndex: result.winnerIndex, winner: result.winner });
+    return Object.assign([slotA, slotB], { winnerIndex: result.winnerIndex, winner: result.winner, scores: result.scores });
   });
 
   const semis = [0, 1].map(i => {
@@ -4776,7 +4808,7 @@ function buildKnockoutBracket(runs, players){
     const slotA = left.name === t('tbd') ? tbdSlot() : participantFromName(left.name, left.label || t('qualified'));
     const slotB = right.name === t('tbd') ? tbdSlot() : participantFromName(right.name, right.label || t('qualified'));
     const result = resolveWinnerSlot(slotA, slotB, 'sf');
-    return Object.assign([slotA, slotB], { winnerIndex: result.winnerIndex, winner: result.winner });
+    return Object.assign([slotA, slotB], { winnerIndex: result.winnerIndex, winner: result.winner, scores: result.scores });
   });
 
   const finalLeft = semis[0]?.winner || tbdSlot();
@@ -4786,7 +4818,20 @@ function buildKnockoutBracket(runs, players){
   const finalResult = resolveWinnerSlot(finalA, finalB, 'final');
   const final = Object.assign([finalA, finalB], {
     winnerIndex: finalResult.winnerIndex,
-    winner: finalResult.winner
+    winner: finalResult.winner,
+    scores: finalResult.scores
+  });
+
+  const loserOf = match => match.winnerIndex == null
+    ? tbdSlot()
+    : match[match.winnerIndex === 0 ? 1 : 0];
+  const thirdA = loserOf(semis[0]);
+  const thirdB = loserOf(semis[1]);
+  const thirdPlaceResult = resolveWinnerSlot(thirdA, thirdB, 'thirdplace');
+  const thirdPlace = Object.assign([thirdA, thirdB], {
+    winnerIndex: thirdPlaceResult.winnerIndex,
+    winner: thirdPlaceResult.winner,
+    scores: thirdPlaceResult.scores
   });
 
   const championSource = final.winner;
@@ -4794,7 +4839,7 @@ function buildKnockoutBracket(runs, players){
     ? { ...participantFromName(championSource.name, t('champion')), label: t('champion'), details: '' }
     : { label: t('champion'), name: t('tbd'), flag: null, details: t('pendingSingle') };
 
-  return { octavos, cuartos, semis, final, champion };
+  return { octavos, cuartos, semis, final, thirdPlace, champion };
 }
 
 function renderEliminatoriasPanel(runs, players){
@@ -4807,6 +4852,9 @@ function renderEliminatoriasPanel(runs, players){
     const isWinnerB = winnerIndex === 1;
     const isLoserA = winnerIndex !== null && !isWinnerA;
     const isLoserB = winnerIndex !== null && !isWinnerB;
+    const scoreText = score => score != null && /^\d+$/.test(String(score).trim())
+      ? `<span class="knockout-team-score">${String(score).trim()}</span>`
+      : '';
     const teamName = (team) => team.name === t('tbd')
       ? `<span class="team-name"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</span>`
       : `<button class="player-profile-button team-name" type="button" data-player-name="${team.name}"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</button>`;
@@ -4815,12 +4863,12 @@ function renderEliminatoriasPanel(runs, players){
       <div class="knockout-match ${matchClass}" data-match="${index}">
         <div class="team-slot ${isWinnerA ? 'winner' : ''} ${isLoserA ? 'loser' : ''}">
           <span class="team-label">${teamA.label}</span>
-          ${teamName(teamA)}
+          <div class="knockout-team-line">${teamName(teamA)}${scoreText(match.scores?.[0])}</div>
           <span class="team-detail">${teamA.details}</span>
         </div>
         <div class="team-slot ${isWinnerB ? 'winner' : ''} ${isLoserB ? 'loser' : ''}">
           <span class="team-label">${teamB.label}</span>
-          ${teamName(teamB)}
+          <div class="knockout-team-line">${teamName(teamB)}${scoreText(match.scores?.[1])}</div>
           <span class="team-detail">${teamB.details}</span>
         </div>
       </div>
