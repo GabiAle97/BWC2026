@@ -247,6 +247,7 @@ let externalKnockoutStats = {
   ro16: new Map(),
   qf: new Map(),
   sf: new Map(),
+  thirdplace: new Map(),
   final: new Map()
 };
 let externalStatsLoad = null;
@@ -944,11 +945,14 @@ function renderHomePanel(players = []){
   const isR16 = stage === 'r16' || group === 'R16' || /octavos|round\s*of\s*16/i.test(stage + group);
   const isQf = stage === 'qf' || /cuartos|quarter/i.test(stage + group);
   const isSf = stage === 'sf' || /semi/i.test(stage + group);
+  const isThirdPlace = stage === 'thirdplace' || /third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/i.test(stage + group);
   const isFinal = stage === 'final' || (/final/i.test(stage + group) && !/semi/i.test(stage + group));
   const stageRunTimings = isQf
     ? knockoutRunTimingsByStage.quarters
     : isSf
       ? knockoutRunTimingsByStage.semifinals
+      : isThirdPlace
+        ? knockoutRunTimingsByStage.thirdplace
       : isFinal
         ? knockoutRunTimingsByStage.final
         : null;
@@ -963,6 +967,8 @@ function renderHomePanel(players = []){
     ? t('final')
     : isSf
       ? t('semifinals')
+            : isThirdPlace
+        ? t('thirdPlace')
       : isQf
         ? t('quarterfinals')
         : isR16
@@ -980,10 +986,10 @@ function renderHomePanel(players = []){
   const bestOfLabel = isMystery
     ? t('exhibition').toUpperCase()
     : isFinal
-    ? 'BEST OF 5'
-    : (isR16 || isQf || isSf)
+    ? `RUN ${currentRunNumber} OF 5`
+    : (isR16 || isQf || isSf || isThirdPlace)
       ? `RUN ${currentRunNumber} OF 3`
-      : 'BEST OF 1';
+      : `RUN ${currentRunNumber} OF 1`;
 
   // Juegos del schedule + fallback desde sheet de detalles (Match 49/50/51)
   let games = Array.isArray(match.games) ? match.games.slice() : [];
@@ -2255,6 +2261,7 @@ async function loadExternalMatchSchedule(){
     knockoutRunTimingsByStage = {
       quarters: resolveActiveKnockoutRunTimings(quartersOverrideTable),
       semifinals: resolveActiveKnockoutRunTimings(semifinalsOverrideTable),
+      thirdplace: resolveActiveKnockoutRunTimings(thirdPlaceTable),
       final: resolveActiveKnockoutRunTimings(finalOverrideTable)
     };
     knockoutRunTimingsByPair = new Map(Object.values(knockoutRunTimingsByStage).flatMap(timings => [...timings]));
