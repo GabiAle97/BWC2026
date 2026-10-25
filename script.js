@@ -3,8 +3,8 @@ const SCHEDULE_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 const LIVE_STREAM_URL = 'https://www.twitch.tv/basementcup';
 // Placeholder: reemplazar la URL de JokerUY cuando esté disponible.
 const LIVE_RUNNER_SPLITS_URLS = {
-  MattGael: 'https://pro-favors-kinda-scores.trycloudflare.com',
-  JokerUY: 'https://harvard-depend-miss-arrive.trycloudflare.com'
+  MattGael: 'https://nathan-testament-addressed-promotes.trycloudflare.com/',
+  LanceLM: 'https://equations-undo-lover-objectives.trycloudflare.com/'
 };
 const LIVE_SPLITS_POLL_MS = 1;
 const LIVE_WINDOW_MS = 200 * 60 * 1000;
