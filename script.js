@@ -53,7 +53,7 @@ const MATCH_SCHEDULE_MISTERY_SHEET_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%2
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
 // Fallback gviz (sin colores) si el script falla
 const MATCH_DETAILS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1SoDlnUw47lV93_Mu1Gy195i5ukHOVGwta8ab_TAQPNg/gviz/tq?tqx=out:json';
-const HOME_MESSAGES_API_URL = 'https://script.google.com/macros/s/AKfycbwQQsUJjChVfUvUjgAF9aqb2BYDqH1PNde5liWYiJ9BcBJIuk-uoWE_rm7FH78CoAvQFA/exec';
+const HOME_MESSAGES_API_URL = 'https://script.google.com/macros/s/AKfycbze4Ob-wVS3fvhWKTcl5z9YXfdk0QXgkAM7F5FU_6uAPEDlRFNN-f7BAbiAp4tQRLvayA/exec';
 let externalMatchDetails = null; // Map: sorted "normA|normB" -> { playerA, playerB, timeA, timeB, timeABetter, timeBBetter, segments: [{label, valueA, valueB, betterA, betterB}] }
 let externalMatchDetailsLoad = null;
 // --- Internacionalización (i18n) ---
@@ -85,6 +85,7 @@ const TRANSLATIONS = {
     homeMessagesPending: 'Estamos verificando el envío. Si se guardó, aparecerá en unos segundos.',
     homeMessagesError: 'No se pudo enviar. Revisá tu conexión e intentá de nuevo.',
     homeMessagesRateLimit: 'Esperá un momento antes de enviar otro mensaje.',
+    homeMessagesApiOutdated: 'El Apps Script conectado todavía no tiene habilitado el muro de mensajes.',
     liveSplitsTitle: 'Comparativa de runners', liveSplitsConnecting: 'Conectando con LiveSplit…',
     liveSplitsUnavailable: 'Splits temporalmente no disponibles', liveSplitsFinished: 'RUN FINALIZADA',
     liveSplitsWaiting: 'Esperando los dos feeds', liveSplitsTie: 'Van parejos',
@@ -166,6 +167,7 @@ const TRANSLATIONS = {
     homeMessagesPending: 'Checking delivery. If it was saved, it will appear shortly.',
     homeMessagesError: 'Could not send. Check your connection and try again.',
     homeMessagesRateLimit: 'Please wait a moment before sending another message.',
+    homeMessagesApiOutdated: 'The connected Apps Script does not have the message wall enabled yet.',
     liveSplitsTitle: 'Runner comparison', liveSplitsConnecting: 'Connecting to LiveSplit…',
     liveSplitsUnavailable: 'Splits temporarily unavailable', liveSplitsFinished: 'RUN FINISHED',
     liveSplitsWaiting: 'Waiting for both feeds', liveSplitsTie: 'Neck and neck',
@@ -1069,7 +1071,12 @@ async function loadHomePublicMessages(){
     const response = await fetch(`${HOME_MESSAGES_API_URL}?action=messages&_=${Date.now()}`, { cache: 'no-store' });
     if(!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
-    homePublicMessages = Array.isArray(payload.messages) ? payload.messages.slice(0, 50) : [];
+    if(!Array.isArray(payload.messages)){
+      const error = new Error('Apps Script no devolvió una lista de mensajes.');
+      error.code = 'MESSAGE_API_OUTDATED';
+      throw error;
+    }
+    homePublicMessages = payload.messages.slice(0, 50);
     renderHomePublicMessages();
   }catch(err){
     console.warn('No se pudieron cargar los mensajes para MattGael.', err);
@@ -1077,7 +1084,9 @@ async function loadHomePublicMessages(){
     if(list){
       const error = document.createElement('p');
       error.className = 'home-message-placeholder';
-      error.textContent = t('homeMessagesError');
+      error.textContent = err.code === 'MESSAGE_API_OUTDATED'
+        ? t('homeMessagesApiOutdated')
+        : t('homeMessagesError');
       list.replaceChildren(error);
     }
   }finally{
