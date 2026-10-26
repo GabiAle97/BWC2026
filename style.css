@@ -587,6 +587,42 @@ footer{
   72%{opacity:.75;transform:scale(1) rotate(55deg)}
   100%{opacity:0;transform:scale(1.35) rotate(90deg)}
 }
+.home-message-wall{
+  margin:0 0 18px;
+  padding:20px;
+  border:1px solid rgba(255,209,102,.22);
+  border-radius:12px;
+  background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(14,17,23,.68));
+}
+.home-message-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.home-message-heading h2{margin:0;color:#fff;font-size:1.05rem}
+.home-message-heading p{margin:5px 0 0;color:var(--muted);font-size:.78rem}
+.home-message-icon{font-size:1.6rem}
+.home-message-form{display:grid;grid-template-columns:minmax(150px,.7fr) minmax(0,1.7fr);gap:12px;align-items:end}
+.home-message-form label{display:grid;gap:6px;color:#dfe3eb;font-size:.72rem;font-weight:750}
+.home-message-form input,.home-message-form textarea{
+  width:100%;
+  border:1px solid var(--border);
+  border-radius:7px;
+  padding:10px 11px;
+  background:rgba(0,0,0,.2);
+  color:var(--text);
+  font:inherit;
+  font-weight:500;
+  resize:vertical;
+}
+.home-message-form input:focus,.home-message-form textarea:focus{outline:2px solid rgba(255,209,102,.4);border-color:#ffd166}
+.home-message-honeypot{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.home-message-form-footer{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.home-message-status{color:#aef09b;font-size:.72rem}
+.home-message-form button{border:0;border-radius:7px;padding:10px 15px;background:linear-gradient(135deg,#ffd166,#d7a63b);color:#20190b;font:inherit;font-size:.75rem;font-weight:850;cursor:pointer}
+.home-message-form button:disabled{opacity:.6;cursor:wait}
+.home-message-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:16px}
+.home-message-card{min-width:0;padding:11px 13px;border:1px solid rgba(255,255,255,.09);border-radius:8px;background:rgba(0,0,0,.16)}
+.home-message-card-header{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#ffd166;font-size:.73rem}
+.home-message-card-header time{color:var(--muted);font-size:.62rem;white-space:nowrap}
+.home-message-card p{margin:7px 0 0;color:#e3e6ed;font-size:.78rem;line-height:1.45;overflow-wrap:anywhere;white-space:pre-wrap}
+.home-message-placeholder{grid-column:1/-1;margin:0;color:var(--muted);font-size:.75rem;text-align:center}
 .home-live-card{position:relative;min-height:460px;overflow:hidden;border:1px solid #41485b;border-radius:12px;background:transparent;box-shadow:none}
 .home-live-backdrop{display:none}
 .home-live-header,.home-live-footer,.home-matchup{position:relative;z-index:1}
@@ -628,6 +664,12 @@ footer{
 .home-empty h2{margin:0;color:#fff;font-size:1.35rem}
 .home-empty p{margin:0;color:var(--muted);font-size:.85rem}
 @media (prefers-reduced-motion: reduce){.home-champion-firework{animation:none;opacity:.7}}
+@media (max-width:620px){
+  .home-message-wall{padding:15px}
+  .home-message-form{grid-template-columns:1fr}
+  .home-message-form-footer{grid-column:1}
+  .home-message-list{grid-template-columns:1fr}
+}
 
 #tabla-content{
   overflow-x:auto;

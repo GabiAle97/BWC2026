@@ -53,6 +53,7 @@ const MATCH_SCHEDULE_MISTERY_SHEET_URL = MATCH_SCHEDULE_OVERRIDE_BASE + 'Match%2
 const MATCH_DETAILS_COLORS_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTiKWSdExoMAu5gmoFzM0uf-n6jre2lFf1svwwypsX04R5LVh-eUlBQVoMMHVbU4G7FEmkoEsXJcwazsEY10tdJMUTHyPvTletCpQ4FVsyS42QqbzApbh0vLaYvQeNNWleI7HnECXQTjiIn3ERtgD2t8ptkNMyMhMKmrVWtCXxTUGlBdT9ZM5dfypXuJa8o8AxUIWBZyqH4r3tG1jXDLzWkCZdwJakjG3ie_KeywnXZcnAqvUQB-xTzDgXXYZaxEyQjuVAtMCVVufyb--sjf8cfyg_JSQ&lib=M9VJ9oMlN8TdVrQ7_5NsBOU_wfAbH3W78';
 // Fallback gviz (sin colores) si el script falla
 const MATCH_DETAILS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1SoDlnUw47lV93_Mu1Gy195i5ukHOVGwta8ab_TAQPNg/gviz/tq?tqx=out:json';
+const HOME_MESSAGES_API_URL = 'https://script.google.com/macros/s/AKfycbwQQsUJjChVfUvUjgAF9aqb2BYDqH1PNde5liWYiJ9BcBJIuk-uoWE_rm7FH78CoAvQFA/exec';
 let externalMatchDetails = null; // Map: sorted "normA|normB" -> { playerA, playerB, timeA, timeB, timeABetter, timeBBetter, segments: [{label, valueA, valueB, betterA, betterB}] }
 let externalMatchDetailsLoad = null;
 // --- Internacionalización (i18n) ---
@@ -75,6 +76,15 @@ const TRANSLATIONS = {
     homeChampionCongrats: '¡Felicitaciones, MattGael!',
     homeChampionTitle: 'Campeón de la Basement World Cup 2026',
     homeChampionMedal: '¡La copa es tuya!',
+    homeMessagesTitle: 'Dejale un mensaje a MattGael',
+    homeMessagesHint: 'Compartí tus felicitaciones con el campeón.',
+    homeMessagesName: 'Tu nombre', homeMessagesMessage: 'Tu mensaje',
+    homeMessagesSend: 'Enviar mensaje', homeMessagesSending: 'Enviando…',
+    homeMessagesLoading: 'Cargando mensajes…', homeMessagesEmpty: 'Todavía no hay mensajes. ¡Sé el primero!',
+    homeMessagesSent: '¡Gracias! Tu mensaje ya se publicó.',
+    homeMessagesPending: 'Estamos verificando el envío. Si se guardó, aparecerá en unos segundos.',
+    homeMessagesError: 'No se pudo enviar. Revisá tu conexión e intentá de nuevo.',
+    homeMessagesRateLimit: 'Esperá un momento antes de enviar otro mensaje.',
     liveSplitsTitle: 'Comparativa de runners', liveSplitsConnecting: 'Conectando con LiveSplit…',
     liveSplitsUnavailable: 'Splits temporalmente no disponibles', liveSplitsFinished: 'RUN FINALIZADA',
     liveSplitsWaiting: 'Esperando los dos feeds', liveSplitsTie: 'Van parejos',
@@ -147,6 +157,15 @@ const TRANSLATIONS = {
     homeChampionCongrats: 'Congratulations, MattGael!',
     homeChampionTitle: 'Basement World Cup 2026 Champion',
     homeChampionMedal: 'The cup is yours!',
+    homeMessagesTitle: 'Leave MattGael a message',
+    homeMessagesHint: 'Share your congratulations with the champion.',
+    homeMessagesName: 'Your name', homeMessagesMessage: 'Your message',
+    homeMessagesSend: 'Send message', homeMessagesSending: 'Sending…',
+    homeMessagesLoading: 'Loading messages…', homeMessagesEmpty: 'No messages yet. Be the first!',
+    homeMessagesSent: 'Thanks! Your message has been posted.',
+    homeMessagesPending: 'Checking delivery. If it was saved, it will appear shortly.',
+    homeMessagesError: 'Could not send. Check your connection and try again.',
+    homeMessagesRateLimit: 'Please wait a moment before sending another message.',
     liveSplitsTitle: 'Runner comparison', liveSplitsConnecting: 'Connecting to LiveSplit…',
     liveSplitsUnavailable: 'Splits temporarily unavailable', liveSplitsFinished: 'RUN FINISHED',
     liveSplitsWaiting: 'Waiting for both feeds', liveSplitsTie: 'Neck and neck',
@@ -284,6 +303,9 @@ let homeLiveSplitsRequestPending = false;
 let homeLiveSplitsState = {};
 let homeLiveSplitsLastErrorAt = {};
 let homeLiveSplitsHistory = {};
+let homeMessagesPollTimer = null;
+let homeMessagesRequestPending = false;
+let homePublicMessages = [];
 let statsUiState = {
   stage: 'overall',
   dualSortBy: 'best',   // 'best' | 'worst'
@@ -957,6 +979,161 @@ function renderHomeChampionCelebration(){
   `;
 }
 
+function renderHomeMessageWall(){
+  return `
+    <section class="home-message-wall" aria-labelledby="home-messages-title">
+      <div class="home-message-heading">
+        <div>
+          <h2 id="home-messages-title">${t('homeMessagesTitle')}</h2>
+          <p>${t('homeMessagesHint')}</p>
+        </div>
+        <span class="home-message-icon" aria-hidden="true">💬</span>
+      </div>
+      <form class="home-message-form" id="home-message-form">
+        <label>${t('homeMessagesName')}
+          <input name="name" type="text" maxlength="32" autocomplete="nickname" required>
+        </label>
+        <label>${t('homeMessagesMessage')}
+          <textarea name="message" maxlength="280" rows="3" required></textarea>
+        </label>
+        <label class="home-message-honeypot" aria-hidden="true">Website
+          <input name="website" type="text" tabindex="-1" autocomplete="off">
+        </label>
+        <div class="home-message-form-footer">
+          <span class="home-message-status" id="home-message-status" role="status" aria-live="polite"></span>
+          <button type="submit">${t('homeMessagesSend')}</button>
+        </div>
+      </form>
+      <div class="home-message-list" id="home-message-list" aria-live="polite">
+        <p class="home-message-placeholder">${t('homeMessagesLoading')}</p>
+      </div>
+    </section>
+  `;
+}
+
+function getHomeMessageClientId(){
+  const key = 'bc-message-client-id';
+  try{
+    let id = localStorage.getItem(key);
+    if(!id){
+      id = typeof crypto?.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(key, id);
+    }
+    return id;
+  }catch(err){
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+function renderHomePublicMessages(){
+  const list = document.getElementById('home-message-list');
+  if(!list) return;
+  list.replaceChildren();
+  if(!homePublicMessages.length){
+    const empty = document.createElement('p');
+    empty.className = 'home-message-placeholder';
+    empty.textContent = t('homeMessagesEmpty');
+    list.append(empty);
+    return;
+  }
+
+  homePublicMessages.forEach(item => {
+    const card = document.createElement('article');
+    card.className = 'home-message-card';
+    const header = document.createElement('div');
+    header.className = 'home-message-card-header';
+    const author = document.createElement('strong');
+    author.textContent = item.name || t('player');
+    const date = document.createElement('time');
+    const parsedDate = new Date(item.date);
+    if(!Number.isNaN(parsedDate.getTime())){
+      date.dateTime = parsedDate.toISOString();
+      date.textContent = parsedDate.toLocaleDateString(currentLang === 'es' ? 'es-AR' : 'en-US', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      });
+    }
+    header.append(author, date);
+    const message = document.createElement('p');
+    message.textContent = item.message || '';
+    card.append(header, message);
+    list.append(card);
+  });
+}
+
+async function loadHomePublicMessages(){
+  if(homeMessagesRequestPending || !document.getElementById('home-message-list')) return;
+  homeMessagesRequestPending = true;
+  try{
+    const response = await fetch(`${HOME_MESSAGES_API_URL}?action=messages&_=${Date.now()}`, { cache: 'no-store' });
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    homePublicMessages = Array.isArray(payload.messages) ? payload.messages.slice(0, 50) : [];
+    renderHomePublicMessages();
+  }catch(err){
+    console.warn('No se pudieron cargar los mensajes para MattGael.', err);
+    const list = document.getElementById('home-message-list');
+    if(list){
+      const error = document.createElement('p');
+      error.className = 'home-message-placeholder';
+      error.textContent = t('homeMessagesError');
+      list.replaceChildren(error);
+    }
+  }finally{
+    homeMessagesRequestPending = false;
+  }
+}
+
+function setupHomeMessageWall(){
+  const form = document.getElementById('home-message-form');
+  if(!form) return;
+  const status = document.getElementById('home-message-status');
+  const submitButton = form.querySelector('button[type="submit"]');
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if(!form.reportValidity()) return;
+    const formData = new FormData(form);
+    const name = String(formData.get('name') || '').trim().slice(0, 32);
+    const message = String(formData.get('message') || '').trim().slice(0, 280);
+    const website = String(formData.get('website') || '').trim();
+    if(!name || !message) return;
+
+    submitButton.disabled = true;
+    submitButton.textContent = t('homeMessagesSending');
+    status.textContent = '';
+    try{
+      await fetch(HOME_MESSAGES_API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify({ name, message, website, clientId: getHomeMessageClientId() })
+      });
+      form.reset();
+      status.textContent = t('homeMessagesPending');
+      // Apps Script POST in no-cors mode returns an opaque response; confirm by re-reading the public list.
+      for(let attempt = 0; attempt < 3; attempt++){
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await loadHomePublicMessages();
+        if(homePublicMessages.some(item => item.name === name && item.message === message)){
+          status.textContent = t('homeMessagesSent');
+          break;
+        }
+      }
+    }catch(err){
+      console.warn('No se pudo enviar el mensaje para MattGael.', err);
+      status.textContent = t('homeMessagesError');
+    }finally{
+      submitButton.disabled = false;
+      submitButton.textContent = t('homeMessagesSend');
+    }
+  });
+  loadHomePublicMessages();
+  if(!homeMessagesPollTimer){
+    homeMessagesPollTimer = setInterval(loadHomePublicMessages, 60000);
+  }
+}
+
 function renderHomePanel(players = []){
   const container = document.getElementById('inicio-content');
   if(!container) return;
@@ -978,12 +1155,14 @@ function renderHomePanel(players = []){
     }
     container.innerHTML = `
       ${renderHomeChampionCelebration()}
+      ${renderHomeMessageWall()}
       <div class="home-empty">
         <span class="home-empty-mark" aria-hidden="true">◷</span>
         <h2>${t('noLiveMatch')}</h2>
         <p>${t('noLiveMatchSub')}</p>
       </div>
     `;
+    setupHomeMessageWall();
     return;
   }
 
@@ -1121,6 +1300,7 @@ function renderHomePanel(players = []){
 
   container.innerHTML = `
     ${renderHomeChampionCelebration()}
+    ${renderHomeMessageWall()}
     <div class="home-live-card">
       <div class="home-live-backdrop"></div>
       <div class="home-live-header">
@@ -1177,6 +1357,7 @@ function renderHomePanel(players = []){
       </div>
     </div>
   `;
+  setupHomeMessageWall();
 
   [
     [match.playerA, playerAProfileIsLoaded, playerAAvatarKey],
