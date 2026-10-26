@@ -75,6 +75,7 @@ const TRANSLATIONS = {
     liveSplitsWaiting: 'Esperando los dos feeds', liveSplitsTie: 'Van parejos',
     liveSplitsTieCommon: 'Van parejos en el último split común',
     liveSplitsWaitingCommon: 'Esperando un split común para comparar tiempos…',
+    liveSplitsWaitingRunners: 'Esperando a los runners',
     liveSplitsWaitingData: 'Esperando datos de splits…', liveSplitsAtSplit: 'en split',
     liveSplitsMismatch: 'Los splits no coinciden', liveSplitsAhead: 'va adelante', liveSplitsGap: 'de diferencia',
     liveSplitsRunnerAhead: 'ADELANTE',
@@ -142,6 +143,7 @@ const TRANSLATIONS = {
     liveSplitsWaiting: 'Waiting for both feeds', liveSplitsTie: 'Neck and neck',
     liveSplitsTieCommon: 'Tied at the last common split',
     liveSplitsWaitingCommon: 'Waiting for a common split to compare times…',
+    liveSplitsWaitingRunners: 'Waiting for the runners',
     liveSplitsWaitingData: 'Waiting for split data…', liveSplitsAtSplit: 'at split',
     liveSplitsMismatch: 'Splits do not match', liveSplitsAhead: 'is ahead', liveSplitsGap: 'gap',
     liveSplitsRunnerAhead: 'AHEAD',
@@ -834,11 +836,14 @@ function updateHomeLiveSplitsPanel(){
   }
 
   if(!leader){
-    leaderElement.textContent = hasComparableIndices && stateA.splitIndex === stateB.splitIndex
-      ? (gapMs === 0
-        ? t('liveSplitsTieCommon')
-        : t('liveSplitsWaitingCommon'))
-      : t('liveSplitsWaitingData');
+    const isWaitingForRunners = stateA.timeMs === 0 || stateB.timeMs === 0;
+    leaderElement.textContent = isWaitingForRunners
+      ? t('liveSplitsWaitingRunners')
+      : hasComparableIndices && stateA.splitIndex === stateB.splitIndex
+        ? (gapMs === 0
+          ? t('liveSplitsTieCommon')
+          : t('liveSplitsWaitingCommon'))
+        : t('liveSplitsWaitingData');
     return;
   }
   leaderElement.textContent = `${leader} ${t('liveSplitsAhead')}`;
@@ -1012,8 +1017,9 @@ function renderHomePanel(players = []){
   const seriesRunsCompleted = hasSeries
     ? Number(match.seriesScoreA) + Number(match.seriesScoreB)
     : 0;
+  const maxRuns = isFinal ? 5 : (isR16 || isQf || isSf || isThirdPlace ? 3 : 1);
   const currentRunNumber = Number.isFinite(seriesRunsCompleted)
-    ? Math.min(3, Math.max(1, seriesRunsCompleted + 1))
+    ? Math.min(maxRuns, Math.max(1, seriesRunsCompleted + 1))
     : 1;
   const bestOfLabel = isMystery
     ? t('exhibition').toUpperCase()
