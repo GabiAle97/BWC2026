@@ -68,6 +68,7 @@ const TRANSLATIONS = {
     aboutClose: 'Cerrar',
     footerSource: '· Fuente: speedrun.com API',
     tbd: 'Por determinar', qualified: 'Clasificado', champion: 'Campeón', drawPending: 'sorteo pendiente', pendingSingle: 'pendiente',
+    goldMedal: 'Medalla de oro', silverMedal: 'Medalla de plata', bronzeMedal: 'Medalla de bronce',
     leader: 'Cabecera', position2: '2ª posición', position3: '3ª posición', position4: '4ª posición', position: 'Posición',
     player: 'Jugador', category: 'Categoría', game: 'Juego', noGroup: 'Sin grupo', group: 'Grupo', time: 'Tiempo',
     live: 'EN VIVO', watchStream: 'Ver transmisión', groupStageInProgress: 'Fase de grupos en curso',
@@ -136,6 +137,7 @@ const TRANSLATIONS = {
     aboutClose: 'Close',
     footerSource: '· Source: speedrun.com API',
     tbd: 'TBD', qualified: 'Qualified', champion: 'Champion', drawPending: 'draw pending', pendingSingle: 'pending',
+    goldMedal: 'Gold medal', silverMedal: 'Silver medal', bronzeMedal: 'Bronze medal',
     leader: 'Leader', position2: '2nd place', position3: '3rd place', position4: '4th place', position: 'Position',
     player: 'Player', category: 'Category', game: 'Game', noGroup: 'No group', group: 'Group', time: 'Time',
     live: 'LIVE', watchStream: 'Watch stream', groupStageInProgress: 'Group stage in progress',
@@ -659,7 +661,8 @@ function getKnockoutSeriesTarget(stageValue, groupValue = ''){
   const combined = `${stage} ${group}`;
   const isKnockout = /r16|round\s*of\s*16|octavos|qf|quarter|cuartos|sf|semi|final|third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto|fifth[\s_-]*place|5th[\s_-]*place|quinto[\s_-]*puesto/i.test(combined);
   if(!isKnockout) return null;
-  return /(^|\s)final(\s|$)|third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/i.test(combined) ? 3 : 2;
+  if(/third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/i.test(combined)) return 2;
+  return /(^|\s)final(\s|$)/i.test(combined) ? 3 : 2;
 }
 
 function isSeriesDecided(match){
@@ -4893,7 +4896,7 @@ function buildKnockoutBracket(runs, players){
 function renderEliminatoriasPanel(runs, players){
   const bracket = buildKnockoutBracket(runs, players);
   const hasKnockoutResults = Boolean(getLoadedResults()?.knockout);
-  const renderMatch = (match, index, winnerIndex = null, matchClass = '') => {
+  const renderMatch = (match, index, winnerIndex = null, matchClass = '', medals = {}) => {
     const teamA = match[0] || { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
     const teamB = match[1] || { label: t('tbd'), name: t('tbd'), flag: null, details: t('drawPending') };
     const isWinnerA = winnerIndex === 0;
@@ -4903,6 +4906,9 @@ function renderEliminatoriasPanel(runs, players){
     const scoreText = score => score != null && /^\d+$/.test(String(score).trim())
       ? `<span class="knockout-team-score">${String(score).trim()}</span>`
       : '';
+    const medalText = medal => medal
+      ? `<span class="knockout-medal" title="${medal.label}" aria-label="${medal.label}">${medal.emoji}</span>`
+      : '';
     const teamName = (team) => team.name === t('tbd')
       ? `<span class="team-name"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</span>`
       : `<button class="player-profile-button team-name" type="button" data-player-name="${team.name}"><span class="team-flag">${team.flag || '🏳️'}</span> ${team.name}</button>`;
@@ -4911,12 +4917,12 @@ function renderEliminatoriasPanel(runs, players){
       <div class="knockout-match ${matchClass}" data-match="${index}">
         <div class="team-slot ${isWinnerA ? 'winner' : ''} ${isLoserA ? 'loser' : ''}">
           <span class="team-label">${teamA.label}</span>
-          <div class="knockout-team-line">${teamName(teamA)}${scoreText(match.scores?.[0])}</div>
+          <div class="knockout-team-line">${teamName(teamA)}${medalText(medals[0])}${scoreText(match.scores?.[0])}</div>
           <span class="team-detail">${teamA.details}</span>
         </div>
         <div class="team-slot ${isWinnerB ? 'winner' : ''} ${isLoserB ? 'loser' : ''}">
           <span class="team-label">${teamB.label}</span>
-          <div class="knockout-team-line">${teamName(teamB)}${scoreText(match.scores?.[1])}</div>
+          <div class="knockout-team-line">${teamName(teamB)}${medalText(medals[1])}${scoreText(match.scores?.[1])}</div>
           <span class="team-detail">${teamB.details}</span>
         </div>
       </div>
@@ -4942,13 +4948,20 @@ function renderEliminatoriasPanel(runs, players){
       <div class="bracket-center">
         <div class="round-title">${t('final')}</div>
         <div class="champion-banner">
-          <span class="champion-trophy" aria-hidden="true">🏆</span>
           <span class="champion-label">${t('champion')}</span>
+          <span class="champion-trophy" aria-hidden="true">🏆</span>
           <span class="champion-name">${bracket.champion.flag || ''} ${bracket.champion.name}</span>
         </div>
-        ${renderMatch(bracket.final, 'final', bracket.final.winnerIndex ?? null, 'final-match')}
+        ${renderMatch(bracket.final, 'final', bracket.final.winnerIndex ?? null, 'final-match', {
+          0: bracket.final.winnerIndex === 0 ? { emoji: '🥇', label: t('goldMedal') } : null,
+          1: bracket.final.winnerIndex === 1 ? { emoji: '🥇', label: t('goldMedal') } : null,
+          [bracket.final.winnerIndex === 0 ? 1 : 0]: bracket.final.winnerIndex == null ? null : { emoji: '🥈', label: t('silverMedal') }
+        })}
         <div class="third-place-title">${t('thirdPlace')}</div>
-        ${renderMatch(bracket.thirdPlace || pendingMatch, 'third-place', bracket.thirdPlace?.winnerIndex ?? null, 'third-place-match')}
+        ${renderMatch(bracket.thirdPlace || pendingMatch, 'third-place', bracket.thirdPlace?.winnerIndex ?? null, 'third-place-match', {
+          0: bracket.thirdPlace?.winnerIndex === 0 ? { emoji: '🥉', label: t('bronzeMedal') } : null,
+          1: bracket.thirdPlace?.winnerIndex === 1 ? { emoji: '🥉', label: t('bronzeMedal') } : null
+        })}
       </div>
       ${renderSide(bracket.semis.slice(1, 2), 'right', t('semifinals'))}
       ${renderSide(bracket.cuartos.slice(2, 4), 'right', t('quarterfinals'))}
@@ -5753,7 +5766,7 @@ function closePlayerModal(){
 
 function getMatchSeriesPageCount(stage, groupLetter){
   const key = String(stage || groupLetter || '').toLowerCase();
-  if(/third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/.test(key)) return 5;
+  if(/third[\s_-]*place|3rd[\s_-]*place|tercer[\s_-]*puesto/.test(key)) return 3;
   if(/(^|[\s_-])final([\s_-]|$)/.test(key)) return 5;
   if(key === 'r16' || key === 'qf' || key === 'sf' || key.includes('quarter') || key.includes('octavos') || key.includes('cuartos') || key.includes('semi') || key.includes('round of 16')) return 3;
   return 1;
