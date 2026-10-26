@@ -550,6 +550,43 @@ footer{
 
 /* ========== INICIO / PARTIDA EN VIVO ========== */
 #inicio-content{min-height:460px}
+.home-champion-celebration{
+  position:relative;
+  display:grid;
+  min-height:150px;
+  margin-bottom:16px;
+  overflow:hidden;
+  place-items:center;
+  border:1px solid rgba(255,209,102,.38);
+  border-radius:12px;
+  background:radial-gradient(ellipse at center,rgba(116,77,25,.24),rgba(18,21,27,.92) 72%);
+  box-shadow:inset 0 0 38px rgba(255,209,102,.07),0 10px 26px rgba(0,0,0,.18);
+  text-align:center;
+}
+.home-champion-content{position:relative;z-index:1;padding:18px 20px}
+.home-champion-trophy{display:block;margin-bottom:3px;font-size:2rem;filter:drop-shadow(0 2px 8px rgba(255,209,102,.5))}
+.home-champion-content p{margin:0;color:#ffd166;font-size:clamp(1.05rem,2.5vw,1.5rem);font-weight:900}
+.home-champion-content h2{margin:5px 0;color:#fff;font-size:clamp(.8rem,1.7vw,1rem);font-weight:750}
+.home-champion-medal{color:#d9c18b;font-size:.7rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.home-champion-firework{
+  position:absolute;
+  top:48%;
+  left:18%;
+  width:4px;
+  height:4px;
+  border-radius:50%;
+  background:#fff2b0;
+  box-shadow:0 -28px #ffd166,20px -20px #ff7979,28px 0 #fff2b0,20px 20px #71e1c1,0 28px #ffd166,-20px 20px #a58bff,-28px 0 #ff7979,-20px -20px #71e1c1,0 -17px 2px #fff,12px -12px 2px #ffd166,17px 0 2px #fff,12px 12px 2px #ff7979,0 17px 2px #fff,-12px 12px 2px #71e1c1,-17px 0 2px #fff,-12px -12px 2px #ffd166;
+  animation:home-firework 2.6s ease-out infinite;
+}
+.home-champion-firework.firework-two{top:36%;left:auto;right:19%;animation-delay:.9s;transform:scale(.75)}
+.home-champion-firework.firework-three{top:70%;left:72%;animation-delay:1.6s;transform:scale(.55)}
+@keyframes home-firework{
+  0%{opacity:0;transform:scale(.12) rotate(0)}
+  18%{opacity:1}
+  72%{opacity:.75;transform:scale(1) rotate(55deg)}
+  100%{opacity:0;transform:scale(1.35) rotate(90deg)}
+}
 .home-live-card{position:relative;min-height:460px;overflow:hidden;border:1px solid #41485b;border-radius:12px;background:transparent;box-shadow:none}
 .home-live-backdrop{display:none}
 .home-live-header,.home-live-footer,.home-matchup{position:relative;z-index:1}
@@ -590,6 +627,7 @@ footer{
 .home-empty-mark{color:var(--gold);font-size:3rem}
 .home-empty h2{margin:0;color:#fff;font-size:1.35rem}
 .home-empty p{margin:0;color:var(--muted);font-size:.85rem}
+@media (prefers-reduced-motion: reduce){.home-champion-firework{animation:none;opacity:.7}}
 
 #tabla-content{
   overflow-x:auto;

@@ -72,6 +72,9 @@ const TRANSLATIONS = {
     leader: 'Cabecera', position2: '2ª posición', position3: '3ª posición', position4: '4ª posición', position: 'Posición',
     player: 'Jugador', category: 'Categoría', game: 'Juego', noGroup: 'Sin grupo', group: 'Grupo', time: 'Tiempo',
     live: 'EN VIVO', watchStream: 'Ver transmisión', groupStageInProgress: 'Fase de grupos en curso',
+    homeChampionCongrats: '¡Felicitaciones, MattGael!',
+    homeChampionTitle: 'Campeón de la Basement World Cup 2026',
+    homeChampionMedal: '¡La copa es tuya!',
     liveSplitsTitle: 'Comparativa de runners', liveSplitsConnecting: 'Conectando con LiveSplit…',
     liveSplitsUnavailable: 'Splits temporalmente no disponibles', liveSplitsFinished: 'RUN FINALIZADA',
     liveSplitsWaiting: 'Esperando los dos feeds', liveSplitsTie: 'Van parejos',
@@ -141,6 +144,9 @@ const TRANSLATIONS = {
     leader: 'Leader', position2: '2nd place', position3: '3rd place', position4: '4th place', position: 'Position',
     player: 'Player', category: 'Category', game: 'Game', noGroup: 'No group', group: 'Group', time: 'Time',
     live: 'LIVE', watchStream: 'Watch stream', groupStageInProgress: 'Group stage in progress',
+    homeChampionCongrats: 'Congratulations, MattGael!',
+    homeChampionTitle: 'Basement World Cup 2026 Champion',
+    homeChampionMedal: 'The cup is yours!',
     liveSplitsTitle: 'Runner comparison', liveSplitsConnecting: 'Connecting to LiveSplit…',
     liveSplitsUnavailable: 'Splits temporarily unavailable', liveSplitsFinished: 'RUN FINISHED',
     liveSplitsWaiting: 'Waiting for both feeds', liveSplitsTie: 'Neck and neck',
@@ -935,6 +941,22 @@ function stopHomeLiveSplitsPolling(){
   homeLiveSplitsHistory = {};
 }
 
+function renderHomeChampionCelebration(){
+  return `
+    <section class="home-champion-celebration" aria-label="${t('homeChampionTitle')}" role="status">
+      <span class="home-champion-firework firework-one" aria-hidden="true"></span>
+      <span class="home-champion-firework firework-two" aria-hidden="true"></span>
+      <span class="home-champion-firework firework-three" aria-hidden="true"></span>
+      <div class="home-champion-content">
+        <span class="home-champion-trophy" aria-hidden="true">🏆</span>
+        <p>${t('homeChampionCongrats')}</p>
+        <h2>${t('homeChampionTitle')}</h2>
+        <span class="home-champion-medal">${t('homeChampionMedal')}</span>
+      </div>
+    </section>
+  `;
+}
+
 function renderHomePanel(players = []){
   const container = document.getElementById('inicio-content');
   if(!container) return;
@@ -955,6 +977,7 @@ function renderHomePanel(players = []){
       homeRunElapsedTimer = null;
     }
     container.innerHTML = `
+      ${renderHomeChampionCelebration()}
       <div class="home-empty">
         <span class="home-empty-mark" aria-hidden="true">◷</span>
         <h2>${t('noLiveMatch')}</h2>
@@ -965,7 +988,7 @@ function renderHomePanel(players = []){
   }
 
   const { match, schedule } = liveMatch;
-  const isMattGaelLive = [match.playerA, match.playerB]
+  const showLiveSplits = !isSeriesDecided(match) && [match.playerA, match.playerB]
     .some(name => normalizeManualMatchName(name).toLowerCase() === 'mattgael');
   const liveSplitRunnerNames = [match.playerA, match.playerB]
     .map(name => Object.keys(LIVE_RUNNER_SPLITS_URLS).find(runner =>
@@ -1097,6 +1120,7 @@ function renderHomePanel(players = []){
     : '';
 
   container.innerHTML = `
+    ${renderHomeChampionCelebration()}
     <div class="home-live-card">
       <div class="home-live-backdrop"></div>
       <div class="home-live-header">
@@ -1124,7 +1148,7 @@ function renderHomePanel(players = []){
           ${gamesListB}
         </div>
       </div>
-      ${isMattGaelLive ? `
+      ${showLiveSplits ? `
         <section class="home-live-splits" id="home-live-splits" aria-live="polite">
           <div class="home-live-splits-heading">
             <span>${t('liveSplitsTitle')}</span>
@@ -1168,7 +1192,7 @@ function renderHomePanel(players = []){
     });
   });
 
-  if(isMattGaelLive){
+  if(showLiveSplits){
     startHomeLiveSplitsPolling();
   }else{
     stopHomeLiveSplitsPolling();
