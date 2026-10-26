@@ -8,6 +8,7 @@ const LIVE_RUNNER_SPLITS_URLS = {
 };
 const LIVE_SPLITS_POLL_MS = 1000;
 const LIVE_WINDOW_MS = 200 * 60 * 1000;
+const FIXTURE_LIVE_WINDOW_MS = 8 * 60 * 60 * 1000;
 const POST_MATCH_HOME_WINDOW_MS = 10 * 60 * 1000;
 
 let previousOrder = null;
@@ -684,10 +685,12 @@ function isFixtureMatchLiveCandidate(match, scheduleDate){
   if(elapsed < 0) return false;
 
   const hasSeriesWinner = isSeriesDecided(match);
-  const isRegularLiveWindow = elapsed <= LIVE_WINDOW_MS;
-  const isRecentlyFinishedWindow = hasSeriesWinner && elapsed <= LIVE_WINDOW_MS + POST_MATCH_HOME_WINDOW_MS;
+  const matchPairKey = knockoutRunPairKey(match.playerA, match.playerB);
+  const hasActiveRunTiming = !hasSeriesWinner && knockoutRunTimingsByPair.has(matchPairKey);
+  const isRegularLiveWindow = elapsed <= FIXTURE_LIVE_WINDOW_MS;
+  const isRecentlyFinishedWindow = hasSeriesWinner && elapsed <= FIXTURE_LIVE_WINDOW_MS + POST_MATCH_HOME_WINDOW_MS;
 
-  return isRegularLiveWindow || isRecentlyFinishedWindow;
+  return hasActiveRunTiming || isRegularLiveWindow || isRecentlyFinishedWindow;
 }
 
 
