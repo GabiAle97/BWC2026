@@ -6,7 +6,7 @@ const LIVE_RUNNER_SPLITS_URLS = {
   MattGael: 'https://nathan-testament-addressed-promotes.trycloudflare.com/',
   LanceLM: 'https://equations-undo-lover-objectives.trycloudflare.com/'
 };
-const LIVE_SPLITS_POLL_MS = 1;
+const LIVE_SPLITS_POLL_MS = 1000;
 const LIVE_WINDOW_MS = 200 * 60 * 1000;
 const POST_MATCH_HOME_WINDOW_MS = 10 * 60 * 1000;
 
@@ -73,6 +73,9 @@ const TRANSLATIONS = {
     liveSplitsTitle: 'Comparativa de runners', liveSplitsConnecting: 'Conectando con LiveSplit…',
     liveSplitsUnavailable: 'Splits temporalmente no disponibles', liveSplitsFinished: 'RUN FINALIZADA',
     liveSplitsWaiting: 'Esperando los dos feeds', liveSplitsTie: 'Van parejos',
+    liveSplitsTieCommon: 'Van parejos en el último split común',
+    liveSplitsWaitingCommon: 'Esperando un split común para comparar tiempos…',
+    liveSplitsWaitingData: 'Esperando datos de splits…', liveSplitsAtSplit: 'en split',
     liveSplitsMismatch: 'Los splits no coinciden', liveSplitsAhead: 'va adelante', liveSplitsGap: 'de diferencia',
     liveSplitsRunnerAhead: 'ADELANTE',
     players: 'jugadores', date: 'Fecha', schedule: 'Horario',
@@ -137,6 +140,9 @@ const TRANSLATIONS = {
     liveSplitsTitle: 'Runner comparison', liveSplitsConnecting: 'Connecting to LiveSplit…',
     liveSplitsUnavailable: 'Splits temporarily unavailable', liveSplitsFinished: 'RUN FINISHED',
     liveSplitsWaiting: 'Waiting for both feeds', liveSplitsTie: 'Neck and neck',
+    liveSplitsTieCommon: 'Tied at the last common split',
+    liveSplitsWaitingCommon: 'Waiting for a common split to compare times…',
+    liveSplitsWaitingData: 'Waiting for split data…', liveSplitsAtSplit: 'at split',
     liveSplitsMismatch: 'Splits do not match', liveSplitsAhead: 'is ahead', liveSplitsGap: 'gap',
     liveSplitsRunnerAhead: 'AHEAD',
     players: 'players', date: 'Date', schedule: 'Time',
@@ -266,6 +272,7 @@ let homeLiveSplitsTickTimer = null;
 let homeLiveSplitsRequestPending = false;
 let homeLiveSplitsState = {};
 let homeLiveSplitsLastErrorAt = {};
+let homeLiveSplitsHistory = {};
 let statsUiState = {
   stage: 'overall',
   dualSortBy: 'best',   // 'best' | 'worst'
@@ -808,24 +815,36 @@ function updateHomeLiveSplitsPanel(){
   }
 
   const hasComparableIndices = Number.isFinite(stateA.splitIndex) && Number.isFinite(stateB.splitIndex);
+  const historyA = homeLiveSplitsHistory[runnerA] || new Map();
+  const historyB = homeLiveSplitsHistory[runnerB] || new Map();
+  const commonSplits = [...historyA.keys()]
+    .filter(index => historyB.has(index))
+    .sort((a, b) => b - a);
+  const comparisonSplit = commonSplits[0];
+  const splitTimeA = comparisonSplit == null ? null : historyA.get(comparisonSplit);
+  const splitTimeB = comparisonSplit == null ? null : historyB.get(comparisonSplit);
+  const gapMs = splitTimeA == null || splitTimeB == null
+    ? null
+    : Math.abs(splitTimeA - splitTimeB);
   let leader = null;
-  let gapMs = null;
-  if(stateA.lastSplitTimeMs != null && stateB.lastSplitTimeMs != null){
-    gapMs = Math.abs(stateA.lastSplitTimeMs - stateB.lastSplitTimeMs);
-  }
   if(hasComparableIndices && stateA.splitIndex !== stateB.splitIndex){
     leader = stateA.splitIndex > stateB.splitIndex ? runnerA : runnerB;
   }else if(gapMs > 0){
-    leader = stateA.lastSplitTimeMs < stateB.lastSplitTimeMs ? runnerA : runnerB;
+    leader = splitTimeA < splitTimeB ? runnerA : runnerB;
   }
 
   if(!leader){
-    leaderElement.textContent = t('liveSplitsTie');
+    leaderElement.textContent = hasComparableIndices && stateA.splitIndex === stateB.splitIndex
+      ? (gapMs === 0
+        ? t('liveSplitsTieCommon')
+        : t('liveSplitsWaitingCommon'))
+      : t('liveSplitsWaitingData');
     return;
   }
   leaderElement.textContent = `${leader} ${t('liveSplitsAhead')}`;
   panel.querySelector(`.home-split-runner[data-runner="${leader}"]`)?.classList.add('is-ahead');
   if(gapMs != null){
+    leaderElement.textContent += ` · ${formatLiveSplitDuration(gapMs)} ${t('liveSplitsAtSplit')} ${comparisonSplit}`;
     const trailingRunner = leader === runnerA ? runnerB : runnerA;
     const trailingTimeElement = panel.querySelector(`.home-split-runner[data-runner="${trailingRunner}"] .home-split-time`);
     if(trailingTimeElement) trailingTimeElement.textContent = `+${formatLiveSplitDuration(gapMs)}`;
@@ -851,14 +870,23 @@ async function pollHomeLiveSplits(){
       return;
     }
     const timestamp = Number(data?.timestamp);
-    const splitIndex = Number(data?.splitIndex);
+    const splitIndex = data?.splitIndex == null ? null : Number(data.splitIndex);
     const receivedAt = Date.now();
     const split = String(data?.split || '').trim();
     const phase = String(data?.phase || '').trim();
+    const lastSplitTimeMs = parseLiveSplitDuration(data?.lastSplitTime);
+    const previousState = homeLiveSplitsState[runner];
+    if(Number.isFinite(splitIndex) && lastSplitTimeMs != null
+      && (!previousState
+        || previousState.lastSplitTimeMs !== lastSplitTimeMs
+        || previousState.splitIndex === splitIndex)){
+      if(!homeLiveSplitsHistory[runner]) homeLiveSplitsHistory[runner] = new Map();
+      homeLiveSplitsHistory[runner].set(splitIndex, lastSplitTimeMs);
+    }
     homeLiveSplitsState[runner] = {
       split,
       splitIndex: Number.isFinite(splitIndex) ? splitIndex : null,
-      lastSplitTimeMs: parseLiveSplitDuration(data?.lastSplitTime),
+      lastSplitTimeMs,
       phase,
       timeMs: parseLiveSplitDuration(data?.time),
       timestampMs: Number.isFinite(timestamp) ? (timestamp > 1e12 ? timestamp : timestamp * 1000) : 0,
@@ -874,6 +902,9 @@ function startHomeLiveSplitsPolling(){
   if(homeLiveSplitsPollTimer) return;
   homeLiveSplitsState = {};
   homeLiveSplitsLastErrorAt = {};
+  homeLiveSplitsHistory = Object.fromEntries(
+    Object.keys(LIVE_RUNNER_SPLITS_URLS).map(runner => [runner, new Map()])
+  );
   pollHomeLiveSplits();
   homeLiveSplitsPollTimer = setInterval(pollHomeLiveSplits, LIVE_SPLITS_POLL_MS);
   homeLiveSplitsTickTimer = setInterval(updateHomeLiveSplitsPanel, 1000);
@@ -890,6 +921,7 @@ function stopHomeLiveSplitsPolling(){
   }
   homeLiveSplitsState = {};
   homeLiveSplitsLastErrorAt = {};
+  homeLiveSplitsHistory = {};
 }
 
 function renderHomePanel(players = []){
